@@ -6,11 +6,9 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    username: '',
     password: '',
-    confirmPassword: '',
-    schoolName: '',
-    role: 'admin'
+    confirmPassword: ''
   })
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
@@ -48,11 +46,13 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
       newErrors.lastName = 'Last name must be at least 2 characters'
     }
     
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+    // Username validation
+    if (!formData.username) {
+      newErrors.username = 'Username is required'
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters'
+    } else if (formData.username.length > 30) {
+      newErrors.username = 'Username must be less than 30 characters'
     }
     
     // Password validation
@@ -69,11 +69,6 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
       newErrors.confirmPassword = 'Please confirm your password'
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
-    }
-    
-    // School Name validation
-    if (!formData.schoolName.trim()) {
-      newErrors.schoolName = 'School name is required'
     }
     
     setErrors(newErrors)
@@ -94,15 +89,13 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
       const registrationData = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        email: formData.email,
-        password: formData.password,
-        schoolName: formData.schoolName.trim(),
-        role: formData.role
+        username: formData.username,
+        password: formData.password
       }
       
       const data = await authAPI.register(registrationData)
       
-      setRegisterMessage('Registration successful! Please check your email to verify your account.')
+      setRegisterMessage('Registration successful! Please sign in with your new account.')
       
       // Call the success callback
       if (onRegisterSuccess) {
@@ -162,48 +155,18 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           </div>
           
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="Enter your email"
-              disabled={isLoading}
-            />
-            {errors.email && <span className="error-message">{errors.email}</span>}
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="schoolName">School Name</label>
+            <label htmlFor="username">Username</label>
             <input
               type="text"
-              id="schoolName"
-              name="schoolName"
-              value={formData.schoolName}
+              id="username"
+              name="username"
+              value={formData.username}
               onChange={handleInputChange}
-              className={errors.schoolName ? 'error' : ''}
-              placeholder="Enter school name"
+              className={errors.username ? 'error' : ''}
+              placeholder="Choose a username"
               disabled={isLoading}
             />
-            {errors.schoolName && <span className="error-message">{errors.schoolName}</span>}
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="role">Role</label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            >
-              <option value="admin">Administrator</option>
-              <option value="coordinator">Testing Coordinator</option>
-              <option value="supervisor">Test Supervisor</option>
-            </select>
+            {errors.username && <span className="error-message">{errors.username}</span>}
           </div>
           
           <div className="form-row">

@@ -33,7 +33,7 @@ function App() {
       <div className="app">
         <div className="dashboard-container">
           <h1>Welcome to T-Testing Dashboard</h1>
-          <p>Hello, {user.name || user.email}!</p>
+          <p>Hello, {user.firstName} {user.lastName} ({user.username})!</p>
           <button 
             onClick={() => {
               setUser(null)

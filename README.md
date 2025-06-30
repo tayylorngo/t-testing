@@ -2,230 +2,207 @@
 
 A comprehensive school testing management system for administrators to monitor live testing results, track room completion status, and manage testing supplies.
 
+## Project Structure
+
+```
+t-testing/
+├── client/                 # Frontend React application
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── services/       # API services
+│   │   └── ...
+│   ├── package.json
+│   └── README.md
+├── server/                 # Backend Node.js/Express API
+│   ├── server.js          # Main server file
+│   ├── package.json       # Server dependencies
+│   ├── env.example        # Environment variables template
+│   └── README.md          # Server documentation
+└── README.md              # This file
+```
+
 ## Features
 
-- **Professional Login System**: Secure authentication for school administrators
-- **User Registration**: Create new accounts with role-based access
+- **Professional Login System**: Secure authentication with username and password
+- **User Registration**: Simple registration with first name, last name, and username
 - **Real-time Monitoring**: Track testing progress across multiple rooms
 - **Supply Management**: Monitor and request testing supplies
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Full-stack Application**: Complete client-server architecture
 
-## Pages
+## Quick Start
 
-### Login Page
+### Prerequisites
 
-The application features a modern, professional login page with:
+- Node.js (v16 or higher)
+- npm or yarn
+- MongoDB (local installation or MongoDB Atlas)
 
-- Email and password authentication
-- Form validation with real-time error feedback
-- Loading states and success/error messaging
-- Secure token-based authentication
-- Link to registration page
-- Responsive design for all devices
+### 1. Clone and Setup
 
-### Registration Page
+```bash
+git clone <repository-url>
+cd t-testing
+```
 
-New users can create accounts with:
+### 2. Backend Setup
 
-- Comprehensive form validation
-- Role selection (Administrator, Testing Coordinator, Test Supervisor)
-- School information collection
-- Password strength requirements
-- Email verification workflow
-- Seamless navigation between login and registration
+```bash
+# Navigate to server directory
+cd server
+
+# Install dependencies
+npm install
+
+# Copy environment file
+cp env.example .env
+
+# Edit .env with your MongoDB connection
+# MONGODB_URI=mongodb://localhost:27017/t-testing
+
+# Start development server
+npm run dev
+```
+
+The backend will start on `http://localhost:3001`
+
+### 3. Frontend Setup
+
+```bash
+# Open a new terminal and navigate to client directory
+cd client
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The frontend will start on `http://localhost:5173`
+
+## Demo Credentials
+
+For testing the application, use these demo credentials:
+
+- **Username**: `admin`
+- **Password**: `password`
 
 ## API Endpoints
 
-The application expects the following API endpoints:
+### Authentication
 
-### POST /api/login
+- `POST /api/register` - Register new user
+- `POST /api/login` - User login
+- `GET /api/verify` - Verify JWT token
+- `POST /api/logout` - User logout
 
-Authenticates a user and returns a JWT token.
+### Testing Management
 
-**Request Body:**
+- `GET /api/rooms` - Get all testing rooms
+- `POST /api/rooms` - Create new room
+- `PUT /api/rooms/:id/status` - Update room status
+- `DELETE /api/rooms/:id` - Delete room
+- `GET /api/supplies` - Get supplies needed
 
-```json
-{
-  "email": "admin@school.edu",
-  "password": "securepassword"
-}
-```
+### Health Check
 
-**Success Response (200):**
+- `GET /api/health` - Server status
 
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "email": "admin@school.edu",
-    "name": "Administrator Name",
-    "role": "admin"
-  }
-}
-```
+## Development
 
-### POST /api/register
+### Frontend (Client)
 
-Creates a new user account.
+- **Framework**: React with Vite
+- **Styling**: CSS with modern design patterns
+- **State Management**: React hooks
+- **API Integration**: Fetch API with centralized service layer
 
-**Request Body:**
+### Backend (Server)
 
-```json
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "email": "john.doe@school.edu",
-  "password": "SecurePass123",
-  "schoolName": "Springfield High School",
-  "role": "admin"
-}
-```
+- **Framework**: Node.js with Express
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **Validation**: express-validator for input validation
+- **Security**: Helmet, CORS, and security headers
 
-**Success Response (201):**
+## Environment Variables
 
-```json
-{
-  "message": "User registered successfully",
-  "user": {
-    "id": 2,
-    "email": "john.doe@school.edu",
-    "firstName": "John",
-    "lastName": "Doe",
-    "schoolName": "Springfield High School",
-    "role": "admin"
-  }
-}
-```
-
-## Setup Instructions
-
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Configure API Endpoint
-
-Set your API base URL in the environment variables:
-
-Create a `.env` file in the root directory:
+### Client (.env)
 
 ```
 VITE_API_URL=http://localhost:3001/api
 ```
 
-### 3. Start Development Server
+### Server (.env)
+
+```
+PORT=3001
+JWT_SECRET=your-super-secret-jwt-key
+MONGODB_URI=mongodb://localhost:27017/t-testing
+NODE_ENV=development
+```
+
+## Scripts
+
+### Client
 
 ```bash
-npm run dev
+cd client
+npm run dev      # Start development server
+npm run build    # Build for production
+npm run preview  # Preview production build
 ```
 
-The application will be available at `http://localhost:5173`
+### Server
 
-## Project Structure
-
+```bash
+cd server
+npm run dev      # Start development server with nodemon
+npm start        # Start production server
 ```
-src/
-├── App.jsx                    # Main application container
-├── App.css                    # Global styles and dashboard
-├── index.css                  # Base styles
-├── main.jsx                   # Application entry point
-├── components/
-│   ├── LoginPage.jsx          # Login page component
-│   ├── LoginPage.css          # Login page styles
-│   ├── RegisterPage.jsx       # Registration page component
-│   └── RegisterPage.css       # Registration page styles
-└── services/
-    └── api.js                 # API service functions
-```
-
-## Component Organization
-
-### App.jsx
-
-- Main application container
-- Handles page switching between login and registration
-- Manages user authentication state
-- Provides dashboard placeholder
-
-### LoginPage.jsx
-
-- Email and password authentication
-- Form validation and error handling
-- API integration for login
-- Navigation to registration page
-
-### RegisterPage.jsx
-
-- Comprehensive user registration form
-- Role selection and school information
-- Password strength validation
-- Navigation back to login page
-
-### API Service (api.js)
-
-- Centralized API communication
-- Authentication endpoints (login, register, logout)
-- Testing management endpoints
-- Token management utilities
-
-## Form Validation
-
-### Login Form
-
-- Email format validation
-- Required field validation
-- Minimum password length (6 characters)
-
-### Registration Form
-
-- First and last name validation (minimum 2 characters)
-- Email format validation
-- Password strength requirements:
-  - Minimum 8 characters
-  - At least one uppercase letter
-  - At least one lowercase letter
-  - At least one number
-- Password confirmation matching
-- School name validation
-- Role selection
-
-## Styling
-
-The application uses modern CSS with:
-
-- Gradient backgrounds and glass-morphism effects
-- Responsive design with mobile-first approach
-- Professional color scheme suitable for educational environments
-- Smooth animations and transitions
-- Component-specific CSS files for better organization
 
 ## Security Features
 
-- JWT token-based authentication
-- Secure password validation
-- Protected API endpoints
-- Local storage for session management
-- Form validation on both client and server sides
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcryptjs for secure password storage
+- **Input Validation**: Comprehensive form and API validation
+- **CORS Protection**: Cross-origin resource sharing configuration
+- **Security Headers**: Helmet middleware for protection
+- **Request Logging**: Morgan for HTTP request logging
 
-## Browser Support
+## Production Deployment
 
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
+### Frontend
 
-## Development
+1. Build the application: `npm run build`
+2. Deploy the `dist/` folder to your hosting service
+3. Configure environment variables for production API URL
 
-To extend the application:
+### Backend
 
-1. **Add New Components**: Create new React components in `src/components/`
-2. **Add New API Endpoints**: Update `src/services/api.js`
-3. **Modify Styling**: Edit component-specific CSS files
-4. **Environment Configuration**: Update `.env` file for different environments
+1. Set up MongoDB Atlas for production database
+2. Configure environment variables for production
+3. Use a process manager like PM2
+4. Set up HTTPS and proper security measures
+5. Implement rate limiting and monitoring
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
 This project is licensed under the MIT License.
+
+## Support
+
+For support and questions:
+
+- Check the individual README files in `client/` and `server/` directories
+- Review the API documentation in `server/README.md`
+- Contact the development team

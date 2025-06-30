@@ -4,7 +4,7 @@ import './LoginPage.css'
 
 function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   })
   const [errors, setErrors] = useState({})
@@ -29,10 +29,10 @@ function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
   const validateForm = () => {
     const newErrors = {}
     
-    if (!formData.email) {
-      newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+    if (!formData.username) {
+      newErrors.username = 'Username is required'
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters'
     }
     
     if (!formData.password) {
@@ -90,18 +90,18 @@ function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="username">Username</label>
             <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
               onChange={handleInputChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="Enter your email"
+              className={errors.username ? 'error' : ''}
+              placeholder="Enter your username"
               disabled={isLoading}
             />
-            {errors.email && <span className="error-message">{errors.email}</span>}
+            {errors.username && <span className="error-message">{errors.username}</span>}
           </div>
           
           <div className="form-group">
