@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { authAPI } from '../services/api'
-import './RegisterPage.css'
 
 function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
@@ -111,122 +110,163 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   }
 
   return (
-    <div className="register-container">
-      <div className="register-header">
-        <h1>T-Testing</h1>
-        <p>School Testing Management System</p>
-      </div>
-      
-      <div className="register-card">
-        <h2>Create Account</h2>
-        <p className="register-subtitle">Join the testing management platform</p>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-lg w-full space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">T-Testing</h1>
+          <p className="text-gray-600 text-lg">School Testing Management System</p>
+        </div>
         
-        <form onSubmit={handleSubmit} className="register-form">
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="firstName">First Name</label>
-              <input
-                type="text"
-                id="firstName"
-                name="firstName"
-                value={formData.firstName}
-                onChange={handleInputChange}
-                className={errors.firstName ? 'error' : ''}
-                placeholder="Enter first name"
-                disabled={isLoading}
-              />
-              {errors.firstName && <span className="error-message">{errors.firstName}</span>}
+        {/* Register Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
+            <p className="text-gray-600">Join the testing management platform</p>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="firstName"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter first name"
+                  disabled={isLoading}
+                />
+                {errors.firstName && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.firstName}</span>
+                )}
+              </div>
+              
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="lastName"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.lastName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter last name"
+                  disabled={isLoading}
+                />
+                {errors.lastName && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.lastName}</span>
+                )}
+              </div>
             </div>
             
-            <div className="form-group">
-              <label htmlFor="lastName">Last Name</label>
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
               <input
                 type="text"
-                id="lastName"
-                name="lastName"
-                value={formData.lastName}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleInputChange}
-                className={errors.lastName ? 'error' : ''}
-                placeholder="Enter last name"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                  errors.username ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Choose a username"
                 disabled={isLoading}
               />
-              {errors.lastName && <span className="error-message">{errors.lastName}</span>}
-            </div>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleInputChange}
-              className={errors.username ? 'error' : ''}
-              placeholder="Choose a username"
-              disabled={isLoading}
-            />
-            {errors.username && <span className="error-message">{errors.username}</span>}
-          </div>
-          
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className={errors.password ? 'error' : ''}
-                placeholder="Enter password"
-                disabled={isLoading}
-              />
-              {errors.password && <span className="error-message">{errors.password}</span>}
+              {errors.username && (
+                <span className="text-red-500 text-sm mt-1 block">{errors.username}</span>
+              )}
             </div>
             
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className={errors.confirmPassword ? 'error' : ''}
-                placeholder="Confirm password"
-                disabled={isLoading}
-              />
-              {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter password"
+                  disabled={isLoading}
+                />
+                {errors.password && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.password}</span>
+                )}
+              </div>
+              
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Confirm password"
+                  disabled={isLoading}
+                />
+                {errors.confirmPassword && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.confirmPassword}</span>
+                )}
+              </div>
             </div>
-          </div>
-          
-          {registerMessage && (
-            <div className={`message ${registerMessage.includes('successful') ? 'success' : 'error'}`}>
-              {registerMessage}
-            </div>
-          )}
-          
-          <button 
-            type="submit" 
-            className="register-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-        
-        <div className="register-footer">
-          <p>Already have an account? 
+            
+            {registerMessage && (
+              <div className={`p-4 rounded-lg text-sm ${
+                registerMessage.includes('successful') 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {registerMessage}
+              </div>
+            )}
+            
             <button 
-              type="button" 
-              className="link-button"
-              onClick={onSwitchToLogin}
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
-              Sign In
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
-          </p>
+          </form>
+          
+          <div className="mt-8 text-center">
+            <p className="text-gray-600 text-sm">
+              Already have an account?{' '}
+              <button 
+                type="button" 
+                className="text-blue-600 hover:text-blue-700 font-semibold transition duration-200"
+                onClick={onSwitchToLogin}
+                disabled={isLoading}
+              >
+                Sign In
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

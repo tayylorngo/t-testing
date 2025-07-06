@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { authAPI, apiUtils } from '../services/api'
-import './LoginPage.css'
 
 function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
   const [formData, setFormData] = useState({
@@ -78,74 +77,97 @@ function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
   }
 
   return (
-    <div className="login-container">
-      <div className="login-header">
-        <h1>T-Testing</h1>
-        <p>School Testing Management System</p>
-      </div>
-      
-      <div className="login-card">
-        <h2>Administrator Login</h2>
-        <p className="login-subtitle">Access testing monitoring dashboard</p>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-md w-full space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">T-Testing</h1>
+          <p className="text-gray-600 text-lg">School Testing Management System</p>
+        </div>
         
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={formData.username}
-              onChange={handleInputChange}
-              className={errors.username ? 'error' : ''}
-              placeholder="Enter your username"
-              disabled={isLoading}
-            />
-            {errors.username && <span className="error-message">{errors.username}</span>}
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Administrator Login</h2>
+            <p className="text-gray-600">Access testing monitoring dashboard</p>
           </div>
           
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              className={errors.password ? 'error' : ''}
-              placeholder="Enter your password"
-              disabled={isLoading}
-            />
-            {errors.password && <span className="error-message">{errors.password}</span>}
-          </div>
-          
-          {loginMessage && (
-            <div className={`message ${loginMessage.includes('successful') ? 'success' : 'error'}`}>
-              {loginMessage}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                  errors.username ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter your username"
+                disabled={isLoading}
+              />
+              {errors.username && (
+                <span className="text-red-500 text-sm mt-1 block">{errors.username}</span>
+              )}
             </div>
-          )}
-          
-          <button 
-            type="submit" 
-            className="login-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </form>
-        
-        <div className="login-footer">
-          <p>Need help? Contact your system administrator</p>
-          <p>Don't have an account? 
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                  errors.password ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Enter your password"
+                disabled={isLoading}
+              />
+              {errors.password && (
+                <span className="text-red-500 text-sm mt-1 block">{errors.password}</span>
+              )}
+            </div>
+            
+            {loginMessage && (
+              <div className={`p-4 rounded-lg text-sm ${
+                loginMessage.includes('successful') 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {loginMessage}
+              </div>
+            )}
+            
             <button 
-              type="button" 
-              className="link-button"
-              onClick={onSwitchToRegister}
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
-              Create Account
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
-          </p>
+          </form>
+          
+          <div className="mt-8 text-center space-y-4">
+            <p className="text-gray-600 text-sm">Need help? Contact your system administrator</p>
+            <p className="text-gray-600 text-sm">
+              Don't have an account?{' '}
+              <button 
+                type="button" 
+                className="text-blue-600 hover:text-blue-700 font-semibold transition duration-200"
+                onClick={onSwitchToRegister}
+                disabled={isLoading}
+              >
+                Create Account
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>
