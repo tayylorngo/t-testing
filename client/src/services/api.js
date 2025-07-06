@@ -137,6 +137,115 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Add room to session
+  addRoomToSession: async (sessionId, roomId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/rooms`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ roomId }),
+    });
+    return handleResponse(response);
+  },
+
+  // Remove room from session
+  removeRoomFromSession: async (sessionId, roomId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/rooms/${roomId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
+  // Create new section
+  createSection: async (sectionData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sections`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sectionData),
+    });
+    return handleResponse(response);
+  },
+
+  // Update section
+  updateSection: async (sectionId, sectionData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sections/${sectionId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sectionData),
+    });
+    return handleResponse(response);
+  },
+
+  // Add section to room
+  addSectionToRoom: async (roomId, sectionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/sections`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sectionId }),
+    });
+    return handleResponse(response);
+  },
+
+  // Remove section from room
+  removeSectionFromRoom: async (roomId, sectionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/sections/${sectionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
+  // Add section to session
+  addSectionToSession: async (sessionId, sectionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/sections`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sectionId }),
+    });
+    return handleResponse(response);
+  },
+
+  // Remove section from session
+  removeSectionFromSession: async (sessionId, sectionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/sections/${sectionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
   // Get all testing rooms
   getRooms: async () => {
     const token = localStorage.getItem('authToken');
@@ -146,6 +255,48 @@ export const testingAPI = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+    });
+    return handleResponse(response);
+  },
+
+  // Create new room
+  createRoom: async (roomData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/rooms`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roomData),
+    });
+    return handleResponse(response);
+  },
+
+  // Create room with sections
+  createRoomWithSections: async (roomData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/rooms/with-sections`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roomData),
+    });
+    return handleResponse(response);
+  },
+
+  // Update room
+  updateRoom: async (roomId, roomData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(roomData),
     });
     return handleResponse(response);
   },

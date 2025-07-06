@@ -63,6 +63,35 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+// Section Schema
+const sectionSchema = new mongoose.Schema({
+  number: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 99
+  },
+  studentCount: {
+    type: Number,
+    required: true,
+    min: 1,
+    default: 1
+  },
+  description: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 // Room Schema
 const roomSchema = new mongoose.Schema({
   name: {
@@ -70,14 +99,13 @@ const roomSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  status: {
-    type: String,
-    enum: ['not-started', 'in-progress', 'completed'],
-    default: 'not-started'
-  },
   supplies: [{
     type: String,
     trim: true
+  }],
+  sections: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Section'
   }],
   createdAt: {
     type: Date,
@@ -121,6 +149,10 @@ const sessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room'
   }],
+  sections: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Section'
+  }],
   status: {
     type: String,
     enum: ['planned', 'active', 'completed', 'cancelled'],
@@ -142,6 +174,11 @@ roomSchema.pre('save', function(next) {
   next();
 });
 
+sectionSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
 sessionSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
@@ -150,6 +187,7 @@ sessionSchema.pre('save', function(next) {
 // Create models
 const User = mongoose.model('User', userSchema);
 const Room = mongoose.model('Room', roomSchema);
+const Section = mongoose.model('Section', sectionSchema);
 const Session = mongoose.model('Session', sessionSchema);
 
 // Initialize demo data if database is empty
@@ -365,7 +403,9 @@ app.post('/api/logout', authenticateToken, (req, res) => {
 // Get all rooms
 app.get('/api/rooms', authenticateToken, async (req, res) => {
   try {
-    const rooms = await Room.find().sort({ createdAt: -1 });
+    const rooms = await Room.find()
+      .populate('sections', 'number studentCount description')
+      .sort({ createdAt: -1 });
     res.json(rooms);
   } catch (error) {
     console.error('Get rooms error:', error);
@@ -399,7 +439,7 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
 // Create new room
 app.post('/api/rooms', authenticateToken, async (req, res) => {
   try {
-    const { name, status = 'not-started', supplies = [] } = req.body;
+    const { name, supplies = [] } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: 'Room name is required' });
@@ -407,14 +447,44 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
 
     const newRoom = new Room({
       name,
-      status,
       supplies
     });
 
     await newRoom.save();
-    res.status(201).json({ message: 'Room created successfully', room: newRoom });
+    
+    const populatedRoom = await Room.findById(newRoom._id)
+      .populate('sections', 'number studentCount');
+    
+    res.status(201).json({ message: 'Room created successfully', room: populatedRoom });
   } catch (error) {
     console.error('Create room error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update room
+app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, supplies } = req.body;
+    const updateData = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (supplies !== undefined) updateData.supplies = supplies;
+
+    const room = await Room.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('sections', 'number studentCount description');
+
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    res.json({ message: 'Room updated successfully', room });
+  } catch (error) {
+    console.error('Update room error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -457,7 +527,15 @@ app.get('/api/supplies', authenticateToken, async (req, res) => {
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
     const sessions = await Session.find({ createdBy: req.user.id })
-      .populate('rooms', 'name status')
+      .populate({
+        path: 'rooms',
+        select: 'name supplies',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount description'
+        }
+      })
+      .populate('sections', 'number studentCount description')
       .sort({ createdAt: -1 });
     
     res.json({ sessions });
@@ -488,7 +566,15 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     await newSession.save();
     
     const populatedSession = await Session.findById(newSession._id)
-      .populate('rooms', 'name status');
+      .populate({
+        path: 'rooms',
+        select: 'name supplies',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount description'
+        }
+      })
+      .populate('sections', 'number studentCount description');
     
     res.status(201).json({ 
       message: 'Session created successfully', 
@@ -506,7 +592,15 @@ app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
     const session = await Session.findOne({ 
       _id: req.params.id, 
       createdBy: req.user.id 
-    }).populate('rooms', 'name status supplies');
+    }).populate({
+      path: 'rooms',
+      select: 'name supplies',
+      populate: {
+        path: 'sections',
+        select: 'number studentCount description'
+      }
+    })
+    .populate('sections', 'number studentCount description');
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -536,7 +630,15 @@ app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
       { _id: req.params.id, createdBy: req.user.id },
       updateData,
       { new: true, runValidators: true }
-    ).populate('rooms', 'name status');
+    ).populate({
+      path: 'rooms',
+      select: 'name supplies',
+      populate: {
+        path: 'sections',
+        select: 'number studentCount description'
+      }
+    })
+    .populate('sections', 'number studentCount description');
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -564,6 +666,371 @@ app.delete('/api/sessions/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Session deleted successfully' });
   } catch (error) {
     console.error('Delete session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Room Management within Sessions
+
+// Add room to session
+app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { roomId } = req.body;
+
+    if (!roomId) {
+      return res.status(400).json({ message: 'Room ID is required' });
+    }
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Check if room is already in session
+    if (session.rooms.includes(roomId)) {
+      return res.status(400).json({ message: 'Room is already in this session' });
+    }
+
+    // Add room to session
+    session.rooms.push(roomId);
+    await session.save();
+
+    // Return updated session with populated rooms
+    const updatedSession = await Session.findById(sessionId)
+      .populate({
+        path: 'rooms',
+        select: 'name supplies',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount description'
+        }
+      })
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Room added to session successfully', 
+      session: updatedSession 
+    });
+  } catch (error) {
+    console.error('Add room to session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Remove room from session
+app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, roomId } = req.params;
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Remove room from session
+    session.rooms = session.rooms.filter(room => room.toString() !== roomId);
+    await session.save();
+
+    // Return updated session with populated rooms
+    const updatedSession = await Session.findById(sessionId)
+      .populate({
+        path: 'rooms',
+        select: 'name supplies',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount description'
+        }
+      })
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Room removed from session successfully', 
+      session: updatedSession 
+    });
+  } catch (error) {
+    console.error('Remove room from session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Section Management Routes
+
+// Create new section
+app.post('/api/sections', authenticateToken, async (req, res) => {
+  try {
+    const { number, studentCount = 1, description = '' } = req.body;
+
+    if (!number || number < 1 || number > 99) {
+      return res.status(400).json({ message: 'Section number must be between 1 and 99' });
+    }
+
+    if (!studentCount || studentCount < 1) {
+      return res.status(400).json({ message: 'Student count must be at least 1' });
+    }
+
+    const newSection = new Section({
+      number,
+      studentCount,
+      description
+    });
+
+    await newSection.save();
+    res.status(201).json({ message: 'Section created successfully', section: newSection });
+  } catch (error) {
+    console.error('Create section error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update section
+app.put('/api/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { number, studentCount, description } = req.body;
+    const updateData = {};
+
+    if (number !== undefined) {
+      if (number < 1 || number > 99) {
+        return res.status(400).json({ message: 'Section number must be between 1 and 99' });
+      }
+      updateData.number = number;
+    }
+    if (studentCount !== undefined) {
+      if (studentCount < 1) {
+        return res.status(400).json({ message: 'Student count must be at least 1' });
+      }
+      updateData.studentCount = studentCount;
+    }
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+
+    const section = await Section.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
+
+    res.json({ message: 'Section updated successfully', section });
+  } catch (error) {
+    console.error('Update section error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Add section to session
+app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { sectionId } = req.body;
+
+    if (!sectionId) {
+      return res.status(400).json({ message: 'Section ID is required' });
+    }
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if section exists
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
+
+    // Check if section is already in session
+    if (session.sections.includes(sectionId)) {
+      return res.status(400).json({ message: 'Section is already in this session' });
+    }
+
+    // Add section to session
+    session.sections.push(sectionId);
+    await session.save();
+
+    // Return updated session with populated sections
+    const updatedSession = await Session.findById(sessionId)
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Section added to session successfully', 
+      session: updatedSession 
+    });
+  } catch (error) {
+    console.error('Add section to session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Remove section from session
+app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, sectionId } = req.params;
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Remove section from session
+    session.sections = session.sections.filter(section => section.toString() !== sectionId);
+    await session.save();
+
+    // Return updated session with populated sections
+    const updatedSession = await Session.findById(sessionId)
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Section removed from session successfully', 
+      session: updatedSession 
+    });
+  } catch (error) {
+    console.error('Remove section from session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Room Section Management
+
+// Add section to room
+app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { sectionId } = req.body;
+
+    if (!sectionId) {
+      return res.status(400).json({ message: 'Section ID is required' });
+    }
+
+    // Check if room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Check if section exists
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
+
+    // Check if section is already in room
+    if (room.sections.includes(sectionId)) {
+      return res.status(400).json({ message: 'Section is already in this room' });
+    }
+
+    // Add section to room
+    room.sections.push(sectionId);
+    await room.save();
+
+    // Return updated room with populated sections
+    const updatedRoom = await Room.findById(roomId)
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Section added to room successfully', 
+      room: updatedRoom 
+    });
+  } catch (error) {
+    console.error('Add section to room error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create room with sections
+app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
+  try {
+    const { name, supplies = [], sectionIds = [] } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ message: 'Room name is required' });
+    }
+
+    // Create the room
+    const newRoom = new Room({
+      name: name.trim(),
+      supplies
+    });
+
+    // Add sections if provided
+    if (sectionIds.length > 0) {
+      // Verify all sections exist
+      const sections = await Section.find({ _id: { $in: sectionIds } });
+      if (sections.length !== sectionIds.length) {
+        return res.status(400).json({ message: 'One or more sections not found' });
+      }
+      newRoom.sections = sectionIds;
+    }
+
+    await newRoom.save();
+    
+    // Return populated room
+    const populatedRoom = await Room.findById(newRoom._id)
+      .populate('sections', 'number studentCount description');
+    
+    res.status(201).json({ message: 'Room created successfully', room: populatedRoom });
+  } catch (error) {
+    console.error('Create room with sections error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Remove section from room
+app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (req, res) => {
+  try {
+    const { roomId, sectionId } = req.params;
+
+    // Check if room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Remove section from room
+    room.sections = room.sections.filter(section => section.toString() !== sectionId);
+    await room.save();
+
+    // Return updated room with populated sections
+    const updatedRoom = await Room.findById(roomId)
+      .populate('sections', 'number studentCount description');
+
+    res.json({ 
+      message: 'Section removed from room successfully', 
+      room: updatedRoom 
+    });
+  } catch (error) {
+    console.error('Remove section from room error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

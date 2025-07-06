@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { testingAPI, apiUtils } from '../services/api'
 
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, onViewSession }) {
   const [sessions, setSessions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -90,6 +90,12 @@ function Dashboard({ user, onLogout }) {
   const openDeleteModal = (session) => {
     setSelectedSession(session)
     setShowDeleteModal(true)
+  }
+
+  const handleManageSession = (session) => {
+    if (onViewSession) {
+      onViewSession(session._id)
+    }
   }
 
   const formatDate = (dateString) => {
@@ -222,10 +228,19 @@ function Dashboard({ user, onLogout }) {
                       </svg>
                       {session.rooms?.length || 0} rooms
                     </div>
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      {session.sections?.length || 0} sections
+                    </div>
                   </div>
                   
                   <div className="mt-6">
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    <button 
+                      onClick={() => handleManageSession(session)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    >
                       Manage Session
                     </button>
                   </div>

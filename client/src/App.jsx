@@ -1,71 +1,83 @@
 import { useState, useEffect } from 'react'
+import { authAPI, apiUtils } from './services/api'
 import LoginPage from './components/LoginPage'
 import RegisterPage from './components/RegisterPage'
 import Dashboard from './components/Dashboard'
-import { authAPI, apiUtils } from './services/api'
+import SessionDetail from './components/SessionDetail'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('login') // 'login' or 'register'
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [currentView, setCurrentView] = useState('login') // 'login', 'register', 'dashboard', 'session-detail'
+  const [currentSessionId, setCurrentSessionId] = useState(null)
 
-  // Check for existing authentication on app load
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem('authToken')
-        const userData = localStorage.getItem('userData')
-        
-        if (token && userData) {
-          // Try to verify the token with the server
-          try {
-            await authAPI.verifyToken()
-            // If verification succeeds, restore user session
-            setUser(JSON.parse(userData))
-          } catch {
-            // If token is invalid, clear stored data
-            console.log('Token verification failed, clearing auth data')
-            apiUtils.clearAuth()
-          }
-        }
-      } catch (error) {
-        console.error('Auth check error:', error)
-        apiUtils.clearAuth()
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkAuth()
+    checkAuthStatus()
   }, [])
 
-  const handleLoginSuccess = (userData) => {
-    setUser(userData)
-    // Store user data in localStorage for persistence
-    localStorage.setItem('userData', JSON.stringify(userData))
-    console.log('User logged in:', userData)
+  const checkAuthStatus = async () => {
+    try {
+      const token = apiUtils.getToken()
+      if (token) {
+        const response = await authAPI.verifyToken()
+        setUser(response.user)
+        setCurrentView('dashboard')
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error)
+      apiUtils.clearAuth()
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleRegisterSuccess = (data) => {
-    // After successful registration, switch to login page
-    setCurrentPage('login')
-    console.log('Registration successful:', data)
+  const handleLogin = async (credentials) => {
+    try {
+      const response = await authAPI.login(credentials)
+      apiUtils.setToken(response.token)
+      setUser(response.user)
+      setCurrentView('dashboard')
+    } catch (error) {
+      console.error('Login failed:', error)
+      throw error
+    }
   }
 
-  const switchToLogin = () => {
-    setCurrentPage('login')
+  const handleRegister = async (userData) => {
+    try {
+      const response = await authAPI.register(userData)
+      apiUtils.setToken(response.token)
+      setUser(response.user)
+      setCurrentView('dashboard')
+    } catch (error) {
+      console.error('Registration failed:', error)
+      throw error
+    }
   }
 
-  const switchToRegister = () => {
-    setCurrentPage('register')
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      apiUtils.clearAuth()
+      setUser(null)
+      setCurrentView('login')
+      setCurrentSessionId(null)
+    }
   }
 
-  const handleLogout = () => {
-    setUser(null)
-    apiUtils.clearAuth()
+  const handleViewSession = (sessionId) => {
+    setCurrentSessionId(sessionId)
+    setCurrentView('session-detail')
   }
 
-  // Show loading screen while checking authentication
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard')
+    setCurrentSessionId(null)
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -77,25 +89,33 @@ function App() {
     )
   }
 
-  // If user is logged in, show dashboard
-  if (user) {
-    return <Dashboard user={user} onLogout={handleLogout} />
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {currentView === 'login' ? (
+          <LoginPage onLogin={handleLogin} onSwitchToRegister={() => setCurrentView('register')} />
+        ) : (
+          <RegisterPage onRegister={handleRegister} onSwitchToLogin={() => setCurrentView('login')} />
+        )}
+      </div>
+    )
+  }
+
+  if (currentView === 'session-detail' && currentSessionId) {
+    return (
+      <SessionDetail 
+        sessionId={currentSessionId} 
+        onBack={handleBackToDashboard}
+      />
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {currentPage === 'login' ? (
-        <LoginPage 
-          onLoginSuccess={handleLoginSuccess}
-          onSwitchToRegister={switchToRegister}
-        />
-      ) : (
-        <RegisterPage 
-          onRegisterSuccess={handleRegisterSuccess}
-          onSwitchToLogin={switchToLogin}
-        />
-      )}
-    </div>
+    <Dashboard 
+      user={user} 
+      onLogout={handleLogout}
+      onViewSession={handleViewSession}
+    />
   )
 }
 
