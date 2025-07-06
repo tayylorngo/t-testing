@@ -89,8 +89,60 @@ const roomSchema = new mongoose.Schema({
   }
 });
 
+// Session Schema
+const sessionSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  date: {
+    type: Date,
+    required: true
+  },
+  startTime: {
+    type: String,
+    required: true
+  },
+  endTime: {
+    type: String,
+    required: true
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  rooms: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Room'
+  }],
+  status: {
+    type: String,
+    enum: ['planned', 'active', 'completed', 'cancelled'],
+    default: 'planned'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 // Update the updatedAt field before saving
 roomSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+sessionSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
@@ -98,6 +150,7 @@ roomSchema.pre('save', function(next) {
 // Create models
 const User = mongoose.model('User', userSchema);
 const Room = mongoose.model('Room', roomSchema);
+const Session = mongoose.model('Session', sessionSchema);
 
 // Initialize demo data if database is empty
 const initializeDemoData = async () => {
@@ -394,6 +447,123 @@ app.get('/api/supplies', authenticateToken, async (req, res) => {
     res.json({ supplies: allSupplies });
   } catch (error) {
     console.error('Get supplies error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Session Management Routes
+
+// Get all sessions for the authenticated user
+app.get('/api/sessions', authenticateToken, async (req, res) => {
+  try {
+    const sessions = await Session.find({ createdBy: req.user.id })
+      .populate('rooms', 'name status')
+      .sort({ createdAt: -1 });
+    
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Create new session
+app.post('/api/sessions', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, date, startTime, endTime } = req.body;
+
+    if (!name || !date || !startTime || !endTime) {
+      return res.status(400).json({ message: 'Name, date, start time, and end time are required' });
+    }
+
+    const newSession = new Session({
+      name,
+      description,
+      date: new Date(date),
+      startTime,
+      endTime,
+      createdBy: req.user.id
+    });
+
+    await newSession.save();
+    
+    const populatedSession = await Session.findById(newSession._id)
+      .populate('rooms', 'name status');
+    
+    res.status(201).json({ 
+      message: 'Session created successfully', 
+      session: populatedSession 
+    });
+  } catch (error) {
+    console.error('Create session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get specific session
+app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
+  try {
+    const session = await Session.findOne({ 
+      _id: req.params.id, 
+      createdBy: req.user.id 
+    }).populate('rooms', 'name status supplies');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ session });
+  } catch (error) {
+    console.error('Get session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update session
+app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, date, startTime, endTime, status } = req.body;
+    const updateData = {};
+
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (date) updateData.date = new Date(date);
+    if (startTime) updateData.startTime = startTime;
+    if (endTime) updateData.endTime = endTime;
+    if (status) updateData.status = status;
+
+    const session = await Session.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user.id },
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('rooms', 'name status');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ message: 'Session updated successfully', session });
+  } catch (error) {
+    console.error('Update session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete session
+app.delete('/api/sessions/:id', authenticateToken, async (req, res) => {
+  try {
+    const session = await Session.findOneAndDelete({ 
+      _id: req.params.id, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ message: 'Session deleted successfully' });
+  } catch (error) {
+    console.error('Delete session error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
