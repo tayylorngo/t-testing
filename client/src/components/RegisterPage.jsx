@@ -92,13 +92,10 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
         password: formData.password
       }
       
-      const data = await authAPI.register(registrationData)
-      
-      setRegisterMessage('Registration successful! Please sign in with your new account.')
-      
-      // Call the success callback
+      // Call the success callback with registration data
       if (onRegisterSuccess) {
-        onRegisterSuccess(data)
+        await onRegisterSuccess(registrationData)
+        setRegisterMessage('Registration successful! Please sign in with your new account.')
       }
       
     } catch (error) {

@@ -93,9 +93,9 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {currentView === 'login' ? (
-          <LoginPage onLogin={handleLogin} onSwitchToRegister={() => setCurrentView('register')} />
+          <LoginPage onLoginSuccess={handleLogin} onSwitchToRegister={() => setCurrentView('register')} />
         ) : (
-          <RegisterPage onRegister={handleRegister} onSwitchToLogin={() => setCurrentView('login')} />
+          <RegisterPage onRegisterSuccess={handleRegister} onSwitchToLogin={() => setCurrentView('login')} />
         )}
       </div>
     )

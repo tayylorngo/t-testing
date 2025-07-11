@@ -55,17 +55,10 @@ function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
     setIsLoading(true)
     
     try {
-      const data = await authAPI.login(formData)
-      
-      setLoginMessage('Login successful! Redirecting...')
-      
-      // Store token and user data
-      apiUtils.setToken(data.token)
-      localStorage.setItem('userData', JSON.stringify(data.user))
-      
-      // Call the success callback
+      // Call the success callback with credentials
       if (onLoginSuccess) {
-        onLoginSuccess(data.user)
+        await onLoginSuccess(formData)
+        setLoginMessage('Login successful! Redirecting...')
       }
       
     } catch (error) {
