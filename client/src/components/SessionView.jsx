@@ -374,33 +374,33 @@ function SessionView({ onBack }) {
         {/* Session Info and Timer */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Session Details */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Session Information</h2>
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Session Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Date</p>
-                <p className="font-medium">{new Date(session.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Date</p>
+                <p className="font-medium dark:text-white">{new Date(session.date).toLocaleDateString()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Time</p>
-                <p className="font-medium">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Time</p>
+                <p className="font-medium dark:text-white">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Status</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(session.status)}`}>
                   {getStatusText(session.status)}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Rooms</p>
-                <p className="font-medium">{session.rooms?.length || 0}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Rooms</p>
+                <p className="font-medium dark:text-white">{session.rooms?.length || 0}</p>
               </div>
             </div>
           </div>
 
           {/* Timer */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Time Remaining</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Time Remaining</h2>
             {timeRemaining ? (
               <div className="text-center">
                 {timeRemaining.isOver ? (
@@ -410,34 +410,34 @@ function SessionView({ onBack }) {
                     {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
                   </div>
                 )}
-                <p className="text-sm text-gray-500 mt-2">Until exam ends</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Until exam ends</p>
               </div>
             ) : (
-              <div className="text-center text-gray-500">Loading timer...</div>
+              <div className="text-center text-gray-500 dark:text-gray-400">Loading timer...</div>
             )}
           </div>
         </div>
 
         {/* Overall Progress */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Overall Progress</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Overall Progress</h2>
             <span className="text-2xl font-bold text-blue-600">{progress}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
             <div 
               className="bg-blue-600 h-4 rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             {session.rooms?.filter(room => room.status === 'completed').length || 0} of {session.rooms?.length || 0} rooms completed
           </p>
         </div>
 
         {/* Testing In Progress with Circular Bars */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Testing In Progress</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Testing In Progress</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="flex flex-col items-center">
               <div className="relative w-24 h-24 mb-4">
@@ -471,7 +471,7 @@ function SessionView({ onBack }) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
+                  <span className="text-lg font-bold text-gray-900 dark:text-white transition-all duration-1000 ease-out transform scale-100">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -483,13 +483,13 @@ function SessionView({ onBack }) {
                   </span>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 text-center">Students Still Testing</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Students Still Testing</p>
             </div>
             <div className="flex flex-col items-center">
               <div className="relative w-24 h-24 mb-4">
                 <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
                   <path
-                    className="text-gray-200"
+                    className="text-gray-200 dark:text-gray-700"
                     stroke="currentColor"
                     strokeWidth="3"
                     fill="none"
@@ -513,7 +513,7 @@ function SessionView({ onBack }) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
+                  <span className="text-lg font-bold text-gray-900 dark:text-white transition-all duration-1000 ease-out transform scale-100">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -523,7 +523,7 @@ function SessionView({ onBack }) {
                   </span>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 text-center">Sections Remaining</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Sections Remaining</p>
             </div>
           </div>
         </div>
@@ -535,7 +535,7 @@ function SessionView({ onBack }) {
             className={`px-3 py-1 text-xs font-medium rounded-md transition duration-200 ${
               sortDescending
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             {sortDescending ? '↓' : '↑'} {sortDescending ? 'Highest to Lowest' : 'Lowest to Highest'}
@@ -545,18 +545,18 @@ function SessionView({ onBack }) {
         {/* Rooms Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {getSortedRooms().map((room) => (
-            <div key={room._id} className="bg-white rounded-2xl shadow-lg p-6">
+            <div key={room._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
                   {getStatusText(room.status)}
                 </span>
               </div>
 
               {/* Total Students */}
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Total Students:</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Students:</span>
                   <span className="text-2xl font-bold text-blue-600">
                     {calculateTotalStudents(room.sections)}
                   </span>
@@ -604,12 +604,12 @@ function SessionView({ onBack }) {
 
               {/* Supplies */}
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Supplies</h4>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
                 {room.supplies && room.supplies.length > 0 ? (
                   <div className="space-y-1">
                     {room.supplies.map((supply, index) => (
-                      <div key={index} className="flex justify-between items-center bg-gray-50 px-3 py-2 rounded-lg">
-                        <span className="text-sm text-gray-700">{supply}</span>
+                      <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
                         <button
                           onClick={() => handleRemoveSupply(room._id, supply)}
                           className="text-red-500 hover:text-red-700 text-sm"
@@ -620,26 +620,26 @@ function SessionView({ onBack }) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No supplies added</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
                 )}
               </div>
 
                             {/* Sections */}
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Sections</h4>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
                 {room.sections && room.sections.length > 0 ? (
                   <div className="space-y-2">
                     {room.sections
                       .sort((a, b) => a.number - b.number)
                       .map((section) => (
-                        <div key={section._id} className="bg-blue-50 px-3 py-3 rounded-lg">
+                        <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-3 rounded-lg">
                           <div className="flex justify-between items-start mb-1">
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-sm font-medium text-gray-700 dark:text-white">
                               Section {section.number} ({section.studentCount} students)
                             </span>
                           </div>
                           {section.description && (
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               {section.description}
                             </div>
                           )}
@@ -647,14 +647,14 @@ function SessionView({ onBack }) {
                       ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No sections assigned</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
                 )}
               </div>
 
               {/* Estimated Time - Large Text */}
-              <div className="border-t pt-3">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Estimated Time:</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
                   <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
                     {(() => {
                       const timeData = calculateRoomTimeRemaining(room)
@@ -675,19 +675,19 @@ function SessionView({ onBack }) {
       {/* Add Supply Modal */}
       {showAddSupplyModal && selectedRoom && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Supply to {selectedRoom.name}</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Supply to {selectedRoom.name}</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Supply Name
                 </label>
                 <input
                   type="text"
                   value={newSupply}
                   onChange={(e) => setNewSupply(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Enter supply name"
                 />
               </div>
@@ -718,21 +718,21 @@ function SessionView({ onBack }) {
       {/* Move Students Modal */}
       {showMoveStudentsModal && moveFromRoom && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Move Students</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Move Students</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   From Room
                 </label>
-                <div className="px-4 py-3 bg-gray-100 rounded-lg">
+                <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-lg dark:text-white">
                   {moveFromRoom.name}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   To Room
                 </label>
                 <select
@@ -741,7 +741,7 @@ function SessionView({ onBack }) {
                     const room = session.rooms.find(r => r._id === e.target.value)
                     setMoveToRoom(room)
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Select destination room</option>
                   {session.rooms
