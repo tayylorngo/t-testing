@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { authAPI, apiUtils } from './services/api'
 import LoginPage from './components/LoginPage'
 import RegisterPage from './components/RegisterPage'
 import Dashboard from './components/Dashboard'
 import SessionDetail from './components/SessionDetail'
+import SessionView from './components/SessionView'
 
 function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [currentView, setCurrentView] = useState('login') // 'login', 'register', 'dashboard', 'session-detail'
-  const [currentSessionId, setCurrentSessionId] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     checkAuthStatus()
@@ -21,7 +22,6 @@ function App() {
       if (token) {
         const response = await authAPI.verifyToken()
         setUser(response.user)
-        setCurrentView('dashboard')
       }
     } catch (error) {
       console.error('Auth check failed:', error)
@@ -36,7 +36,7 @@ function App() {
       const response = await authAPI.login(credentials)
       apiUtils.setToken(response.token)
       setUser(response.user)
-      setCurrentView('dashboard')
+      navigate('/dashboard')
     } catch (error) {
       console.error('Login failed:', error)
       throw error
@@ -48,7 +48,7 @@ function App() {
       const response = await authAPI.register(userData)
       apiUtils.setToken(response.token)
       setUser(response.user)
-      setCurrentView('dashboard')
+      navigate('/dashboard')
     } catch (error) {
       console.error('Registration failed:', error)
       throw error
@@ -63,19 +63,17 @@ function App() {
     } finally {
       apiUtils.clearAuth()
       setUser(null)
-      setCurrentView('login')
-      setCurrentSessionId(null)
+      navigate('/login')
     }
   }
 
-  const handleViewSession = (sessionId) => {
-    setCurrentSessionId(sessionId)
-    setCurrentView('session-detail')
+  const handleViewSession = (sessionId, mode = 'manage') => {
+    const route = mode === 'view' ? `/session/${sessionId}/view` : `/session/${sessionId}/manage`
+    navigate(route)
   }
 
   const handleBackToDashboard = () => {
-    setCurrentView('dashboard')
-    setCurrentSessionId(null)
+    navigate('/dashboard')
   }
 
   if (isLoading) {
@@ -91,31 +89,21 @@ function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {currentView === 'login' ? (
-          <LoginPage onLoginSuccess={handleLogin} onSwitchToRegister={() => setCurrentView('register')} />
-        ) : (
-          <RegisterPage onRegisterSuccess={handleRegister} onSwitchToLogin={() => setCurrentView('login')} />
-        )}
-      </div>
-    )
-  }
-
-  if (currentView === 'session-detail' && currentSessionId) {
-    return (
-      <SessionDetail 
-        sessionId={currentSessionId} 
-        onBack={handleBackToDashboard}
-      />
+      <Routes>
+        <Route path="/login" element={<LoginPage onLoginSuccess={handleLogin} onSwitchToRegister={() => navigate('/register')} />} />
+        <Route path="/register" element={<RegisterPage onRegisterSuccess={handleRegister} onSwitchToLogin={() => navigate('/login')} />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     )
   }
 
   return (
-    <Dashboard 
-      user={user} 
-      onLogout={handleLogout}
-      onViewSession={handleViewSession}
-    />
+    <Routes>
+      <Route path="/dashboard" element={<Dashboard user={user} onLogout={handleLogout} onViewSession={handleViewSession} />} />
+      <Route path="/session/:sessionId/manage" element={<SessionDetail onBack={handleBackToDashboard} />} />
+      <Route path="/session/:sessionId/view" element={<SessionView onBack={handleBackToDashboard} />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   )
 }
 

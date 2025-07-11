@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 
-function SessionDetail({ sessionId, onBack }) {
+function SessionDetail({ onBack }) {
+  const { sessionId } = useParams()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddRoomModal, setShowAddRoomModal] = useState(false)

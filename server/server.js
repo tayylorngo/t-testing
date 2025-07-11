@@ -107,6 +107,11 @@ const roomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Section'
   }],
+  status: {
+    type: String,
+    enum: ['planned', 'active', 'completed'],
+    default: 'planned'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -211,9 +216,9 @@ const initializeDemoData = async () => {
     const roomCount = await Room.countDocuments();
     if (roomCount === 0) {
       await Room.insertMany([
-        { name: 'Room 101', status: 'in-progress', supplies: ['pencils', 'paper'] },
+        { name: 'Room 101', status: 'active', supplies: ['pencils', 'paper'] },
         { name: 'Room 102', status: 'completed', supplies: [] },
-        { name: 'Room 103', status: 'not-started', supplies: ['calculators'] }
+        { name: 'Room 103', status: 'planned', supplies: ['calculators'] }
       ]);
       console.log('✅ Demo rooms created');
     }
@@ -529,7 +534,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
     const sessions = await Session.find({ createdBy: req.user.id })
       .populate({
         path: 'rooms',
-        select: 'name supplies',
+        select: 'name supplies status',
         populate: {
           path: 'sections',
           select: 'number studentCount description'
@@ -568,7 +573,7 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     const populatedSession = await Session.findById(newSession._id)
       .populate({
         path: 'rooms',
-        select: 'name supplies',
+        select: 'name supplies status',
         populate: {
           path: 'sections',
           select: 'number studentCount description'
@@ -594,7 +599,7 @@ app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
       createdBy: req.user.id 
     }).populate({
       path: 'rooms',
-      select: 'name supplies',
+      select: 'name supplies status',
       populate: {
         path: 'sections',
         select: 'number studentCount description'
@@ -632,7 +637,7 @@ app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
       { new: true, runValidators: true }
     ).populate({
       path: 'rooms',
-      select: 'name supplies',
+      select: 'name supplies status',
       populate: {
         path: 'sections',
         select: 'number studentCount description'

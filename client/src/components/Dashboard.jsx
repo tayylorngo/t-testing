@@ -98,6 +98,12 @@ function Dashboard({ user, onLogout, onViewSession }) {
     }
   }
 
+  const handleViewSession = (session) => {
+    if (onViewSession) {
+      onViewSession(session._id, 'view')
+    }
+  }
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -236,12 +242,18 @@ function Dashboard({ user, onLogout, onViewSession }) {
                     </div>
                   </div>
                   
-                  <div className="mt-6">
+                  <div className="mt-6 space-y-2">
                     <button 
                       onClick={() => handleManageSession(session)}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
                     >
                       Manage Session
+                    </button>
+                    <button 
+                      onClick={() => handleViewSession(session)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    >
+                      View Session
                     </button>
                   </div>
                 </div>
