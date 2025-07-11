@@ -15,6 +15,7 @@ function SessionView({ onBack }) {
   const [moveToRoom, setMoveToRoom] = useState(null)
   const [selectedSections, setSelectedSections] = useState([])
   const [sortDescending, setSortDescending] = useState(false)
+  const [roomTimeMultipliers, setRoomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
 
   useEffect(() => {
     fetchSessionData()
@@ -274,6 +275,51 @@ function SessionView({ onBack }) {
     })
   }
 
+  const calculateRoomTimeRemaining = (room) => {
+    if (!session || !timeRemaining || timeRemaining.isOver) return null
+    
+    // Get time multiplier for this room (default 1x, future: 1.5x, 2x, etc.)
+    const timeMultiplier = roomTimeMultipliers[room._id] || 1
+    
+    // Calculate total session duration in minutes
+    const [startHour, startMinute] = session.startTime.split(':')
+    const [endHour, endMinute] = session.endTime.split(':')
+    const sessionDate = new Date(session.date)
+    
+    const startTime = new Date(sessionDate)
+    startTime.setHours(parseInt(startHour), parseInt(startMinute), 0)
+    
+    const endTime = new Date(sessionDate)
+    endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
+    
+    const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
+    
+    // Calculate room-specific end time based on multiplier
+    const roomEndTime = new Date(startTime.getTime() + (totalSessionMinutes * timeMultiplier * 60 * 1000))
+    
+    // Calculate remaining time for this room
+    const now = new Date()
+    const roomTimeDiff = roomEndTime - now
+    
+    if (roomTimeDiff <= 0) {
+      return { hours: 0, minutes: 0, seconds: 0, isOver: true }
+    }
+    
+    const hours = Math.floor(roomTimeDiff / (1000 * 60 * 60))
+    const minutes = Math.floor((roomTimeDiff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
+    
+    return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
+  }
+
+  const formatRoomTime = (timeData) => {
+    if (!timeData) return '--:--:--'
+    if (timeData.isOver) return 'TIME UP'
+    
+    const multiplierText = timeData.multiplier !== 1 ? ` (${timeData.multiplier}x)` : ''
+    return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}${multiplierText}`
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -372,7 +418,7 @@ function SessionView({ onBack }) {
           </div>
         </div>
 
-        {/* Progress Bar */}
+        {/* Overall Progress */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Overall Progress</h2>
@@ -387,6 +433,99 @@ function SessionView({ onBack }) {
           <p className="text-sm text-gray-500 mt-2">
             {session.rooms?.filter(room => room.status === 'completed').length || 0} of {session.rooms?.length || 0} rooms completed
           </p>
+        </div>
+
+        {/* Testing In Progress with Circular Bars */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Testing In Progress</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="flex flex-col items-center">
+              <div className="relative w-24 h-24 mb-4">
+                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-gray-200"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-blue-600 transition-all duration-1000 ease-out"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeDasharray={`${(() => {
+                      if (!session || !session.rooms) return 0;
+                      const totalStudents = session.rooms.reduce((total, room) =>
+                        total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                      , 0);
+                      const remainingStudents = session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) =>
+                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                        , 0);
+                      return totalStudents > 0 ? (remainingStudents / totalStudents) * 100 : 0;
+                    })()} 100`}
+                    strokeLinecap="round"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
+                    {(() => {
+                      if (!session || !session.rooms) return 0;
+                      return session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) =>
+                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                        , 0)
+                    })()}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 text-center">Students Still Testing</p>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="relative w-24 h-24 mb-4">
+                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-gray-200"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-green-600 transition-all duration-1000 ease-out"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeDasharray={`${(() => {
+                      if (!session || !session.rooms) return 0;
+                      const totalSections = session.rooms.reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0);
+                      const remainingSections = session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0);
+                      return totalSections > 0 ? (remainingSections / totalSections) * 100 : 0;
+                    })()} 100`}
+                    strokeLinecap="round"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
+                    {(() => {
+                      if (!session || !session.rooms) return 0;
+                      return session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
+                    })()}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 text-center">Sections Remaining</p>
+            </div>
+          </div>
         </div>
 
         {/* Sort Controls */}
@@ -412,6 +551,16 @@ function SessionView({ onBack }) {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
                   {getStatusText(room.status)}
                 </span>
+              </div>
+
+              {/* Total Students */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Total Students:</span>
+                  <span className="text-2xl font-bold text-blue-600">
+                    {calculateTotalStudents(room.sections)}
+                  </span>
+                </div>
               </div>
 
               {/* Room Actions */}
@@ -475,7 +624,7 @@ function SessionView({ onBack }) {
                 )}
               </div>
 
-              {/* Sections */}
+                            {/* Sections */}
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Sections</h4>
                 {room.sections && room.sections.length > 0 ? (
@@ -483,34 +632,41 @@ function SessionView({ onBack }) {
                     {room.sections
                       .sort((a, b) => a.number - b.number)
                       .map((section) => (
-                      <div key={section._id} className="bg-blue-50 px-3 py-3 rounded-lg">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="text-sm font-medium text-gray-700">
-                            Section {section.number} ({section.studentCount} students)
-                          </span>
-                        </div>
-                        {section.description && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            {section.description}
+                        <div key={section._id} className="bg-blue-50 px-3 py-3 rounded-lg">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-sm font-medium text-gray-700">
+                              Section {section.number} ({section.studentCount} students)
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {section.description && (
+                            <div className="text-xs text-gray-600 mt-1">
+                              {section.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500">No sections assigned</p>
                 )}
               </div>
 
-              {/* Total Students */}
+              {/* Estimated Time - Large Text */}
               <div className="border-t pt-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Total Students:</span>
-                  <span className="text-lg font-bold text-blue-600">
-                    {calculateTotalStudents(room.sections)}
+                  <span className="text-sm font-medium text-gray-700">Estimated Time:</span>
+                  <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                    {(() => {
+                      const timeData = calculateRoomTimeRemaining(room)
+                      if (!timeData) return '--:--:--'
+                      if (timeData.isOver) return 'TIME UP'
+                      return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                    })()}
                   </span>
                 </div>
               </div>
+
+
             </div>
           ))}
         </div>
