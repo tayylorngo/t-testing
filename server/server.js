@@ -77,7 +77,11 @@ const sectionSchema = new mongoose.Schema({
     min: 1,
     default: 1
   },
-  description: {
+  accommodations: {
+    type: [String],
+    default: []
+  },
+  notes: {
     type: String,
     trim: true,
     default: ''
@@ -409,7 +413,7 @@ app.post('/api/logout', authenticateToken, (req, res) => {
 app.get('/api/rooms', authenticateToken, async (req, res) => {
   try {
     const rooms = await Room.find()
-      .populate('sections', 'number studentCount description')
+      .populate('sections', 'number studentCount accommodations notes')
       .sort({ createdAt: -1 });
     res.json(rooms);
   } catch (error) {
@@ -481,7 +485,7 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
       id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('sections', 'number studentCount description');
+    ).populate('sections', 'number studentCount accommodations notes');
 
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
@@ -537,10 +541,10 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
         select: 'name supplies status',
         populate: {
           path: 'sections',
-          select: 'number studentCount description'
+          select: 'number studentCount accommodations notes'
         }
       })
-      .populate('sections', 'number studentCount description')
+      .populate('sections', 'number studentCount accommodations notes')
       .sort({ createdAt: -1 });
     
     res.json({ sessions });
@@ -576,10 +580,10 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
         select: 'name supplies status',
         populate: {
           path: 'sections',
-          select: 'number studentCount description'
+          select: 'number studentCount accommodations notes'
         }
       })
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
     
     res.status(201).json({ 
       message: 'Session created successfully', 
@@ -602,10 +606,10 @@ app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
       select: 'name supplies status',
       populate: {
         path: 'sections',
-        select: 'number studentCount description'
+        select: 'number studentCount accommodations notes'
       }
     })
-    .populate('sections', 'number studentCount description');
+    .populate('sections', 'number studentCount accommodations notes');
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -640,10 +644,10 @@ app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
       select: 'name supplies status',
       populate: {
         path: 'sections',
-        select: 'number studentCount description'
+        select: 'number studentCount accommodations notes'
       }
     })
-    .populate('sections', 'number studentCount description');
+    .populate('sections', 'number studentCount accommodations notes');
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -719,10 +723,10 @@ app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) =
         select: 'name supplies',
         populate: {
           path: 'sections',
-          select: 'number studentCount description'
+          select: 'number studentCount accommodations notes'
         }
       })
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Room added to session successfully', 
@@ -760,10 +764,10 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
         select: 'name supplies',
         populate: {
           path: 'sections',
-          select: 'number studentCount description'
+          select: 'number studentCount accommodations notes'
         }
       })
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Room removed from session successfully', 
@@ -780,7 +784,7 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
 // Create new section
 app.post('/api/sections', authenticateToken, async (req, res) => {
   try {
-    const { number, studentCount = 1, description = '' } = req.body;
+    const { number, studentCount = 1, accommodations = [], notes = '' } = req.body;
 
     if (!number || number < 1 || number > 99) {
       return res.status(400).json({ message: 'Section number must be between 1 and 99' });
@@ -793,7 +797,8 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
     const newSection = new Section({
       number,
       studentCount,
-      description
+      accommodations,
+      notes
     });
 
     await newSection.save();
@@ -808,7 +813,7 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
 app.put('/api/sections/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { number, studentCount, description } = req.body;
+    const { number, studentCount, accommodations, notes } = req.body;
     const updateData = {};
 
     if (number !== undefined) {
@@ -823,8 +828,11 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
       }
       updateData.studentCount = studentCount;
     }
-    if (description !== undefined) {
-      updateData.description = description;
+    if (accommodations !== undefined) {
+      updateData.accommodations = accommodations;
+    }
+    if (notes !== undefined) {
+      updateData.notes = notes;
     }
 
     const section = await Section.findByIdAndUpdate(
@@ -881,7 +889,7 @@ app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res
 
     // Return updated session with populated sections
     const updatedSession = await Session.findById(sessionId)
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Section added to session successfully', 
@@ -914,7 +922,7 @@ app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, as
 
     // Return updated session with populated sections
     const updatedSession = await Session.findById(sessionId)
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Section removed from session successfully', 
@@ -961,7 +969,7 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
 
     // Return updated room with populated sections
     const updatedRoom = await Room.findById(roomId)
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Section added to room successfully', 
@@ -1002,7 +1010,7 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
     
     // Return populated room
     const populatedRoom = await Room.findById(newRoom._id)
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
     
     res.status(201).json({ message: 'Room created successfully', room: populatedRoom });
   } catch (error) {
@@ -1028,7 +1036,7 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
 
     // Return updated room with populated sections
     const updatedRoom = await Room.findById(roomId)
-      .populate('sections', 'number studentCount description');
+      .populate('sections', 'number studentCount accommodations notes');
 
     res.json({ 
       message: 'Section removed from room successfully', 

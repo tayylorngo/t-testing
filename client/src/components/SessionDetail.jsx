@@ -12,7 +12,6 @@ function SessionDetail({ onBack }) {
   const [newRoomName, setNewRoomName] = useState('')
   const [newSectionNumber, setNewSectionNumber] = useState('')
   const [newSectionStudentCount, setNewSectionStudentCount] = useState('1')
-  const [newSectionDescription, setNewSectionDescription] = useState('')
   const [selectedRoomForSection, setSelectedRoomForSection] = useState(null)
   const [availableSections, setAvailableSections] = useState([])
   const [selectedSectionsForRoom, setSelectedSectionsForRoom] = useState([])
@@ -21,7 +20,6 @@ function SessionDetail({ onBack }) {
   const [editingSection, setEditingSection] = useState(null)
   const [editSectionNumber, setEditSectionNumber] = useState('')
   const [editSectionStudentCount, setEditSectionStudentCount] = useState('')
-  const [editSectionDescription, setEditSectionDescription] = useState('')
   const [sessionUpdates, setSessionUpdates] = useState({
     name: '',
     description: '',
@@ -35,6 +33,33 @@ function SessionDetail({ onBack }) {
   const [selectedRoomIds, setSelectedRoomIds] = useState([])
   const [roomSortDescending, setRoomSortDescending] = useState(false)
   const [sectionSortDescending, setSectionSortDescending] = useState(false)
+  // Add state for accommodations
+  const ACCOMMODATIONS = [
+    '1.5× Time',
+    '2× Time',
+    'Unlimited Time',
+    'Next-Day Completion (if two exams same day)',
+    'Separate Location',
+    'Test Read Aloud (Full Exam)',
+    'Large Print / Braille',
+    'Scribe / Speech-to-Text',
+    'Use of Computer / Assistive Technology',
+    'Breaks Not Counted Against Time',
+    'Translated Exam (Written Version): Chinese',
+    'Translated Exam (Written Version): Haitian Creole',
+    'Translated Exam (Written Version): Korean',
+    'Translated Exam (Written Version): Russian',
+    'Translated Exam (Written Version): Spanish',
+    'Oral Translation (e.g., Ukrainian, other languages)',
+    'Bilingual Glossary (Word-to-Word Translation)',
+    'Answer in Native Language (Short/Essay Responses)'
+  ];
+  const [selectedAccommodations, setSelectedAccommodations] = useState([])
+  // Add state for notes
+  const [newSectionNotes, setNewSectionNotes] = useState('')
+  // Add state for editing accommodations and notes
+  const [editSectionAccommodations, setEditSectionAccommodations] = useState([])
+  const [editSectionNotes, setEditSectionNotes] = useState('')
 
   useEffect(() => {
     fetchSessionData()
@@ -44,6 +69,17 @@ function SessionDetail({ onBack }) {
     try {
       setIsLoading(true)
       const sessionData = await testingAPI.getSession(sessionId)
+      
+      console.log('Session data received:', sessionData.session)
+      console.log('Rooms with sections:', sessionData.session.rooms?.map(room => ({
+        name: room.name,
+        sections: room.sections?.map(section => ({
+          number: section.number,
+          studentCount: section.studentCount,
+          accommodations: section.accommodations,
+          notes: section.notes
+        }))
+      })))
       
       setSession(sessionData.session)
       
@@ -118,18 +154,24 @@ function SessionDetail({ onBack }) {
       return
     }
     try {
+      console.log('Creating sections with accommodations:', selectedAccommodations)
       for (const sectionNum of numbers) {
-        const sectionResponse = await testingAPI.createSection({
+        const sectionData = {
           number: sectionNum,
           studentCount: studentCount,
-          description: newSectionDescription.trim()
-        })
+          accommodations: selectedAccommodations,
+          notes: newSectionNotes.trim()
+        }
+        console.log('Creating section with data:', sectionData)
+        const sectionResponse = await testingAPI.createSection(sectionData)
+        console.log('Section created:', sectionResponse)
         await testingAPI.addSectionToSession(sessionId, sectionResponse.section._id)
       }
       setShowAddSectionModal(false)
       setNewSectionNumber('')
       setNewSectionStudentCount('1')
-      setNewSectionDescription('')
+      setSelectedAccommodations([])
+      setNewSectionNotes('')
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding section(s) to session:', error)
@@ -211,35 +253,34 @@ function SessionDetail({ onBack }) {
     setEditingSection(section._id)
     setEditSectionNumber(section.number.toString())
     setEditSectionStudentCount(section.studentCount.toString())
-    setEditSectionDescription(section.description || '')
+    setEditSectionAccommodations(Array.isArray(section.accommodations) ? section.accommodations : [])
+    setEditSectionNotes(section.notes || '')
   }
 
   const handleSaveSectionNumber = async () => {
     if (!editSectionNumber.trim() || !editSectionStudentCount.trim()) return
-    
     const sectionNum = parseInt(editSectionNumber)
     const studentCount = parseInt(editSectionStudentCount)
-    
     if (isNaN(sectionNum) || sectionNum < 1 || sectionNum > 99) {
       alert('Section number must be between 1 and 99')
       return
     }
-    
     if (isNaN(studentCount) || studentCount < 1) {
       alert('Student count must be at least 1')
       return
     }
-    
     try {
-      await testingAPI.updateSection(editingSection, { 
+      await testingAPI.updateSection(editingSection, {
         number: sectionNum,
         studentCount: studentCount,
-        description: editSectionDescription.trim()
+        accommodations: editSectionAccommodations,
+        notes: editSectionNotes.trim(),
       })
       setEditingSection(null)
       setEditSectionNumber('')
       setEditSectionStudentCount('')
-      setEditSectionDescription('')
+      setEditSectionAccommodations([])
+      setEditSectionNotes('')
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating section:', error)
@@ -250,7 +291,8 @@ function SessionDetail({ onBack }) {
     setEditingSection(null)
     setEditSectionNumber('')
     setEditSectionStudentCount('')
-    setEditSectionDescription('')
+    setEditSectionAccommodations([])
+    setEditSectionNotes('')
   }
 
   const handleOpenAddSectionToRoom = (room) => {
@@ -265,6 +307,8 @@ function SessionDetail({ onBack }) {
   const calculateTotalStudents = (sections) => {
     return sections?.reduce((total, section) => total + (section.studentCount || 0), 0) || 0
   }
+
+
 
   const handleUpdateSession = async (e) => {
     e.preventDefault()
@@ -639,8 +683,11 @@ function SessionDetail({ onBack }) {
                                  <div key={section._id} className="flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                                    <span>Section {section.number}</span>
                                    <span className="text-blue-600">({section.studentCount})</span>
-                                   {section.description && (
-                                     <span className="text-blue-600 ml-1">• {section.description}</span>
+                                   {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                     <span className="text-purple-600 ml-1">• {section.accommodations.join(', ')}</span>
+                                   )}
+                                   {section.notes && (
+                                     <span className="text-blue-600 ml-1">• {section.notes}</span>
                                    )}
                                    <button
                                      onClick={() => handleRemoveSectionFromRoom(room._id, section._id)}
@@ -656,6 +703,8 @@ function SessionDetail({ onBack }) {
                             </div>
                           </div>
                         )}
+                        
+
                         
                         {room.supplies && room.supplies.length > 0 && (
                           <div>
@@ -744,45 +793,94 @@ function SessionDetail({ onBack }) {
                         />
                         <span className="text-xs text-gray-500">Select</span>
                       </div>
-                      <div className="flex justify-between items-start mb-3">
-                        {editingSection === section._id ? (
-                          <div className="flex-1 mr-3 space-y-2">
-                            <input
-                              type="number"
-                              min="1"
-                              max="99"
-                              value={editSectionNumber}
-                              onChange={(e) => setEditSectionNumber(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                              placeholder="Section number"
-                              autoFocus
-                            />
-                            <input
-                              type="number"
-                              min="1"
-                              value={editSectionStudentCount}
-                              onChange={(e) => setEditSectionStudentCount(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                              placeholder="Student count"
-                            />
-                            <input
-                              type="text"
-                              value={editSectionDescription}
-                              onChange={(e) => setEditSectionDescription(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                              placeholder="Description (optional)"
-                            />
-                          </div>
-                                                  ) : (
-                            <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          {editingSection === section._id ? (
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Section Number
+                                </label>
+                                <input
+                                  type="number"
+                                  value={editSectionNumber}
+                                  onChange={(e) => setEditSectionNumber(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                                  min="1"
+                                  max="99"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Student Count
+                                </label>
+                                <input
+                                  type="number"
+                                  value={editSectionStudentCount}
+                                  onChange={(e) => setEditSectionStudentCount(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Accommodations
+                                </label>
+                                <div className="max-h-32 overflow-y-auto border border-gray-300 rounded p-2">
+                                  {ACCOMMODATIONS.map(option => (
+                                    <label key={option} className="flex items-center space-x-2 py-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={editSectionAccommodations.includes(option)}
+                                        onChange={e => {
+                                          if (e.target.checked) {
+                                            setEditSectionAccommodations([...editSectionAccommodations, option])
+                                          } else {
+                                            setEditSectionAccommodations(editSectionAccommodations.filter(a => a !== option))
+                                          }
+                                        }}
+                                        className="h-3 w-3 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                      />
+                                      <span className="text-xs text-gray-900">{option}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Notes
+                                </label>
+                                <textarea
+                                  value={editSectionNotes}
+                                  onChange={(e) => setEditSectionNotes(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                                  rows="2"
+                                  placeholder="Add notes (optional)"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
                               <h3 className="font-semibold text-gray-900">Section {section.number}</h3>
                               <p className="text-sm text-gray-600">{section.studentCount} students</p>
-                              {section.description && (
-                                <p className="text-xs text-gray-500 mt-1">{section.description}</p>
+                              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                <div className="mt-1">
+                                  <span className="text-xs font-medium text-purple-700">Accommodations:</span>
+                                  <ul className="list-disc list-inside text-xs text-gray-700 mt-1">
+                                    {section.accommodations.map(acc => (
+                                      <li key={acc}>{acc}</li>
+                                    ))}
+                                  </ul>
+                                </div>
                               )}
-                            </div>
+                              {section.notes && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  <span className="font-medium">Notes:</span> {section.notes}
+                                </div>
+                              )}
+                            </>
                           )}
-                        
+                        </div>
                         <div className="flex space-x-2">
                           {editingSection === section._id ? (
                             <>
@@ -989,14 +1087,39 @@ function SessionDetail({ onBack }) {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description (Optional)
+                  Accommodations (Select all that apply)
+                </label>
+                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                  {ACCOMMODATIONS.map(option => (
+                    <label key={option} className="flex items-center space-x-2 py-1 px-2 hover:bg-gray-50 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedAccommodations.includes(option)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setSelectedAccommodations([...selectedAccommodations, option])
+                          } else {
+                            setSelectedAccommodations(selectedAccommodations.filter(a => a !== option))
+                          }
+                        }}
+                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                      />
+                      <span className="text-sm text-gray-900">{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
                 </label>
                 <textarea
-                  value={newSectionDescription}
-                  onChange={(e) => setNewSectionDescription(e.target.value)}
+                  value={newSectionNotes}
+                  onChange={e => setNewSectionNotes(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="e.g., 2x time, language accommodations, etc."
-                  rows="3"
+                  placeholder="Add any notes for this section (optional)"
+                  rows="2"
                 />
               </div>
               
@@ -1006,7 +1129,8 @@ function SessionDetail({ onBack }) {
                     setShowAddSectionModal(false)
                     setNewSectionNumber('')
                     setNewSectionStudentCount('1')
-                    setNewSectionDescription('')
+                    setSelectedAccommodations([])
+                    setNewSectionNotes('')
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >

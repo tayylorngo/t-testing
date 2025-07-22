@@ -34,6 +34,16 @@ function SessionView({ onBack }) {
     try {
       setIsLoading(true)
       const sessionData = await testingAPI.getSession(sessionId)
+      console.log('SessionView - Session data received:', sessionData.session)
+      console.log('SessionView - Rooms with sections:', sessionData.session.rooms?.map(room => ({
+        name: room.name,
+        sections: room.sections?.map(section => ({
+          number: section.number,
+          studentCount: section.studentCount,
+          accommodations: section.accommodations,
+          notes: section.notes
+        }))
+      })))
       setSession(sessionData.session)
     } catch (error) {
       console.error('Error fetching session data:', error)
@@ -234,6 +244,8 @@ function SessionView({ onBack }) {
     if (!sections || sections.length === 0) return 0
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
   }
+
+
 
   const extractRoomNumber = (roomName) => {
     const match = roomName.match(/\d+/)
@@ -638,9 +650,21 @@ function SessionView({ onBack }) {
                               Section {section.number} ({section.studentCount} students)
                             </span>
                           </div>
-                          {section.description && (
+                          {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {section.accommodations.map((acc, index) => (
+                                  <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                                    {acc}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {section.notes && (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              {section.description}
+                              <span className="font-medium">Notes:</span> {section.notes}
                             </div>
                           )}
                         </div>
@@ -650,6 +674,8 @@ function SessionView({ onBack }) {
                   <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
                 )}
               </div>
+
+
 
               {/* Estimated Time - Large Text */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
