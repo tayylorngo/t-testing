@@ -674,7 +674,7 @@ function SessionView({ onBack }) {
 
       {/* Add Supply Modal */}
       {showAddSupplyModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Supply to {selectedRoom.name}</h2>
             
@@ -717,7 +717,7 @@ function SessionView({ onBack }) {
 
       {/* Move Students Modal */}
       {showMoveStudentsModal && moveFromRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Move Students</h2>
             

@@ -30,6 +30,11 @@ function SessionDetail({ onBack }) {
     endTime: '',
     status: ''
   })
+  // Add state for selected sections and rooms
+  const [selectedSectionIds, setSelectedSectionIds] = useState([])
+  const [selectedRoomIds, setSelectedRoomIds] = useState([])
+  const [roomSortDescending, setRoomSortDescending] = useState(false)
+  const [sectionSortDescending, setSectionSortDescending] = useState(false)
 
   useEffect(() => {
     fetchSessionData()
@@ -83,38 +88,52 @@ function SessionDetail({ onBack }) {
 
   const handleAddSection = async () => {
     if (!newSectionNumber.trim() || !newSectionStudentCount.trim()) return
-    
-    const sectionNum = parseInt(newSectionNumber)
-    const studentCount = parseInt(newSectionStudentCount)
-    
-    if (isNaN(sectionNum) || sectionNum < 1 || sectionNum > 99) {
-      alert('Section number must be between 1 and 99')
+    const input = newSectionNumber.trim()
+    let numbers = []
+    if (/^\d+$/.test(input)) {
+      // Single number
+      numbers = [parseInt(input)]
+    } else if (/^(\d+)-(\d+)$/.test(input)) {
+      // Range
+      const [, start, end] = input.match(/(\d+)-(\d+)/)
+      const s = parseInt(start)
+      const e = parseInt(end)
+      if (s > e) {
+        alert('Start of range must be less than or equal to end.')
+        return
+      }
+      numbers = Array.from({length: e - s + 1}, (_, i) => s + i)
+    } else {
+      alert('Please enter a valid section number or range (e.g., 25 or 20-30).')
       return
     }
-    
+    // Validate all numbers
+    if (numbers.some(n => isNaN(n) || n < 1 || n > 99)) {
+      alert('All section numbers must be between 1 and 99.')
+      return
+    }
+    const studentCount = parseInt(newSectionStudentCount)
     if (isNaN(studentCount) || studentCount < 1) {
       alert('Student count must be at least 1')
       return
     }
-    
     try {
-      // Create a new section
-      const sectionResponse = await testingAPI.createSection({
-        number: sectionNum,
-        studentCount: studentCount,
-        description: newSectionDescription.trim()
-      })
-      
-      // Add the new section to the session
-      await testingAPI.addSectionToSession(sessionId, sectionResponse.section._id)
-      
+      for (const sectionNum of numbers) {
+        const sectionResponse = await testingAPI.createSection({
+          number: sectionNum,
+          studentCount: studentCount,
+          description: newSectionDescription.trim()
+        })
+        await testingAPI.addSectionToSession(sessionId, sectionResponse.section._id)
+      }
       setShowAddSectionModal(false)
       setNewSectionNumber('')
       setNewSectionStudentCount('1')
       setNewSectionDescription('')
       fetchSessionData() // Refresh data
     } catch (error) {
-      console.error('Error adding section to session:', error)
+      console.error('Error adding section(s) to session:', error)
+      alert('Error adding section(s) to session. Some sections may have been created.')
     }
   }
 
@@ -257,6 +276,33 @@ function SessionDetail({ onBack }) {
     }
   }
 
+  // Batch delete handlers
+  const handleDeleteSelectedSections = async () => {
+    if (selectedSectionIds.length === 0) return
+    if (!window.confirm(`Are you sure you want to delete ${selectedSectionIds.length} section(s)? This cannot be undone.`)) return
+    try {
+      for (const sectionId of selectedSectionIds) {
+        await testingAPI.removeSectionFromSession(sessionId, sectionId)
+      }
+      setSelectedSectionIds([])
+      fetchSessionData()
+    } catch {
+      alert('Error deleting selected sections.')
+    }
+  }
+  const handleDeleteSelectedRooms = async () => {
+    if (selectedRoomIds.length === 0) return
+    if (!window.confirm(`Are you sure you want to delete ${selectedRoomIds.length} room(s)? This cannot be undone.`)) return
+    try {
+      for (const roomId of selectedRoomIds) {
+        await testingAPI.removeRoomFromSession(sessionId, roomId)
+      }
+      setSelectedRoomIds([])
+      fetchSessionData()
+    } catch {
+      alert('Error deleting selected rooms.')
+    }
+  }
 
 
   const getStatusColor = (status) => {
@@ -267,6 +313,17 @@ function SessionDetail({ onBack }) {
       case 'cancelled': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  // Helper to extract room number and name for sorting
+  const getRoomSortKey = (roomName) => {
+    const match = roomName.match(/(\d+)([A-Za-z]*)/)
+    if (match) {
+      const number = parseInt(match[1])
+      const letter = match[2] || ''
+      return { number, letter, full: roomName }
+    }
+    return { number: 999, letter: '', full: roomName }
   }
 
   if (isLoading) {
@@ -432,21 +489,70 @@ function SessionDetail({ onBack }) {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Session Rooms</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDeleteSelectedRooms}
+                    disabled={selectedRoomIds.length === 0}
+                    className={`bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 ${selectedRoomIds.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Delete Selected
+                  </button>
+                  <button
+                    onClick={() => setShowAddRoomModal(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Room
+                  </button>
+                </div>
+              </div>
+              {/* Room Sort Button */}
+              <div className="mb-4">
                 <button
-                  onClick={() => setShowAddRoomModal(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                  onClick={() => setRoomSortDescending(v => !v)}
+                  className="px-2 py-1 text-xs font-medium rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Room
+                  Sort: {roomSortDescending ? '↓' : '↑'}
                 </button>
               </div>
 
               {session.rooms && session.rooms.length > 0 ? (
                 <div className="space-y-4">
-                  {session.rooms.map((room) => (
+                  {[...session.rooms].sort((a, b) => {
+                    const aKey = getRoomSortKey(a.name)
+                    const bKey = getRoomSortKey(b.name)
+                    // If both have numbers, sort by number first, then by letter
+                    if (aKey.number !== 999 && bKey.number !== 999) {
+                      if (aKey.number !== bKey.number) {
+                        return roomSortDescending ? bKey.number - aKey.number : aKey.number - bKey.number
+                      }
+                      // Same number, sort by letter
+                      return roomSortDescending ? bKey.letter.localeCompare(aKey.letter) : aKey.letter.localeCompare(bKey.letter)
+                    }
+                    // If one has number and other doesn't, numbers come first
+                    if (aKey.number !== 999 && bKey.number === 999) return -1
+                    if (aKey.number === 999 && bKey.number !== 999) return 1
+                    // If neither has numbers, sort alphabetically
+                    return roomSortDescending ? bKey.full.localeCompare(aKey.full) : aKey.full.localeCompare(bKey.full)
+                  }).map((room) => (
                     <div key={room._id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center mb-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedRoomIds.includes(room._id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedRoomIds([...selectedRoomIds, room._id])
+                            } else {
+                              setSelectedRoomIds(selectedRoomIds.filter(id => id !== room._id))
+                            }
+                          }}
+                          className="mr-2 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                        />
+                        <span className="text-xs text-gray-500">Select</span>
+                      </div>
                       <div className="flex justify-between items-start mb-3">
                         {editingRoom === room._id ? (
                           <div className="flex-1 mr-3">
@@ -590,21 +696,54 @@ function SessionDetail({ onBack }) {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Session Sections</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDeleteSelectedSections}
+                    disabled={selectedSectionIds.length === 0}
+                    className={`bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 ${selectedSectionIds.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Delete Selected
+                  </button>
+                  <button
+                    onClick={() => setShowAddSectionModal(true)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Section
+                  </button>
+                </div>
+              </div>
+              {/* Section Sort Button */}
+              <div className="mb-4">
                 <button
-                  onClick={() => setShowAddSectionModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                  onClick={() => setSectionSortDescending(v => !v)}
+                  className="px-2 py-1 text-xs font-medium rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Section
+                  Sort: {sectionSortDescending ? '↓' : '↑'}
                 </button>
               </div>
 
               {session.sections && session.sections.length > 0 ? (
                 <div className="space-y-4">
-                  {session.sections.map((section) => (
+                  {[...session.sections].sort((a, b) => sectionSortDescending ? b.number - a.number : a.number - b.number).map((section) => (
                     <div key={section._id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center mb-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedSectionIds.includes(section._id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedSectionIds([...selectedSectionIds, section._id])
+                            } else {
+                              setSelectedSectionIds(selectedSectionIds.filter(id => id !== section._id))
+                            }
+                          }}
+                          className="mr-2 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                        />
+                        <span className="text-xs text-gray-500">Select</span>
+                      </div>
                       <div className="flex justify-between items-start mb-3">
                         {editingSection === section._id ? (
                           <div className="flex-1 mr-3 space-y-2">
@@ -715,7 +854,7 @@ function SessionDetail({ onBack }) {
 
       {/* Add Room Modal */}
       {showAddRoomModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Room</h2>
             
@@ -815,23 +954,21 @@ function SessionDetail({ onBack }) {
 
       {/* Add Section Modal */}
       {showAddSectionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Section</h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Section Number (1-99)
+                  Section Number(s) (1-99 or 20-30)
                 </label>
                 <input
-                  type="number"
-                  min="1"
-                  max="99"
+                  type="text"
                   value={newSectionNumber}
                   onChange={(e) => setNewSectionNumber(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Enter section number"
+                  placeholder="e.g. 25 or 20-30"
                   autoFocus
                 />
               </div>
@@ -880,7 +1017,7 @@ function SessionDetail({ onBack }) {
                   disabled={!newSectionNumber.trim() || !newSectionStudentCount.trim()}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Section
+                  Create Section(s)
                 </button>
               </div>
             </div>
@@ -890,7 +1027,7 @@ function SessionDetail({ onBack }) {
 
       {/* Add Section to Room Modal */}
       {showAddSectionToRoomModal && selectedRoomForSection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Section to Room</h2>
             
