@@ -8,13 +8,20 @@ function SessionView({ onBack }) {
   const [isLoading, setIsLoading] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(null)
   const [showAddSupplyModal, setShowAddSupplyModal] = useState(false)
+  const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
   const [showMoveStudentsModal, setShowMoveStudentsModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
-  const [newSupply, setNewSupply] = useState('')
+  const [newSupplyQuantity, setNewSupplyQuantity] = useState(1)
+  const [selectedPresetSupply, setSelectedPresetSupply] = useState('')
+  const [editingSupply, setEditingSupply] = useState(null)
+  const [editSupplyQuantity, setEditSupplyQuantity] = useState(1)
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   const [sortDescending, setSortDescending] = useState(false)
   const [roomTimeMultipliers, setRoomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
+
+  // Preset supplies options
+  const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
 
   useEffect(() => {
     fetchSessionData()
@@ -88,14 +95,26 @@ function SessionView({ onBack }) {
       console.log('Room status update response:', response)
       
       // Update local state immediately
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === roomId 
-            ? { ...room, status: 'completed' }
-            : room
-        )
-      }))
+      setSession(prevSession => {
+        const updatedSession = {
+          ...prevSession,
+          rooms: prevSession.rooms.map(room => 
+            room._id === roomId 
+              ? { ...room, status: 'completed' }
+              : room
+          )
+        }
+        
+        // Check if all rooms are completed and update session status
+        const allRoomsCompleted = updatedSession.rooms.every(room => room.status === 'completed')
+        if (allRoomsCompleted && updatedSession.status !== 'completed') {
+          console.log('All rooms completed, updating session status to completed')
+          testingAPI.updateSession(sessionId, { status: 'completed' })
+          updatedSession.status = 'completed'
+        }
+        
+        return updatedSession
+      })
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
@@ -106,25 +125,37 @@ function SessionView({ onBack }) {
       await testingAPI.updateRoomStatus(roomId, 'active')
       
       // Update local state immediately
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === roomId 
-            ? { ...room, status: 'active' }
-            : room
-        )
-      }))
+      setSession(prevSession => {
+        const updatedSession = {
+          ...prevSession,
+          rooms: prevSession.rooms.map(room => 
+            room._id === roomId 
+              ? { ...room, status: 'active' }
+              : room
+          )
+        }
+        
+        // If session was completed but now a room is active, change session back to active
+        if (updatedSession.status === 'completed') {
+          console.log('Room marked incomplete, updating session status to active')
+          testingAPI.updateSession(sessionId, { status: 'active' })
+          updatedSession.status = 'active'
+        }
+        
+        return updatedSession
+      })
     } catch (error) {
       console.error('Error marking room incomplete:', error)
     }
   }
 
   const handleAddSupply = async () => {
-    if (!newSupply.trim() || !selectedRoom) return
+    if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
     
     try {
       const currentSupplies = selectedRoom.supplies || []
-      const updatedSupplies = [...currentSupplies, newSupply.trim()]
+      const supplyWithQuantity = `${selectedPresetSupply} (${newSupplyQuantity})`
+      const updatedSupplies = [...currentSupplies, supplyWithQuantity]
       
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
       
@@ -139,7 +170,8 @@ function SessionView({ onBack }) {
       }))
       
       setShowAddSupplyModal(false)
-      setNewSupply('')
+      setSelectedPresetSupply('')
+      setNewSupplyQuantity(1)
       setSelectedRoom(null)
     } catch (error) {
       console.error('Error adding supply:', error)
@@ -164,6 +196,40 @@ function SessionView({ onBack }) {
       }))
     } catch (error) {
       console.error('Error removing supply:', error)
+    }
+  }
+
+  const handleEditSupply = async () => {
+    if (!editingSupply || !selectedRoom || editSupplyQuantity < 1) return
+    
+    try {
+      const room = session.rooms.find(r => r._id === selectedRoom._id)
+      const updatedSupplies = room.supplies.map(supply => {
+        if (supply === editingSupply.original) {
+          const supplyName = editingSupply.name
+          return `${supplyName} (${editSupplyQuantity})`
+        }
+        return supply
+      })
+      
+      await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
+      
+      // Update local state immediately
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(room => 
+          room._id === selectedRoom._id 
+            ? { ...room, supplies: updatedSupplies }
+            : room
+        )
+      }))
+      
+      setShowEditSupplyModal(false)
+      setEditingSupply(null)
+      setEditSupplyQuantity(1)
+      setSelectedRoom(null)
+    } catch (error) {
+      console.error('Error editing supply:', error)
     }
   }
 
@@ -411,8 +477,7 @@ function SessionView({ onBack }) {
     switch (status) {
       case 'completed': return 'bg-green-500'
       case 'active': return 'bg-blue-500'
-      case 'planned': return 'bg-gray-500'
-      default: return 'bg-gray-500'
+      default: return 'bg-blue-500' // Default to active (in progress)
     }
   }
 
@@ -420,8 +485,7 @@ function SessionView({ onBack }) {
     switch (status) {
       case 'completed': return 'Completed'
       case 'active': return 'In Progress'
-      case 'planned': return 'Planned'
-      default: return 'Unknown'
+      default: return 'In Progress' // Default to active (in progress)
     }
   }
 
@@ -807,12 +871,35 @@ function SessionView({ onBack }) {
                     {room.supplies.map((supply, index) => (
                       <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
                         <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
-                        <button
-                          onClick={() => handleRemoveSupply(room._id, supply)}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          ×
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              // Parse supply name and quantity for editing
+                              const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
+                              const supplyName = supplyMatch ? supplyMatch[1] : supply
+                              const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
+                              
+                              setEditingSupply({
+                                original: supply,
+                                name: supplyName
+                              })
+                              setEditSupplyQuantity(quantity)
+                              setSelectedRoom(room)
+                              setShowEditSupplyModal(true)
+                            }}
+                            className="text-blue-500 hover:text-blue-700 text-sm"
+                            title="Edit Supply"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            onClick={() => handleRemoveSupply(room._id, supply)}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                            title="Remove Supply"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -890,16 +977,34 @@ function SessionView({ onBack }) {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Supply to {selectedRoom.name}</h2>
             
             <div className="space-y-4">
+              {/* Preset Supplies */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Supply Name
+                  Select Supply
+                </label>
+                <select
+                  value={selectedPresetSupply}
+                  onChange={(e) => setSelectedPresetSupply(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Choose a supply</option>
+                  {PRESET_SUPPLIES.map(supply => (
+                    <option key={supply} value={supply}>{supply}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Quantity
                 </label>
                 <input
-                  type="text"
-                  value={newSupply}
-                  onChange={(e) => setNewSupply(e.target.value)}
+                  type="number"
+                  min="1"
+                  value={newSupplyQuantity}
+                  onChange={(e) => setNewSupplyQuantity(parseInt(e.target.value) || 1)}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter supply name"
                 />
               </div>
               
@@ -907,7 +1012,8 @@ function SessionView({ onBack }) {
                 <button
                   onClick={() => {
                     setShowAddSupplyModal(false)
-                    setNewSupply('')
+                    setSelectedPresetSupply('')
+                    setNewSupplyQuantity(1)
                     setSelectedRoom(null)
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
@@ -916,9 +1022,66 @@ function SessionView({ onBack }) {
                 </button>
                 <button
                   onClick={handleAddSupply}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  disabled={!selectedPresetSupply}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Add Supply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Supply Modal */}
+      {showEditSupplyModal && selectedRoom && editingSupply && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supply in {selectedRoom.name}</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Supply Name
+                </label>
+                <input
+                  type="text"
+                  value={editingSupply.name}
+                  onChange={(e) => setEditingSupply({...editingSupply, name: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editSupplyQuantity}
+                  onChange={(e) => setEditSupplyQuantity(parseInt(e.target.value) || 1)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowEditSupplyModal(false)
+                    setEditingSupply(null)
+                    setEditSupplyQuantity(1)
+                    setSelectedRoom(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSupply}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Update Supply
                 </button>
               </div>
             </div>

@@ -114,7 +114,7 @@ const roomSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['planned', 'active', 'completed'],
-    default: 'planned'
+    default: 'active'
   },
   createdAt: {
     type: Date,
@@ -165,7 +165,7 @@ const sessionSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['planned', 'active', 'completed', 'cancelled'],
-    default: 'planned'
+    default: 'active'
   },
   createdAt: {
     type: Date,
@@ -222,7 +222,7 @@ const initializeDemoData = async () => {
       await Room.insertMany([
         { name: 'Room 101', status: 'active', supplies: ['pencils', 'paper'] },
         { name: 'Room 102', status: 'completed', supplies: [] },
-        { name: 'Room 103', status: 'planned', supplies: ['calculators'] }
+        { name: 'Room 103', status: 'active', supplies: ['calculators'] }
       ]);
       console.log('✅ Demo rooms created');
     }
