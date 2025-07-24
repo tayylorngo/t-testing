@@ -205,12 +205,12 @@ function SessionDetail({ onBack }) {
   }
 
   const handleRemoveSection = async (sectionId) => {
-    if (window.confirm('Are you sure you want to remove this section from the session?')) {
+    if (window.confirm('Are you sure you want to delete this section? This will remove it from all rooms and sessions.')) {
       try {
-        await testingAPI.removeSectionFromSession(sessionId, sectionId)
+        await testingAPI.deleteSection(sectionId)
         fetchSessionData() // Refresh data
       } catch (error) {
-        console.error('Error removing section from session:', error)
+        console.error('Error deleting section:', error)
       }
     }
   }
@@ -323,10 +323,10 @@ function SessionDetail({ onBack }) {
   // Batch delete handlers
   const handleDeleteSelectedSections = async () => {
     if (selectedSectionIds.length === 0) return
-    if (!window.confirm(`Are you sure you want to delete ${selectedSectionIds.length} section(s)? This cannot be undone.`)) return
+    if (!window.confirm(`Are you sure you want to delete ${selectedSectionIds.length} section(s)? This will remove them from all rooms and sessions.`)) return
     try {
       for (const sectionId of selectedSectionIds) {
-        await testingAPI.removeSectionFromSession(sessionId, sectionId)
+        await testingAPI.deleteSection(sectionId)
       }
       setSelectedSectionIds([])
       fetchSessionData()

@@ -246,6 +246,19 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Delete section completely (removes from all rooms and sessions)
+  deleteSection: async (sectionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sections/${sectionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
   // Get all testing rooms
   getRooms: async () => {
     const token = localStorage.getItem('authToken');

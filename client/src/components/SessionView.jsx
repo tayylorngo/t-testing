@@ -12,8 +12,7 @@ function SessionView({ onBack }) {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [newSupply, setNewSupply] = useState('')
   const [moveFromRoom, setMoveFromRoom] = useState(null)
-  const [moveToRoom, setMoveToRoom] = useState(null)
-  const [selectedSections, setSelectedSections] = useState([])
+  const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   const [sortDescending, setSortDescending] = useState(false)
   const [roomTimeMultipliers, setRoomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
 
@@ -169,48 +168,166 @@ function SessionView({ onBack }) {
   }
 
   const handleMoveStudents = async () => {
-    if (!moveFromRoom || !moveToRoom || selectedSections.length === 0) return
+    if (!moveFromRoom || Object.keys(studentMoveData).length === 0) return
     
     try {
-      // Remove sections from source room
-      for (const sectionId of selectedSections) {
-        await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
-      }
+      console.log('Starting student move process...')
+      console.log('Student move data:', studentMoveData)
       
-      // Add sections to destination room
-      for (const sectionId of selectedSections) {
-        await testingAPI.addSectionToRoom(moveToRoom._id, sectionId)
-      }
-      
-      // Update local state immediately
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: prevSession.rooms.map(room => {
-          if (room._id === moveFromRoom._id) {
-            return {
-              ...room,
-              sections: room.sections.filter(section => !selectedSections.includes(section._id))
-            }
-          } else if (room._id === moveToRoom._id) {
-            // Find the sections that were moved
-            const movedSections = moveFromRoom.sections.filter(section => 
-              selectedSections.includes(section._id)
-            )
-            return {
-              ...room,
-              sections: [...room.sections, ...movedSections]
+      // Process each section that has students to move
+      for (const [sectionId, moveInfo] of Object.entries(studentMoveData)) {
+        if (moveInfo.studentsToMove > 0 && moveInfo.destinationRoom) {
+          console.log(`Processing section ${sectionId}:`, moveInfo)
+          
+          const section = moveFromRoom.sections.find(s => s._id === sectionId)
+          if (section && moveInfo.studentsToMove <= section.studentCount) {
+            console.log(`Moving ${moveInfo.studentsToMove} students from section ${section.number}`)
+            
+            // Check if moving to the same room
+            if (moveInfo.destinationRoom === moveFromRoom._id) {
+              // If moving within the same room, find a section with the same number and merge
+              console.log('Moving within the same room - looking for section to merge into')
+              
+              // Find a section with the same number in the same room (excluding current section)
+              const targetSection = moveFromRoom.sections.find(s => s.number === section.number && s._id !== sectionId)
+              
+              if (targetSection) {
+                // Merge students into the existing section
+                const newTotalStudents = targetSection.studentCount + moveInfo.studentsToMove
+                await testingAPI.updateSection(targetSection._id, { studentCount: newTotalStudents })
+                
+                // Remove the current section from the room (since we merged its students)
+                await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
+              } else {
+                // No matching section found, create a new one
+                console.log('No matching section found, creating new section in same room')
+                
+                // Find a unique section number for the destination room (same room)
+                let newSectionNumber = section.number
+                const existingNumbers = moveFromRoom.sections?.map(s => s.number) || []
+                let counter = 1
+                while (existingNumbers.includes(newSectionNumber)) {
+                  newSectionNumber = section.number + counter
+                  counter++
+                }
+                
+                console.log(`Using section number ${newSectionNumber} for same room (original was ${section.number})`)
+                
+                // Create a new section in the same room
+                const newSectionData = {
+                  number: newSectionNumber,
+                  studentCount: moveInfo.studentsToMove,
+                  accommodations: section.accommodations || [],
+                  notes: section.notes || ''
+                }
+                
+                console.log('Creating new section in same room with data:', newSectionData)
+                
+                // Create the new section
+                const newSectionResponse = await testingAPI.createSection(newSectionData)
+                console.log('New section created in same room:', newSectionResponse)
+                
+                // Add the new section to the same room
+                await testingAPI.addSectionToRoom(moveFromRoom._id, newSectionResponse.section._id)
+                console.log(`Added section to same room ${moveFromRoom._id}`)
+                
+                // Update the original section in the source room
+                const newStudentCount = section.studentCount - moveInfo.studentsToMove
+                
+                if (newStudentCount === 0) {
+                  // If all students are moved, remove the section from the room
+                  console.log(`All students moved from section ${sectionId}, removing section from room`)
+                  await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
+                } else {
+                  // Update the section with the remaining students
+                  await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
+                  console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
+                }
+              }
+            } else {
+              // Moving to a different room
+              console.log('Moving to different room')
+              
+              // Find the destination room to check existing section numbers
+              const destinationRoom = session.rooms.find(r => r._id === moveInfo.destinationRoom)
+              if (!destinationRoom) {
+                console.error('Destination room not found')
+                continue
+              }
+              
+              // Check if destination room already has a section with the same number
+              const existingSection = destinationRoom.sections?.find(s => s.number === section.number)
+              
+              if (existingSection) {
+                // Merge students into the existing section
+                console.log(`Merging ${moveInfo.studentsToMove} students into existing section ${existingSection.number} in destination room`)
+                const newTotalStudents = existingSection.studentCount + moveInfo.studentsToMove
+                await testingAPI.updateSection(existingSection._id, { studentCount: newTotalStudents })
+                console.log(`Updated existing section ${existingSection._id} to have ${newTotalStudents} students`)
+              } else {
+                // Create a new section in the destination room
+                console.log('Creating new section in destination room')
+                
+                // Find a unique section number for the destination room
+                let newSectionNumber = section.number
+                const existingNumbers = destinationRoom.sections?.map(s => s.number) || []
+                let counter = 1
+                while (existingNumbers.includes(newSectionNumber)) {
+                  newSectionNumber = section.number + counter
+                  counter++
+                }
+                
+                console.log(`Using section number ${newSectionNumber} for destination room (original was ${section.number})`)
+                
+                // Create a new section in the destination room
+                const newSectionData = {
+                  number: newSectionNumber,
+                  studentCount: moveInfo.studentsToMove,
+                  accommodations: section.accommodations || [],
+                  notes: section.notes || ''
+                }
+                
+                console.log('Creating new section with data:', newSectionData)
+                
+                // Create the new section
+                const newSectionResponse = await testingAPI.createSection(newSectionData)
+                console.log('New section created:', newSectionResponse)
+                
+                // Add the new section to the destination room
+                await testingAPI.addSectionToRoom(moveInfo.destinationRoom, newSectionResponse.section._id)
+                console.log(`Added section to room ${moveInfo.destinationRoom}`)
+              }
+              
+              // Update the original section in the source room
+              const newStudentCount = section.studentCount - moveInfo.studentsToMove
+              
+              if (newStudentCount === 0) {
+                // If all students are moved, remove the section from the room
+                console.log(`All students moved from section ${sectionId}, removing section from room`)
+                await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
+              } else {
+                // Update the section with the remaining students
+                await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
+                console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
+              }
             }
           }
-          return room
-        })
-      }))
+        }
+      }
+      
+      console.log('All moves completed, refreshing session data...')
+      
+      // Refresh session data to get updated state
+      await fetchSessionData()
       
       setShowMoveStudentsModal(false)
       setMoveFromRoom(null)
-      setMoveToRoom(null)
-      setSelectedSections([])
+      setStudentMoveData({})
+      
+      console.log('Move students process completed successfully')
     } catch (error) {
       console.error('Error moving students:', error)
+      alert('Error moving students. Please try again.')
     }
   }
 
@@ -744,7 +861,7 @@ function SessionView({ onBack }) {
       {/* Move Students Modal */}
       {showMoveStudentsModal && moveFromRoom && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Move Students</h2>
             
             <div className="space-y-4">
@@ -757,63 +874,86 @@ function SessionView({ onBack }) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  To Room
-                </label>
-                <select
-                  value={moveToRoom?._id || ''}
-                  onChange={(e) => {
-                    const room = session.rooms.find(r => r._id === e.target.value)
-                    setMoveToRoom(room)
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="">Select destination room</option>
-                  {session.rooms
-                    .filter(room => room._id !== moveFromRoom._id)
-                    .map(room => (
-                      <option key={room._id} value={room._id}>
-                        {room.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
               {moveFromRoom.sections && moveFromRoom.sections.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Sections to Move
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select Students to Move
                   </label>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="space-y-4 max-h-60 overflow-y-auto">
                     {moveFromRoom.sections
                       .sort((a, b) => a.number - b.number)
                       .map((section) => (
-                      <label key={section._id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedSections.includes(section._id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSections([...selectedSections, section._id])
-                            } else {
-                              setSelectedSections(selectedSections.filter(id => id !== section._id))
-                            }
-                          }}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm text-gray-700">
-                            Section {section.number} ({section.studentCount} students)
-                          </div>
-                          {section.description && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {section.description}
+                        <div key={section._id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-white">
+                                Section {section.number} ({section.studentCount} students)
+                              </div>
+                              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                  Accommodations: {section.accommodations.join(', ')}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                Students to move from this section:
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={section.studentCount}
+                                value={studentMoveData[section._id]?.studentsToMove || 0}
+                                onChange={(e) => {
+                                  const studentsToMove = parseInt(e.target.value) || 0
+                                  setStudentMoveData(prev => ({
+                                    ...prev,
+                                    [section._id]: {
+                                      ...prev[section._id],
+                                      studentsToMove
+                                    }
+                                  }))
+                                }}
+                                className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white"
+                              />
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                (0-{section.studentCount})
+                              </span>
+                            </div>
+                            
+                            {(studentMoveData[section._id]?.studentsToMove || 0) > 0 && (
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                  Destination room:
+                                </label>
+                                <select
+                                  value={studentMoveData[section._id]?.destinationRoom || ''}
+                                  onChange={(e) => {
+                                    setStudentMoveData(prev => ({
+                                      ...prev,
+                                      [section._id]: {
+                                        ...prev[section._id],
+                                        destinationRoom: e.target.value
+                                      }
+                                    }))
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white"
+                                >
+                                  <option value="">Select destination room</option>
+                                  {session.rooms.map(room => (
+                                    <option key={room._id} value={room._id}>
+                                      {room.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </label>
-                    ))}
+                      ))}
                   </div>
                 </div>
               )}
@@ -823,8 +963,7 @@ function SessionView({ onBack }) {
                   onClick={() => {
                     setShowMoveStudentsModal(false)
                     setMoveFromRoom(null)
-                    setMoveToRoom(null)
-                    setSelectedSections([])
+                    setStudentMoveData({})
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
@@ -832,7 +971,10 @@ function SessionView({ onBack }) {
                 </button>
                 <button
                   onClick={handleMoveStudents}
-                  disabled={!moveToRoom || selectedSections.length === 0}
+                  disabled={Object.keys(studentMoveData).filter(key => 
+                    studentMoveData[key].studentsToMove > 0 && 
+                    studentMoveData[key].destinationRoom
+                  ).length === 0}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Move Students

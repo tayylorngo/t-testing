@@ -1019,6 +1019,39 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete section completely (removes from all rooms and sessions)
+app.delete('/api/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if section exists
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
+
+    // Remove section from all rooms
+    await Room.updateMany(
+      { sections: id },
+      { $pull: { sections: id } }
+    );
+
+    // Remove section from all sessions
+    await Session.updateMany(
+      { sections: id },
+      { $pull: { sections: id } }
+    );
+
+    // Delete the section from the database
+    await Section.findByIdAndDelete(id);
+
+    res.json({ message: 'Section deleted successfully' });
+  } catch (error) {
+    console.error('Delete section error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Remove section from room
 app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (req, res) => {
   try {
