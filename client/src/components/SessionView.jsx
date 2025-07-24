@@ -315,10 +315,78 @@ function SessionView({ onBack }) {
         }
       }
       
-      console.log('All moves completed, refreshing session data...')
+      console.log('All moves completed, updating local state...')
       
-      // Refresh session data to get updated state
-      await fetchSessionData()
+      // Update local state to reflect the changes
+      setSession(prevSession => {
+        const updatedSession = { ...prevSession }
+        
+        // Update rooms based on the moves that were made
+        updatedSession.rooms = updatedSession.rooms.map(room => {
+          // Check if this room was involved in any moves
+          const wasSourceRoom = room._id === moveFromRoom._id
+          const wasDestinationRoom = Object.values(studentMoveData).some(moveInfo => 
+            moveInfo.destinationRoom === room._id
+          )
+          
+          if (wasSourceRoom || wasDestinationRoom) {
+            // This room was involved in moves, we need to update its sections
+            const updatedRoom = { ...room }
+            
+            // For source room: reduce student counts or remove sections
+            if (wasSourceRoom) {
+              updatedRoom.sections = room.sections.map(section => {
+                const moveInfo = studentMoveData[section._id]
+                if (moveInfo && moveInfo.studentsToMove > 0) {
+                  const newStudentCount = section.studentCount - moveInfo.studentsToMove
+                  if (newStudentCount === 0) {
+                    return null // Remove this section
+                  } else {
+                    return { ...section, studentCount: newStudentCount }
+                  }
+                }
+                return section
+              }).filter(Boolean) // Remove null sections
+            }
+            
+            // For destination room: add new sections or update existing ones
+            if (wasDestinationRoom) {
+              // Add new sections that were created
+              const newSections = []
+              Object.entries(studentMoveData).forEach(([sectionId, moveInfo]) => {
+                if (moveInfo.destinationRoom === room._id && moveInfo.studentsToMove > 0) {
+                  const sourceSection = moveFromRoom.sections.find(s => s._id === sectionId)
+                  if (sourceSection) {
+                    // Check if section with same number already exists
+                    const existingSection = room.sections.find(s => s.number === sourceSection.number)
+                    if (existingSection) {
+                      // Update existing section
+                      existingSection.studentCount += moveInfo.studentsToMove
+                    } else {
+                      // Add new section
+                      newSections.push({
+                        _id: `temp_${Date.now()}_${Math.random()}`, // Temporary ID
+                        number: sourceSection.number,
+                        studentCount: moveInfo.studentsToMove,
+                        accommodations: sourceSection.accommodations || [],
+                        notes: sourceSection.notes || ''
+                      })
+                    }
+                  }
+                }
+              })
+              
+              updatedRoom.sections = [...room.sections, ...newSections]
+            }
+            
+            return updatedRoom
+          }
+          
+          return room
+        })
+        
+        return updatedSession
+      })
       
       setShowMoveStudentsModal(false)
       setMoveFromRoom(null)
@@ -943,11 +1011,13 @@ function SessionView({ onBack }) {
                                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white"
                                 >
                                   <option value="">Select destination room</option>
-                                  {session.rooms.map(room => (
-                                    <option key={room._id} value={room._id}>
-                                      {room.name}
-                                    </option>
-                                  ))}
+                                  {session.rooms
+                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                    .map(room => (
+                                      <option key={room._id} value={room._id}>
+                                        {room.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                             )}
