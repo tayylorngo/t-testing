@@ -15,9 +15,7 @@ function SessionDetail({ onBack }) {
   const [selectedRoomForSection, setSelectedRoomForSection] = useState(null)
   const [availableSections, setAvailableSections] = useState([])
   const [selectedSectionsForRoom, setSelectedSectionsForRoom] = useState([])
-  const [editingRoom, setEditingRoom] = useState(null)
   const [editRoomName, setEditRoomName] = useState('')
-  const [editingSection, setEditingSection] = useState(null)
   const [editSectionNumber, setEditSectionNumber] = useState('')
   const [editSectionStudentCount, setEditSectionStudentCount] = useState('')
   const [sessionUpdates, setSessionUpdates] = useState({
@@ -60,6 +58,18 @@ function SessionDetail({ onBack }) {
   // Add state for editing accommodations and notes
   const [editSectionAccommodations, setEditSectionAccommodations] = useState([])
   const [editSectionNotes, setEditSectionNotes] = useState('')
+  
+  // Custom confirm delete modals
+  const [showDeleteRoomModal, setShowDeleteRoomModal] = useState(false)
+  const [showDeleteSectionModal, setShowDeleteSectionModal] = useState(false)
+  const [showDeleteSelectedSectionsModal, setShowDeleteSelectedSectionsModal] = useState(false)
+  const [showDeleteSelectedRoomsModal, setShowDeleteSelectedRoomsModal] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState(null)
+  
+  // Custom edit modals
+  const [showEditRoomModal, setShowEditRoomModal] = useState(false)
+  const [showEditSectionModal, setShowEditSectionModal] = useState(false)
+  const [itemToEdit, setItemToEdit] = useState(null)
 
   useEffect(() => {
     fetchSessionData()
@@ -194,24 +204,49 @@ function SessionDetail({ onBack }) {
   }
 
   const handleRemoveRoom = async (roomId) => {
-    if (window.confirm('Are you sure you want to remove this room from the session?')) {
-      try {
-        await testingAPI.removeRoomFromSession(sessionId, roomId)
-        fetchSessionData() // Refresh data
-      } catch (error) {
-        console.error('Error removing room from session:', error)
-      }
+    const room = session.rooms.find(r => r._id === roomId)
+    setItemToDelete({ type: 'room', id: roomId, name: room?.name || 'Room' })
+    setShowDeleteRoomModal(true)
+  }
+
+  const confirmDeleteRoom = async () => {
+    if (!itemToDelete || itemToDelete.type !== 'room') return
+    
+    try {
+      await testingAPI.removeRoomFromSession(sessionId, itemToDelete.id)
+      setShowDeleteRoomModal(false)
+      setItemToDelete(null)
+      fetchSessionData() // Refresh data
+    } catch (error) {
+      console.error('Error removing room from session:', error)
     }
   }
 
   const handleRemoveSection = async (sectionId) => {
-    if (window.confirm('Are you sure you want to delete this section? This will remove it from all rooms and sessions.')) {
-      try {
-        await testingAPI.deleteSection(sectionId)
-        fetchSessionData() // Refresh data
-      } catch (error) {
-        console.error('Error deleting section:', error)
+    // Find the section in any room to get its number
+    let sectionNumber = 'Section'
+    for (const room of session.rooms) {
+      const section = room.sections?.find(s => s._id === sectionId)
+      if (section) {
+        sectionNumber = `Section ${section.number}`
+        break
       }
+    }
+    
+    setItemToDelete({ type: 'section', id: sectionId, name: sectionNumber })
+    setShowDeleteSectionModal(true)
+  }
+
+  const confirmDeleteSection = async () => {
+    if (!itemToDelete || itemToDelete.type !== 'section') return
+    
+    try {
+      await testingAPI.deleteSection(itemToDelete.id)
+      setShowDeleteSectionModal(false)
+      setItemToDelete(null)
+      fetchSessionData() // Refresh data
+    } catch (error) {
+      console.error('Error deleting section:', error)
     }
   }
 
@@ -227,16 +262,18 @@ function SessionDetail({ onBack }) {
   }
 
   const handleStartEditRoom = (room) => {
-    setEditingRoom(room._id)
+    setItemToEdit({ type: 'room', id: room._id, name: room.name })
     setEditRoomName(room.name)
+    setShowEditRoomModal(true)
   }
 
   const handleSaveRoomName = async () => {
-    if (!editRoomName.trim()) return
+    if (!editRoomName.trim() || !itemToEdit || itemToEdit.type !== 'room') return
     
     try {
-      await testingAPI.updateRoom(editingRoom, { name: editRoomName.trim() })
-      setEditingRoom(null)
+      await testingAPI.updateRoom(itemToEdit.id, { name: editRoomName.trim() })
+      setShowEditRoomModal(false)
+      setItemToEdit(null)
       setEditRoomName('')
       fetchSessionData() // Refresh data
     } catch (error) {
@@ -245,20 +282,29 @@ function SessionDetail({ onBack }) {
   }
 
   const handleCancelEdit = () => {
-    setEditingRoom(null)
+    setShowEditRoomModal(false)
+    setItemToEdit(null)
     setEditRoomName('')
   }
 
   const handleStartEditSection = (section) => {
-    setEditingSection(section._id)
+    setItemToEdit({ 
+      type: 'section', 
+      id: section._id, 
+      number: section.number,
+      studentCount: section.studentCount,
+      accommodations: Array.isArray(section.accommodations) ? section.accommodations : [],
+      notes: section.notes || ''
+    })
     setEditSectionNumber(section.number.toString())
     setEditSectionStudentCount(section.studentCount.toString())
     setEditSectionAccommodations(Array.isArray(section.accommodations) ? section.accommodations : [])
     setEditSectionNotes(section.notes || '')
+    setShowEditSectionModal(true)
   }
 
   const handleSaveSectionNumber = async () => {
-    if (!editSectionNumber.trim() || !editSectionStudentCount.trim()) return
+    if (!editSectionNumber.trim() || !editSectionStudentCount.trim() || !itemToEdit || itemToEdit.type !== 'section') return
     const sectionNum = parseInt(editSectionNumber)
     const studentCount = parseInt(editSectionStudentCount)
     if (isNaN(sectionNum) || sectionNum < 1 || sectionNum > 99) {
@@ -270,13 +316,14 @@ function SessionDetail({ onBack }) {
       return
     }
     try {
-      await testingAPI.updateSection(editingSection, {
+      await testingAPI.updateSection(itemToEdit.id, {
         number: sectionNum,
         studentCount: studentCount,
         accommodations: editSectionAccommodations,
         notes: editSectionNotes.trim(),
       })
-      setEditingSection(null)
+      setShowEditSectionModal(false)
+      setItemToEdit(null)
       setEditSectionNumber('')
       setEditSectionStudentCount('')
       setEditSectionAccommodations([])
@@ -288,7 +335,8 @@ function SessionDetail({ onBack }) {
   }
 
   const handleCancelEditSection = () => {
-    setEditingSection(null)
+    setShowEditSectionModal(false)
+    setItemToEdit(null)
     setEditSectionNumber('')
     setEditSectionStudentCount('')
     setEditSectionAccommodations([])
@@ -323,25 +371,42 @@ function SessionDetail({ onBack }) {
   // Batch delete handlers
   const handleDeleteSelectedSections = async () => {
     if (selectedSectionIds.length === 0) return
-    if (!window.confirm(`Are you sure you want to delete ${selectedSectionIds.length} section(s)? This will remove them from all rooms and sessions.`)) return
+    setItemToDelete({ type: 'selectedSections', count: selectedSectionIds.length })
+    setShowDeleteSelectedSectionsModal(true)
+  }
+
+  const confirmDeleteSelectedSections = async () => {
+    if (!itemToDelete || itemToDelete.type !== 'selectedSections') return
+    
     try {
       for (const sectionId of selectedSectionIds) {
         await testingAPI.deleteSection(sectionId)
       }
       setSelectedSectionIds([])
+      setShowDeleteSelectedSectionsModal(false)
+      setItemToDelete(null)
       fetchSessionData()
     } catch {
       alert('Error deleting selected sections.')
     }
   }
+
   const handleDeleteSelectedRooms = async () => {
     if (selectedRoomIds.length === 0) return
-    if (!window.confirm(`Are you sure you want to delete ${selectedRoomIds.length} room(s)? This cannot be undone.`)) return
+    setItemToDelete({ type: 'selectedRooms', count: selectedRoomIds.length })
+    setShowDeleteSelectedRoomsModal(true)
+  }
+
+  const confirmDeleteSelectedRooms = async () => {
+    if (!itemToDelete || itemToDelete.type !== 'selectedRooms') return
+    
     try {
       for (const roomId of selectedRoomIds) {
         await testingAPI.removeRoomFromSession(sessionId, roomId)
       }
       setSelectedRoomIds([])
+      setShowDeleteSelectedRoomsModal(false)
+      setItemToDelete(null)
       fetchSessionData()
     } catch {
       alert('Error deleting selected rooms.')
@@ -598,73 +663,36 @@ function SessionDetail({ onBack }) {
                         <span className="text-xs text-gray-500">Select</span>
                       </div>
                       <div className="flex justify-between items-start mb-3">
-                        {editingRoom === room._id ? (
-                          <div className="flex-1 mr-3">
-                            <input
-                              type="text"
-                              value={editRoomName}
-                              onChange={(e) => setEditRoomName(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              autoFocus
-                            />
-                          </div>
-                        ) : (
-                          <h3 className="font-semibold text-gray-900 flex-1">Room {room.name}</h3>
-                        )}
+                        <h3 className="font-semibold text-gray-900 flex-1">Room {room.name}</h3>
                         
                         <div className="flex space-x-2">
-                          {editingRoom === room._id ? (
-                            <>
-                              <button
-                                onClick={handleSaveRoomName}
-                                className="text-green-500 hover:text-green-700 transition duration-200"
-                                title="Save"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="text-gray-500 hover:text-gray-700 transition duration-200"
-                                title="Cancel"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleStartEditRoom(room)}
-                                className="text-blue-500 hover:text-blue-700 transition duration-200"
-                                title="Edit Room Name"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleOpenAddSectionToRoom(room)}
-                                className="text-purple-500 hover:text-purple-700 transition duration-200"
-                                title="Add Section to Room"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleRemoveRoom(room._id)}
-                                className="text-red-500 hover:text-red-700 transition duration-200"
-                                title="Remove Room"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => handleStartEditRoom(room)}
+                            className="text-blue-500 hover:text-blue-700 transition duration-200"
+                            title="Edit Room Name"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleOpenAddSectionToRoom(room)}
+                            className="text-purple-500 hover:text-purple-700 transition duration-200"
+                            title="Add Section to Room"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleRemoveRoom(room._id)}
+                            className="text-red-500 hover:text-red-700 transition duration-200"
+                            title="Remove Room"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                       
@@ -795,136 +823,43 @@ function SessionDetail({ onBack }) {
                       </div>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          {editingSection === section._id ? (
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Section Number
-                                </label>
-                                <input
-                                  type="number"
-                                  value={editSectionNumber}
-                                  onChange={(e) => setEditSectionNumber(e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                                  min="1"
-                                  max="99"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Student Count
-                                </label>
-                                <input
-                                  type="number"
-                                  value={editSectionStudentCount}
-                                  onChange={(e) => setEditSectionStudentCount(e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                                  min="1"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Accommodations
-                                </label>
-                                <div className="max-h-32 overflow-y-auto border border-gray-300 rounded p-2">
-                                  {ACCOMMODATIONS.map(option => (
-                                    <label key={option} className="flex items-center space-x-2 py-1">
-                                      <input
-                                        type="checkbox"
-                                        checked={editSectionAccommodations.includes(option)}
-                                        onChange={e => {
-                                          if (e.target.checked) {
-                                            setEditSectionAccommodations([...editSectionAccommodations, option])
-                                          } else {
-                                            setEditSectionAccommodations(editSectionAccommodations.filter(a => a !== option))
-                                          }
-                                        }}
-                                        className="h-3 w-3 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                                      />
-                                      <span className="text-xs text-gray-900">{option}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Notes
-                                </label>
-                                <textarea
-                                  value={editSectionNotes}
-                                  onChange={(e) => setEditSectionNotes(e.target.value)}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
-                                  rows="2"
-                                  placeholder="Add notes (optional)"
-                                />
-                              </div>
+                          <h3 className="font-semibold text-gray-900">Section {section.number}</h3>
+                          <p className="text-sm text-gray-600">{section.studentCount} students</p>
+                          {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                            <div className="mt-1">
+                              <span className="text-xs font-medium text-purple-700">Accommodations:</span>
+                              <ul className="list-disc list-inside text-xs text-gray-700 mt-1">
+                                {section.accommodations.map(acc => (
+                                  <li key={acc}>{acc}</li>
+                                ))}
+                              </ul>
                             </div>
-                          ) : (
-                            <>
-                              <h3 className="font-semibold text-gray-900">Section {section.number}</h3>
-                              <p className="text-sm text-gray-600">{section.studentCount} students</p>
-                              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                <div className="mt-1">
-                                  <span className="text-xs font-medium text-purple-700">Accommodations:</span>
-                                  <ul className="list-disc list-inside text-xs text-gray-700 mt-1">
-                                    {section.accommodations.map(acc => (
-                                      <li key={acc}>{acc}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              {section.notes && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  <span className="font-medium">Notes:</span> {section.notes}
-                                </div>
-                              )}
-                            </>
+                          )}
+                          {section.notes && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              <span className="font-medium">Notes:</span> {section.notes}
+                            </div>
                           )}
                         </div>
                         <div className="flex space-x-2">
-                          {editingSection === section._id ? (
-                            <>
-                              <button
-                                onClick={handleSaveSectionNumber}
-                                className="text-green-500 hover:text-green-700 transition duration-200"
-                                title="Save"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={handleCancelEditSection}
-                                className="text-gray-500 hover:text-gray-700 transition duration-200"
-                                title="Cancel"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleStartEditSection(section)}
-                                className="text-purple-500 hover:text-purple-700 transition duration-200"
-                                title="Edit Section"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleRemoveSection(section._id)}
-                                className="text-red-500 hover:text-red-700 transition duration-200"
-                                title="Remove Section"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => handleStartEditSection(section)}
+                            className="text-purple-500 hover:text-purple-700 transition duration-200"
+                            title="Edit Section"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleRemoveSection(section._id)}
+                            className="text-red-500 hover:text-red-700 transition duration-200"
+                            title="Remove Section"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1053,73 +988,76 @@ function SessionDetail({ onBack }) {
       {/* Add Section Modal */}
       {showAddSectionModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Section</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Section Number(s) (1-99 or 20-30)
-                </label>
-                <input
-                  type="text"
-                  value={newSectionNumber}
-                  onChange={(e) => setNewSectionNumber(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="e.g. 25 or 20-30"
-                  autoFocus
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Section Number(s)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSectionNumber}
+                    onChange={(e) => setNewSectionNumber(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="e.g. 25 or 20-30"
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter single number (1-99) or range (e.g. 20-30)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Student Count
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newSectionStudentCount}
+                    onChange={(e) => setNewSectionStudentCount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Enter number of students"
+                  />
+                </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Students
+                  Accommodations
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newSectionStudentCount}
-                  onChange={(e) => setNewSectionStudentCount(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Enter number of students"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Accommodations (Select all that apply)
-                </label>
-                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2">
-                  {ACCOMMODATIONS.map(option => (
-                    <label key={option} className="flex items-center space-x-2 py-1 px-2 hover:bg-gray-50 rounded">
+                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  {ACCOMMODATIONS.map((accommodation) => (
+                    <label key={accommodation} className="flex items-center space-x-2 py-1">
                       <input
                         type="checkbox"
-                        checked={selectedAccommodations.includes(option)}
-                        onChange={e => {
+                        checked={selectedAccommodations.includes(accommodation)}
+                        onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedAccommodations([...selectedAccommodations, option])
+                            setSelectedAccommodations([...selectedAccommodations, accommodation])
                           } else {
-                            setSelectedAccommodations(selectedAccommodations.filter(a => a !== option))
+                            setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
                           }
                         }}
-                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                       />
-                      <span className="text-sm text-gray-900">{option}</span>
+                      <span className="text-sm text-gray-700">{accommodation}</span>
                     </label>
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes (Optional)
                 </label>
                 <textarea
                   value={newSectionNotes}
-                  onChange={e => setNewSectionNotes(e.target.value)}
+                  onChange={(e) => setNewSectionNotes(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="Add any notes for this section (optional)"
-                  rows="2"
+                  rows="3"
                 />
               </div>
               
@@ -1139,7 +1077,7 @@ function SessionDetail({ onBack }) {
                 <button
                   onClick={handleAddSection}
                   disabled={!newSectionNumber.trim() || !newSectionStudentCount.trim()}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Create Section(s)
                 </button>
@@ -1197,6 +1135,285 @@ function SessionDetail({ onBack }) {
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Add Section
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Room Confirmation Modal */}
+      {showDeleteRoomModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Room</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to remove <span className="font-semibold">{itemToDelete.name}</span> from this session?
+              </p>
+              <p className="text-sm text-gray-600">
+                This action cannot be undone.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteRoomModal(false)
+                    setItemToDelete(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteRoom}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Delete Room
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Section Confirmation Modal */}
+      {showDeleteSectionModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Section</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete <span className="font-semibold">{itemToDelete.name}</span>?
+              </p>
+              <p className="text-sm text-gray-600">
+                This will remove the section from all rooms and sessions. This action cannot be undone.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteSectionModal(false)
+                    setItemToDelete(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteSection}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Delete Section
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Selected Sections Confirmation Modal */}
+      {showDeleteSelectedSectionsModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Selected Sections</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete <span className="font-semibold">{itemToDelete.count} section(s)</span>?
+              </p>
+              <p className="text-sm text-gray-600">
+                This will remove the sections from all rooms and sessions. This action cannot be undone.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteSelectedSectionsModal(false)
+                    setItemToDelete(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteSelectedSections}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Delete Sections
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Selected Rooms Confirmation Modal */}
+      {showDeleteSelectedRoomsModal && itemToDelete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Selected Rooms</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete <span className="font-semibold">{itemToDelete.count} room(s)</span>?
+              </p>
+              <p className="text-sm text-gray-600">
+                This action cannot be undone.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowDeleteSelectedRoomsModal(false)
+                    setItemToDelete(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteSelectedRooms}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Delete Rooms
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Room Modal */}
+      {showEditRoomModal && itemToEdit && itemToEdit.type === 'room' && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Room</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Room Name
+                </label>
+                <input
+                  type="text"
+                  value={editRoomName}
+                  onChange={(e) => setEditRoomName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter room name"
+                />
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveRoomName}
+                  disabled={!editRoomName.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Section Modal */}
+      {showEditSectionModal && itemToEdit && itemToEdit.type === 'section' && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Section</h2>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Section Number
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={editSectionNumber}
+                    onChange={(e) => setEditSectionNumber(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Enter section number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Student Count
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editSectionStudentCount}
+                    onChange={(e) => setEditSectionStudentCount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Enter student count"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Accommodations
+                </label>
+                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  {ACCOMMODATIONS.map((accommodation) => (
+                    <label key={accommodation} className="flex items-center space-x-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={editSectionAccommodations.includes(accommodation)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditSectionAccommodations([...editSectionAccommodations, accommodation])
+                          } else {
+                            setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
+                          }
+                        }}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-gray-700">{accommodation}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={editSectionNotes}
+                  onChange={(e) => setEditSectionNotes(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Add any notes for this section (optional)"
+                  rows="3"
+                />
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={handleCancelEditSection}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveSectionNumber}
+                  disabled={!editSectionNumber.trim() || !editSectionStudentCount.trim()}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Save Changes
                 </button>
               </div>
             </div>
