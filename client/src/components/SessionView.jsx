@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
+import confetti from 'canvas-confetti'
 
 function SessionView({ onBack }) {
   const { sessionId } = useParams()
@@ -23,6 +24,9 @@ function SessionView({ onBack }) {
   const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
   const [sortDescending, setSortDescending] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isTableView, setIsTableView] = useState(true)
+  const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
+  const [expandedCards, setExpandedCards] = useState(new Set())
 
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
@@ -115,6 +119,13 @@ function SessionView({ onBack }) {
           console.log('All rooms completed, updating session status to completed')
           testingAPI.updateSession(sessionId, { status: 'completed' })
           updatedSession.status = 'completed'
+          
+          // Trigger confetti animation when all rooms are completed
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          })
         }
         
         return updatedSession
@@ -158,8 +169,30 @@ function SessionView({ onBack }) {
     
     try {
       const currentSupplies = selectedRoom.supplies || []
-      const supplyWithQuantity = `${selectedPresetSupply} (${newSupplyQuantity})`
-      const updatedSupplies = [...currentSupplies, supplyWithQuantity]
+      const newSupplyName = selectedPresetSupply
+      const newQuantity = newSupplyQuantity
+      
+      // Check if the supply already exists
+      const existingSupplyIndex = currentSupplies.findIndex(supply => {
+        const supplyName = supply.split(' (')[0]
+        return supplyName === newSupplyName
+      })
+      
+      let updatedSupplies
+      if (existingSupplyIndex !== -1) {
+        // Supply exists, combine quantities
+        const existingSupply = currentSupplies[existingSupplyIndex]
+        const existingQuantity = parseInt(existingSupply.match(/\((\d+)\)/)?.[1] || 0)
+        const combinedQuantity = existingQuantity + newQuantity
+        const combinedSupply = `${newSupplyName} (${combinedQuantity})`
+        
+        updatedSupplies = [...currentSupplies]
+        updatedSupplies[existingSupplyIndex] = combinedSupply
+      } else {
+        // Supply doesn't exist, add new one
+        const supplyWithQuantity = `${newSupplyName} (${newQuantity})`
+        updatedSupplies = [...currentSupplies, supplyWithQuantity]
+      }
       
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
       
@@ -557,6 +590,30 @@ function SessionView({ onBack }) {
           aValue = a.status
           bValue = b.status
           comparison = aValue.localeCompare(bValue)
+          
+          // If status is the same, sort by room number in ascending order
+          if (comparison === 0) {
+            const aKey = getRoomSortKey(a.name)
+            const bKey = getRoomSortKey(b.name)
+            
+            // If both have numbers, sort by number first, then by letter
+            if (aKey.number !== 999 && bKey.number !== 999) {
+              if (aKey.number !== bKey.number) {
+                comparison = aKey.number - bKey.number
+              } else {
+                // Same number, sort by letter
+                comparison = aKey.letter.localeCompare(bKey.letter)
+              }
+            } else {
+              // If one has number and other doesn't, numbers come first
+              if (aKey.number !== 999 && bKey.number === 999) comparison = -1
+              else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
+              else {
+                // If neither has numbers, sort alphabetically
+                comparison = aKey.full.localeCompare(bKey.full)
+              }
+            }
+          }
           break
           
         case 'studentCount':
@@ -618,6 +675,31 @@ function SessionView({ onBack }) {
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }
 
+  const toggleRoomExpansion = (roomId) => {
+    setExpandedRooms(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(roomId)) {
+        newSet.delete(roomId)
+      } else {
+        newSet.add(roomId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleCardExpansion = (roomId) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(roomId)) {
+        // If the card is already expanded, collapse it
+        newSet.delete(roomId)
+      } else {
+        // If the card is collapsed, expand it
+        newSet.add(roomId)
+      }
+      return newSet
+    })
+  }
 
 
   if (isLoading) {
@@ -876,174 +958,455 @@ function SessionView({ onBack }) {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
+
+            {/* View Toggle */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                View Mode
+              </label>
+              <button
+                onClick={() => setIsTableView(!isTableView)}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+              >
+                {isTableView ? 'Card View' : 'Table View'}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Rooms Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {getSortedRooms().map((room) => (
-            <div key={room._id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
-                  {getStatusText(room.status)}
-                </span>
-              </div>
-
-              {/* Total Students */}
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Students:</span>
-                  <span className="text-2xl font-bold text-blue-600">
-                    {calculateTotalStudents(room.sections)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Room Actions */}
-              <div className="space-y-3 mb-4">
-                {room.status === 'completed' ? (
-                  <button
-                    onClick={() => handleMarkRoomIncomplete(room._id)}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Mark Incomplete
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleMarkRoomComplete(room._id)}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Mark Complete
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setSelectedRoom(room)
-                    setShowAddSupplyModal(true)
-                  }}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                >
-                  Add Supply
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMoveFromRoom(room)
-                    setShowMoveStudentsModal(true)
-                  }}
-                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                >
-                  Move Students
-                </button>
-              </div>
-
-              {/* Supplies */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
-                {room.supplies && room.supplies.length > 0 ? (
-                  <div className="space-y-1">
-                    {room.supplies.map((supply, index) => (
-                      <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => {
-                              // Parse supply name and quantity for editing
-                              const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
-                              const supplyName = supplyMatch ? supplyMatch[1] : supply
-                              const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
-                              
-                              setEditingSupply({
-                                original: supply,
-                                name: supplyName
-                              })
-                              setEditSupplyQuantity(quantity)
-                              setSelectedRoom(room)
-                              setShowEditSupplyModal(true)
-                            }}
-                            className="text-blue-500 hover:text-blue-700 text-sm"
-                            title="Edit Supply"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            onClick={() => handleRemoveSupply(room._id, supply)}
-                            className="text-red-500 hover:text-red-700 text-sm"
-                            title="Remove Supply"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
-                )}
-              </div>
-
-                            {/* Sections */}
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                {room.sections && room.sections.length > 0 ? (
-                  <div className="space-y-2">
-                    {room.sections
-                      .sort((a, b) => a.number - b.number)
-                      .map((section) => (
-                        <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-3 rounded-lg">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-sm font-medium text-gray-700 dark:text-white">
-                              Section {section.number} ({section.studentCount} students)
-                            </span>
+        {/* Rooms Display */}
+        {isTableView ? (
+          /* Table View */
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Room
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Students
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Sections
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Supplies
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Time Remaining
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {getSortedRooms().map((room) => (
+                    <>
+                      <tr 
+                        key={room._id} 
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                        onClick={() => toggleRoomExpansion(room._id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">{room.name}</span>
                           </div>
-                          {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                            <div className="mt-2">
-                              <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {section.accommodations.map((acc, index) => (
-                                  <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
-                                    {acc}
-                                  </span>
-                                ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
+                            {getStatusText(room.status)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white font-medium">
+                            {calculateTotalStudents(room.sections)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {room.sections ? room.sections.length : 0}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {room.supplies && room.supplies.length > 0 ? room.supplies.length : 0}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className={`text-sm font-medium ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                            {(() => {
+                              const timeData = calculateRoomTimeRemaining(room)
+                              if (!timeData) return '--:--:--'
+                              if (timeData.isOver) return 'TIME UP'
+                              return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                            })()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            {room.status === 'completed' ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleMarkRoomIncomplete(room._id)
+                                }}
+                                className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors duration-200"
+                                title="Mark Incomplete"
+                              >
+                                ↺
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleMarkRoomComplete(room._id)
+                                }}
+                                className="px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg font-medium transition-colors duration-200"
+                                title="Mark Complete"
+                              >
+                                ✓
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedRoom(room)
+                                setShowAddSupplyModal(true)
+                              }}
+                              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
+                              title="Add Supply"
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setMoveFromRoom(room)
+                                setShowMoveStudentsModal(true)
+                              }}
+                              className="px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg font-medium transition-colors duration-200"
+                              title="Move Students"
+                            >
+                              →
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Expanded Details Row */}
+                      <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
+                        <td colSpan="7" className="px-0 py-0">
+                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="px-6 py-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Sections Column */}
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
+                                  {room.sections && room.sections.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {room.sections
+                                        .sort((a, b) => a.number - b.number)
+                                        .map((section) => (
+                                          <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+                                            <div className="flex justify-between items-start mb-1">
+                                              <span className="text-sm font-medium text-gray-700 dark:text-white">
+                                                Section {section.number} ({section.studentCount} students)
+                                              </span>
+                                            </div>
+                                            {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                              <div className="mt-1">
+                                                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {section.accommodations.map((acc, index) => (
+                                                    <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                                                      {acc}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {section.notes && (
+                                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                <span className="font-medium">Notes:</span> {section.notes}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+                                  )}
+                                </div>
+
+                                {/* Supplies and Time Column */}
+                                <div className="flex flex-col h-full justify-between">
+                                  {/* Supplies Section */}
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
+                                    {room.supplies && room.supplies.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {room.supplies.map((supply, index) => (
+                                          <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
+                                            <div className="flex items-center space-x-2">
+                                              <button
+                                                onClick={() => {
+                                                  // Parse supply name and quantity for editing
+                                                  const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
+                                                  const supplyName = supplyMatch ? supplyMatch[1] : supply
+                                                  const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
+                                                  
+                                                  setEditingSupply({
+                                                    original: supply,
+                                                    name: supplyName
+                                                  })
+                                                  setEditSupplyQuantity(quantity)
+                                                  setSelectedRoom(room)
+                                                  setShowEditSupplyModal(true)
+                                                }}
+                                                className="text-blue-500 hover:text-blue-700 text-sm"
+                                                title="Edit Supply"
+                                              >
+                                                ✎
+                                              </button>
+                                              <button
+                                                onClick={() => handleRemoveSupply(room._id, supply)}
+                                                className="text-red-500 hover:text-red-700 text-sm"
+                                                title="Remove Supply"
+                                              >
+                                                ×
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
+                                    )}
+                                  </div>
+
+                                  {/* Minimum spacing between sections */}
+                                  <div className="min-h-[2rem]"></div>
+
+                                  {/* Time Remaining Section */}
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Remaining</h4>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-gray-700 dark:text-gray-300">Estimated Time:</span>
+                                      <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                                        {(() => {
+                                          const timeData = calculateRoomTimeRemaining(room)
+                                          if (!timeData) return '--:--:--'
+                                          if (timeData.isOver) return 'TIME UP'
+                                          return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          )}
-                          {section.notes && (
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              <span className="font-medium">Notes:</span> {section.notes}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
-                )}
-              </div>
-
-
-
-              {/* Estimated Time - Large Text */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
-                  <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
-                    {(() => {
-                      const timeData = calculateRoomTimeRemaining(room)
-                      if (!timeData) return '--:--:--'
-                      if (timeData.isOver) return 'TIME UP'
-                      return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
-                    })()}
+                          </div>
+                        </td>
+                        </tr>
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* Card View */
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {getSortedRooms().map((room) => (
+              <div 
+                key={room._id} 
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
+                onClick={() => toggleCardExpansion(room._id)}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
+                    {getStatusText(room.status)}
                   </span>
                 </div>
+
+                {/* Total Students */}
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Students:</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      {calculateTotalStudents(room.sections)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Room Actions */}
+                <div className="space-y-3 mb-4">
+                  {room.status === 'completed' ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMarkRoomIncomplete(room._id)
+                      }}
+                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    >
+                      Mark Incomplete
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMarkRoomComplete(room._id)
+                      }}
+                      className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    >
+                      Mark Complete
+                    </button>
+                  )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedRoom(room)
+                      setShowAddSupplyModal(true)
+                    }}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                  >
+                    Add Supply
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setMoveFromRoom(room)
+                      setShowMoveStudentsModal(true)
+                    }}
+                    className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                  >
+                    Move Students
+                  </button>
+                </div>
+
+
+
+                {/* Expanded Content */}
+                {expandedCards.has(room._id) && (
+                  <div className="mt-4 space-y-4">
+                    {/* Sections */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
+                      {room.sections && room.sections.length > 0 ? (
+                        <div className="space-y-2">
+                          {room.sections
+                            .sort((a, b) => a.number - b.number)
+                            .map((section) => (
+                              <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-3 rounded-lg">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-sm font-medium text-gray-700 dark:text-white">
+                                    Section {section.number} ({section.studentCount} students)
+                                  </span>
+                                </div>
+                                {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                  <div className="mt-2">
+                                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {section.accommodations.map((acc, index) => (
+                                        <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                                          {acc}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {section.notes && (
+                                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                    <span className="font-medium">Notes:</span> {section.notes}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+                      )}
+                    </div>
+
+                    {/* Supplies */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
+                      {room.supplies && room.supplies.length > 0 ? (
+                        <div className="space-y-1">
+                          {room.supplies.map((supply, index) => (
+                            <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // Parse supply name and quantity for editing
+                                    const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
+                                    const supplyName = supplyMatch ? supplyMatch[1] : supply
+                                    const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
+                                    
+                                    setEditingSupply({
+                                      original: supply,
+                                      name: supplyName
+                                    })
+                                    setEditSupplyQuantity(quantity)
+                                    setSelectedRoom(room)
+                                    setShowEditSupplyModal(true)
+                                  }}
+                                  className="text-blue-500 hover:text-blue-700 text-sm"
+                                  title="Edit Supply"
+                                >
+                                  ✎
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemoveSupply(room._id, supply)
+                                  }}
+                                  className="text-red-500 hover:text-red-700 text-sm"
+                                  title="Remove Supply"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
+                      )}
+                    </div>
+
+                    {/* Estimated Time */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
+                        <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                          {(() => {
+                            const timeData = calculateRoomTimeRemaining(room)
+                            if (!timeData) return '--:--:--'
+                            if (timeData.isOver) return 'TIME UP'
+                            return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add Supply Modal */}
