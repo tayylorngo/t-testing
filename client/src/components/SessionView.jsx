@@ -22,6 +22,7 @@ function SessionView({ onBack }) {
   // Sort state
   const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
   const [sortDescending, setSortDescending] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
@@ -516,6 +517,13 @@ function SessionView({ onBack }) {
     
     let sortedRooms = [...session.rooms]
     
+    // Filter by search query first
+    if (searchQuery.trim()) {
+      sortedRooms = sortedRooms.filter(room => 
+        room.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+    
     return sortedRooms.sort((a, b) => {
       let aValue, bValue
       let comparison = 0
@@ -820,10 +828,10 @@ function SessionView({ onBack }) {
           </div>
         </div>
 
-        {/* Sort Controls */}
+        {/* Sort Controls and Search */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            {/* Sort Criteria Dropdown */}
+            {/* Sort Criteria and Direction */}
             <div className="flex items-center gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -845,13 +853,28 @@ function SessionView({ onBack }) {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Sort Direction
                 </label>
-                                  <button
-                    onClick={() => setSortDescending(!sortDescending)}
-                    className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200 flex items-center gap-2"
-                  >
-                    {sortDescending ? 'Descending ↓' : 'Ascending ↑'}
-                  </button>
+                <button
+                  onClick={() => setSortDescending(!sortDescending)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200 flex items-center gap-2"
+                >
+                  {sortDescending ? 'Descending ↓' : 'Ascending ↑'}
+                </button>
               </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="flex-1 max-w-md">
+              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Rooms
+              </label>
+              <input
+                type="text"
+                id="search"
+                placeholder="Search by room number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              />
             </div>
           </div>
         </div>
