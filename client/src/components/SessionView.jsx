@@ -17,8 +17,11 @@ function SessionView({ onBack }) {
   const [editSupplyQuantity, setEditSupplyQuantity] = useState(1)
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
+  const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
+
+  // Sort state
+  const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
   const [sortDescending, setSortDescending] = useState(false)
-  const [roomTimeMultipliers, setRoomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
 
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
@@ -496,10 +499,7 @@ function SessionView({ onBack }) {
 
 
 
-  const extractRoomNumber = (roomName) => {
-    const match = roomName.match(/\d+/)
-    return match ? parseInt(match[0]) : 999 // Put rooms without numbers at the end
-  }
+
 
   const getRoomSortKey = (roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
@@ -514,27 +514,64 @@ function SessionView({ onBack }) {
   const getSortedRooms = () => {
     if (!session || !session.rooms) return []
     
-    return [...session.rooms].sort((a, b) => {
-      const aKey = getRoomSortKey(a.name)
-      const bKey = getRoomSortKey(b.name)
+    let sortedRooms = [...session.rooms]
+    
+    return sortedRooms.sort((a, b) => {
+      let aValue, bValue
+      let comparison = 0
       
-      // If both have numbers, sort by number first, then by letter
-      if (aKey.number !== 999 && bKey.number !== 999) {
-        if (aKey.number !== bKey.number) {
-          return sortDescending ? bKey.number - aKey.number : aKey.number - bKey.number
+      switch (sortBy) {
+        case 'roomNumber': {
+          const aKey = getRoomSortKey(a.name)
+          const bKey = getRoomSortKey(b.name)
+          
+          // If both have numbers, sort by number first, then by letter
+          if (aKey.number !== 999 && bKey.number !== 999) {
+            if (aKey.number !== bKey.number) {
+              comparison = aKey.number - bKey.number
+            } else {
+              // Same number, sort by letter
+              comparison = aKey.letter.localeCompare(bKey.letter)
+            }
+          } else {
+            // If one has number and other doesn't, numbers come first
+            if (aKey.number !== 999 && bKey.number === 999) comparison = -1
+            else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
+            else {
+              // If neither has numbers, sort alphabetically
+              comparison = aKey.full.localeCompare(bKey.full)
+            }
+          }
+          break
         }
-        // Same number, sort by letter
-        return sortDescending ? bKey.letter.localeCompare(aKey.letter) : aKey.letter.localeCompare(bKey.letter)
+          
+        case 'status':
+          aValue = a.status
+          bValue = b.status
+          comparison = aValue.localeCompare(bValue)
+          break
+          
+        case 'studentCount':
+          aValue = calculateTotalStudents(a.sections)
+          bValue = calculateTotalStudents(b.sections)
+          comparison = aValue - bValue
+          break
+          
+        default: {
+          // Default to room number sorting
+          const aKeyDefault = getRoomSortKey(a.name)
+          const bKeyDefault = getRoomSortKey(b.name)
+          comparison = aKeyDefault.number - bKeyDefault.number
+          break
+        }
       }
       
-      // If one has number and other doesn't, numbers come first
-      if (aKey.number !== 999 && bKey.number === 999) return -1
-      if (aKey.number === 999 && bKey.number !== 999) return 1
-      
-      // If neither has numbers, sort alphabetically
-      return sortDescending ? bKey.full.localeCompare(aKey.full) : aKey.full.localeCompare(bKey.full)
+      // Apply sort direction
+      return sortDescending ? -comparison : comparison
     })
   }
+
+
 
   const calculateRoomTimeRemaining = (room) => {
     if (!session || !timeRemaining || timeRemaining.isOver) return null
@@ -573,13 +610,7 @@ function SessionView({ onBack }) {
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }
 
-  const formatRoomTime = (timeData) => {
-    if (!timeData) return '--:--:--'
-    if (timeData.isOver) return 'TIME UP'
-    
-    const multiplierText = timeData.multiplier !== 1 ? ` (${timeData.multiplier}x)` : ''
-    return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}${multiplierText}`
-  }
+
 
   if (isLoading) {
     return (
@@ -790,17 +821,39 @@ function SessionView({ onBack }) {
         </div>
 
         {/* Sort Controls */}
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => setSortDescending(!sortDescending)}
-            className={`px-3 py-1 text-xs font-medium rounded-md transition duration-200 ${
-              sortDescending
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            {sortDescending ? '↓' : '↑'} {sortDescending ? 'Highest to Lowest' : 'Lowest to Highest'}
-          </button>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            {/* Sort Criteria Dropdown */}
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Sort By
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="roomNumber">Room Number</option>
+                  <option value="status">Status</option>
+                  <option value="studentCount">Student Count</option>
+                </select>
+              </div>
+              
+              {/* Sort Direction Toggle Button */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Sort Direction
+                </label>
+                                  <button
+                    onClick={() => setSortDescending(!sortDescending)}
+                    className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200 flex items-center gap-2"
+                  >
+                    {sortDescending ? 'Descending ↓' : 'Ascending ↑'}
+                  </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Rooms Grid */}
