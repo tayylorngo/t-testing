@@ -28,9 +28,23 @@ function Dashboard({ user, onLogout, onViewSession }) {
     startTime: '',
     endTime: ''
   })
+  const [leaveSessionModal, setLeaveSessionModal] = useState({ show: false, sessionId: null, sessionName: '' })
+  const [removeCollaboratorModal, setRemoveCollaboratorModal] = useState({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })
+  const [errorModal, setErrorModal] = useState({ show: false, title: '', message: '' })
 
   useEffect(() => {
     fetchSessions()
+  }, [])
+
+  useEffect(() => {
+    const handleCollaboratorRemoved = () => {
+      fetchSessions()
+    }
+
+    window.addEventListener('collaboratorRemoved', handleCollaboratorRemoved)
+    return () => {
+      window.removeEventListener('collaboratorRemoved', handleCollaboratorRemoved)
+    }
   }, [])
 
   const fetchSessions = async () => {
@@ -99,14 +113,108 @@ function Dashboard({ user, onLogout, onViewSession }) {
   }
 
   const handleLeaveSession = async (sessionId) => {
-    if (window.confirm('Are you sure you want to leave this session? You will lose access to it.')) {
-      try {
-        await testingAPI.leaveSession(sessionId)
-        fetchSessions() // Refresh the list
-      } catch (error) {
-        console.error('Error leaving session:', error)
+    const session = sessions.find(s => s._id === sessionId)
+    if (session) {
+      setLeaveSessionModal({
+        show: true,
+        sessionId: sessionId,
+        sessionName: session.name
+      })
+    }
+  }
+
+  const confirmLeaveSession = async () => {
+    try {
+      await testingAPI.leaveSession(leaveSessionModal.sessionId)
+      setLeaveSessionModal({ show: false, sessionId: null, sessionName: '' })
+      fetchSessions() // Refresh the list
+    } catch (error) {
+      console.error('Error leaving session:', error)
+      setErrorModal({
+        show: true,
+        title: 'Error Leaving Session',
+        message: 'Failed to leave the session. Please try again.'
+      })
+    }
+  }
+
+  const handleShowRemoveCollaboratorConfirmation = (userId, username) => {
+    console.log('handleShowRemoveCollaboratorConfirmation called with userId:', userId, 'username:', username)
+    console.log('selectedSession:', selectedSession)
+    console.log('sessions:', sessions)
+    
+    // Find the session from the sessions array using the sessionId from the modal
+    // Since we're in the ManageCollaboratorsModal, we can use the sessionId prop
+    const session = sessions.find(s => s._id === selectedSession?._id)
+    console.log('Found session:', session)
+    
+    if (session) {
+      console.log('Setting removeCollaboratorModal with session:', session._id, session.name)
+      setRemoveCollaboratorModal({
+        show: true,
+        sessionId: session._id,
+        sessionName: session.name,
+        userId: userId,
+        username: username
+      })
+    } else {
+      console.error('Session not found for removal confirmation')
+      // Try to find the session by looking through all sessions
+      const allSessions = sessions.filter(s => s.collaborators?.some(c => c.userId._id === userId))
+      console.log('Sessions with this collaborator:', allSessions)
+      if (allSessions.length > 0) {
+        const foundSession = allSessions[0]
+        console.log('Found session from collaborator search:', foundSession)
+        setRemoveCollaboratorModal({
+          show: true,
+          sessionId: foundSession._id,
+          sessionName: foundSession.name,
+          userId: userId,
+          username: username
+        })
       }
     }
+  }
+
+  const confirmRemoveCollaborator = async () => {
+    console.log('confirmRemoveCollaborator called')
+    // Store the values before clearing the modal state
+    const { sessionId, userId } = removeCollaboratorModal
+    console.log('Stored values - sessionId:', sessionId, 'userId:', userId)
+    
+    // Close the confirmation modal
+    setRemoveCollaboratorModal({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })
+    
+    // Trigger the actual removal in the ManageCollaboratorsModal
+    if (sessionId && userId) {
+      console.log('Dispatching confirmRemoveCollaborator event')
+      window.dispatchEvent(new CustomEvent('confirmRemoveCollaborator', { 
+        detail: { 
+          sessionId: sessionId, 
+          userId: userId 
+        } 
+      }))
+    } else {
+      console.log('Missing sessionId or userId, cannot dispatch event')
+    }
+  }
+
+  const handleShowError = (message) => {
+    setErrorModal({
+      show: true,
+      title: 'Error',
+      message: message
+    })
+  }
+
+  const handleCloseCollaboratorsModal = () => {
+    setShowCollaboratorsModal(false)
+    setSelectedSession(null)
+  }
+
+  const handleCloseInviteModal = () => {
+    setShowInviteModal(false)
+    setSelectedSession(null)
   }
 
   const handleManageSession = (session) => {
@@ -618,24 +726,24 @@ function Dashboard({ user, onLogout, onViewSession }) {
       <InviteUsersModal
         sessionId={selectedSession?._id}
         isOpen={showInviteModal}
-        onClose={() => {
-          setShowInviteModal(false)
-          setSelectedSession(null)
-        }}
+        onClose={handleCloseInviteModal}
         onInvitationSent={() => {
           fetchSessions()
         }}
+        onShowError={handleShowError}
       />
 
       <ManageCollaboratorsModal
         sessionId={selectedSession?._id}
         isOpen={showCollaboratorsModal}
-        onClose={() => {
-          setShowCollaboratorsModal(false)
-          setSelectedSession(null)
-        }}
+        onClose={handleCloseCollaboratorsModal}
         onCollaboratorUpdated={() => {
           fetchSessions()
+        }}
+        onShowRemoveCollaboratorConfirmation={(userId, username) => {
+          console.log('Dashboard: onShowRemoveCollaboratorConfirmation called with:', userId, username)
+          console.log('Dashboard: handleShowRemoveCollaboratorConfirmation function:', typeof handleShowRemoveCollaboratorConfirmation)
+          handleShowRemoveCollaboratorConfirmation(userId, username)
         }}
       />
 
@@ -647,6 +755,103 @@ function Dashboard({ user, onLogout, onViewSession }) {
           fetchSessions()
         }}
       />
+
+      {/* Leave Session Confirmation Modal */}
+      {leaveSessionModal.show && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
+                <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Leave Testing Session</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to leave "{leaveSessionModal.sessionName}"? You will lose access to this session and all its content.
+              </p>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setLeaveSessionModal({ show: false, sessionId: null, sessionName: '' })}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmLeaveSession}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Leave Session
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Collaborator Confirmation Modal */}
+      {removeCollaboratorModal.show && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Remove Collaborator</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to remove <strong>{removeCollaboratorModal.username}</strong> from "{removeCollaboratorModal.sessionName}"? They will lose access to this session.
+              </p>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setRemoveCollaboratorModal({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRemoveCollaborator}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorModal.show && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{errorModal.title}</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {errorModal.message}
+              </p>
+              
+              <button
+                onClick={() => setErrorModal({ show: false, title: '', message: '' })}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

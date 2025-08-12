@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import { testingAPI } from '../services/api'
 
-function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUpdated }) {
+function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUpdated, onShowRemoveCollaboratorConfirmation }) {
+  console.log('ManageCollaboratorsModal props:', {
+    sessionId,
+    isOpen,
+    onClose: typeof onClose,
+    onCollaboratorUpdated: typeof onCollaboratorUpdated,
+    onShowRemoveCollaboratorConfirmation: typeof onShowRemoveCollaboratorConfirmation
+  })
+  
   const [collaborators, setCollaborators] = useState([])
   const [owner, setOwner] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -13,6 +21,40 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
       fetchCollaborators()
     }
   }, [isOpen, sessionId])
+
+  useEffect(() => {
+    const handleCollaboratorRemoved = (event) => {
+      const { sessionId: removedSessionId, userId: removedUserId } = event.detail || {}
+      if (removedSessionId === sessionId && removedUserId) {
+        // Remove the collaborator from local state
+        setCollaborators(prev => prev.filter(collab => collab.userId._id !== removedUserId))
+        // Also refresh from server to ensure consistency
+        fetchCollaborators()
+      }
+    }
+
+    const handleConfirmRemoveCollaborator = (event) => {
+      console.log('handleConfirmRemoveCollaborator event received:', event)
+      const { sessionId: confirmSessionId, userId: confirmUserId } = event.detail || {}
+      console.log('Event details - confirmSessionId:', confirmSessionId, 'confirmUserId:', confirmUserId)
+      if (confirmSessionId === sessionId && confirmUserId) {
+        console.log('Session IDs match, calling performRemoveCollaborator')
+        // This is the confirmation, now actually remove the collaborator
+        performRemoveCollaborator(confirmUserId)
+      } else {
+        console.log('Session IDs do not match or missing userId')
+        console.log('Expected sessionId:', sessionId, 'Received:', confirmSessionId)
+        console.log('Expected userId:', confirmUserId)
+      }
+    }
+
+    window.addEventListener('collaboratorRemoved', handleCollaboratorRemoved)
+    window.addEventListener('confirmRemoveCollaborator', handleConfirmRemoveCollaborator)
+    return () => {
+      window.removeEventListener('collaboratorRemoved', handleCollaboratorRemoved)
+      window.removeEventListener('confirmRemoveCollaborator', handleConfirmRemoveCollaborator)
+    }
+  }, [sessionId])
 
   const fetchCollaborators = async () => {
     try {
@@ -57,14 +99,41 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
   }
 
   const handleRemoveCollaborator = async (userId) => {
-    if (!confirm('Are you sure you want to remove this collaborator?')) return
+    console.log('handleRemoveCollaborator called with userId:', userId)
+    console.log('Modal isOpen state:', isOpen)
+    console.log('sessionId prop:', sessionId)
+    
+    const collaborator = collaborators.find(c => c.userId._id === userId)
+    console.log('Found collaborator:', collaborator)
+    
+    if (collaborator && onShowRemoveCollaboratorConfirmation) {
+      console.log('Calling onShowRemoveCollaboratorConfirmation')
+      // Prevent the modal from closing by not calling onClose
+      onShowRemoveCollaboratorConfirmation(userId, collaborator.userId.username)
+      return
+    } else {
+      console.error('Collaborator not found or onShowRemoveCollaboratorConfirmation not provided')
+      console.log('Collaborator found:', !!collaborator)
+      console.log('onShowRemoveCollaboratorConfirmation provided:', !!onShowRemoveCollaboratorConfirmation)
+    }
+  }
 
+  const performRemoveCollaborator = async (userId) => {
+    console.log('performRemoveCollaborator called with userId:', userId)
     setRemovingCollaborator(userId)
     try {
+      console.log('Calling API to remove collaborator')
       await testingAPI.removeCollaborator(sessionId, userId)
+      console.log('Collaborator removed successfully')
       
       // Update local state
       setCollaborators(prev => prev.filter(collab => collab.userId._id !== userId))
+      
+      // Trigger event to notify Dashboard to refresh sessions
+      window.dispatchEvent(new CustomEvent('collaboratorRemoved', { 
+        detail: { sessionId, userId } 
+      }))
+      
       onCollaboratorUpdated()
     } catch (error) {
       console.error('Error removing collaborator:', error)

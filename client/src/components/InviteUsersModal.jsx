@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { testingAPI } from '../services/api'
 
-function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent }) {
+function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShowError }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -54,7 +54,11 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent }) {
       onClose()
     } catch (error) {
       console.error('Error sending invitation:', error)
-      alert('Failed to send invitation. Please try again.')
+      if (onShowError) {
+        onShowError('Failed to send invitation. Please try again.')
+      } else {
+        alert('Failed to send invitation. Please try again.')
+      }
     } finally {
       setIsInviting(false)
     }
