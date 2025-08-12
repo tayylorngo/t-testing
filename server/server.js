@@ -126,6 +126,45 @@ const roomSchema = new mongoose.Schema({
   }
 });
 
+// Session Invitation Schema
+const sessionInvitationSchema = new mongoose.Schema({
+  sessionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Session',
+    required: true
+  },
+  invitedUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  invitedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  permissions: {
+    view: { type: Boolean, default: true },
+    edit: { type: Boolean, default: false },
+    manage: { type: Boolean, default: false }
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'declined'],
+    default: 'pending'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  expiresAt: {
+    type: Date,
+    default: function() {
+      return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+    }
+  }
+});
+
 // Session Schema
 const sessionSchema = new mongoose.Schema({
   name: {
@@ -154,6 +193,22 @@ const sessionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  collaborators: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    permissions: {
+      view: { type: Boolean, default: true },
+      edit: { type: Boolean, default: false },
+      manage: { type: Boolean, default: false }
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   rooms: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room'
@@ -198,6 +253,7 @@ const User = mongoose.model('User', userSchema);
 const Room = mongoose.model('Room', roomSchema);
 const Section = mongoose.model('Section', sectionSchema);
 const Session = mongoose.model('Session', sessionSchema);
+const SessionInvitation = mongoose.model('SessionInvitation', sessionInvitationSchema);
 
 // Initialize demo data if database is empty
 const initializeDemoData = async () => {
@@ -272,6 +328,51 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
+};
+
+// Permission checking middleware
+const checkSessionPermission = (requiredPermission = 'view') => {
+  return async (req, res, next) => {
+    try {
+      const sessionId = req.params.sessionId || req.params.id;
+      if (!sessionId) {
+        return res.status(400).json({ message: 'Session ID is required' });
+      }
+
+      const session = await Session.findById(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: 'Session not found' });
+      }
+
+      // Session owner has all permissions
+      if (session.createdBy.toString() === req.user.id) {
+        req.sessionPermissions = { view: true, edit: true, manage: true };
+        return next();
+      }
+
+      // Check if user is a collaborator
+      const collaboration = session.collaborators.find(
+        collab => collab.userId.toString() === req.user.id
+      );
+
+      if (!collaboration) {
+        return res.status(403).json({ message: 'Access denied to this session' });
+      }
+
+      // Check if user has the required permission
+      if (!collaboration.permissions[requiredPermission]) {
+        return res.status(403).json({ 
+          message: `Insufficient permissions. ${requiredPermission} access required.` 
+        });
+      }
+
+      req.sessionPermissions = collaboration.permissions;
+      next();
+    } catch (error) {
+      console.error('Permission check error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  };
 };
 
 // Routes
@@ -532,19 +633,37 @@ app.get('/api/supplies', authenticateToken, async (req, res) => {
 
 // Session Management Routes
 
-// Get all sessions for the authenticated user
+// Get all sessions for the authenticated user (owned and collaborated)
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const sessions = await Session.find({ createdBy: req.user.id })
-      .populate({
-        path: 'rooms',
-        select: 'name supplies status',
-        populate: {
+    const sessions = await Session.find({
+      $or: [
+        { createdBy: req.user.id },
+        { 'collaborators.userId': req.user.id }
+      ]
+    })
+      .populate([
+        {
+          path: 'rooms',
+          select: 'name supplies status',
+          populate: {
+            path: 'sections',
+            select: 'number studentCount accommodations notes'
+          }
+        },
+        {
           path: 'sections',
           select: 'number studentCount accommodations notes'
+        },
+        {
+          path: 'collaborators.userId',
+          select: 'username firstName lastName'
+        },
+        {
+          path: 'createdBy',
+          select: 'username firstName lastName'
         }
-      })
-      .populate('sections', 'number studentCount accommodations notes')
+      ])
       .sort({ createdAt: -1 });
     
     res.json({ sessions });
@@ -600,20 +719,36 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
 });
 
 // Get specific session
-app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
+app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), async (req, res) => {
   try {
     const session = await Session.findOne({ 
-      _id: req.params.id, 
-      createdBy: req.user.id 
-    }).populate({
-      path: 'rooms',
-      select: 'name supplies status',
-      populate: {
+      _id: req.params.id,
+      $or: [
+        { createdBy: req.user.id },
+        { 'collaborators.userId': req.user.id }
+      ]
+    }).populate([
+      {
+        path: 'rooms',
+        select: 'name supplies status',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        }
+      },
+      {
         path: 'sections',
         select: 'number studentCount accommodations notes'
+      },
+      {
+        path: 'collaborators.userId',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'createdBy',
+        select: 'username firstName lastName'
       }
-    })
-    .populate('sections', 'number studentCount accommodations notes');
+    ]);
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -627,7 +762,7 @@ app.get('/api/sessions/:id', authenticateToken, async (req, res) => {
 });
 
 // Update session
-app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
+app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
   try {
     const { name, description, date, startTime, endTime, status } = req.body;
     const updateData = {};
@@ -644,18 +779,37 @@ app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
     if (status) updateData.status = status;
 
     const session = await Session.findOneAndUpdate(
-      { _id: req.params.id, createdBy: req.user.id },
+      { 
+        _id: req.params.id,
+        $or: [
+          { createdBy: req.user.id },
+          { 'collaborators.userId': req.user.id }
+        ]
+      },
       updateData,
       { new: true, runValidators: true }
-    ).populate({
-      path: 'rooms',
-      select: 'name supplies status',
-      populate: {
+    ).populate([
+      {
+        path: 'rooms',
+        select: 'name supplies status',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        }
+      },
+      {
         path: 'sections',
         select: 'number studentCount accommodations notes'
+      },
+      {
+        path: 'collaborators.userId',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'createdBy',
+        select: 'username firstName lastName'
       }
-    })
-    .populate('sections', 'number studentCount accommodations notes');
+    ]);
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
@@ -683,6 +837,386 @@ app.delete('/api/sessions/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Session deleted successfully' });
   } catch (error) {
     console.error('Delete session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Session Collaboration and Invitation Routes
+
+// Get all users for invitation (excluding current user and existing session members)
+app.get('/api/users/search', authenticateToken, async (req, res) => {
+  try {
+    const { q, sessionId } = req.query;
+    
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID is required' });
+    }
+
+    // Get the session to check existing collaborators and owner
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Build exclusion list: current user, session owner, and existing collaborators
+    const excludedUserIds = [req.user.id, session.createdBy];
+    if (session.collaborators && session.collaborators.length > 0) {
+      session.collaborators.forEach(collab => {
+        excludedUserIds.push(collab.userId);
+      });
+    }
+
+    const searchQuery = q ? {
+      $or: [
+        { username: { $regex: q, $options: 'i' } },
+        { firstName: { $regex: q, $options: 'i' } },
+        { lastName: { $regex: q, $options: 'i' } }
+      ],
+      _id: { $nin: excludedUserIds }
+    } : { _id: { $nin: excludedUserIds } };
+
+    const users = await User.find(searchQuery)
+      .select('username firstName lastName')
+      .limit(10);
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Send invitation to user
+app.post('/api/sessions/:sessionId/invite', authenticateToken, checkSessionPermission('manage'), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { invitedUserId, permissions } = req.body;
+
+    if (!invitedUserId) {
+      return res.status(400).json({ message: 'Invited user ID is required' });
+    }
+
+    // Check if user is already a collaborator
+    const session = await Session.findById(sessionId);
+    const existingCollaborator = session.collaborators.find(
+      collab => collab.userId.toString() === invitedUserId
+    );
+
+    if (existingCollaborator) {
+      return res.status(400).json({ message: 'User is already a collaborator on this session' });
+    }
+
+    // Check if invitation already exists
+    const existingInvitation = await SessionInvitation.findOne({
+      sessionId,
+      invitedUserId,
+      status: 'pending'
+    });
+
+    if (existingInvitation) {
+      return res.status(400).json({ message: 'Invitation already sent to this user' });
+    }
+
+    // Create invitation
+    const invitation = new SessionInvitation({
+      sessionId,
+      invitedUserId,
+      invitedBy: req.user.id,
+      permissions: permissions || { view: true, edit: false, manage: false }
+    });
+
+    await invitation.save();
+
+    // Populate user details for response
+    await invitation.populate('invitedUserId', 'username firstName lastName');
+
+    res.status(201).json({ 
+      message: 'Invitation sent successfully', 
+      invitation 
+    });
+  } catch (error) {
+    console.error('Send invitation error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get pending invitations for the current user
+app.get('/api/invitations/pending', authenticateToken, async (req, res) => {
+  try {
+    const invitations = await SessionInvitation.find({
+      invitedUserId: req.user.id,
+      status: 'pending'
+    }).populate('sessionId').populate('invitedBy', 'username firstName lastName');
+    
+    console.log('Pending invitations with populated data:', JSON.stringify(invitations, null, 2));
+    
+    res.json({ invitations });
+  } catch (error) {
+    console.error('Error fetching pending invitations:', error);
+    res.status(500).json({ error: 'Failed to fetch invitations' });
+  }
+});
+
+// Get invitations sent by the current user
+app.get('/api/invitations/sent', authenticateToken, async (req, res) => {
+  try {
+    const invitations = await SessionInvitation.find({
+      invitedBy: req.user.id
+    }).populate('sessionId').populate('invitedUserId', 'username firstName lastName');
+    
+    console.log('Sent invitations with populated data:', JSON.stringify(invitations, null, 2));
+    
+    res.json({ invitations });
+  } catch (error) {
+    console.error('Error fetching sent invitations:', error);
+    res.status(500).json({ error: 'Failed to fetch sent invitations' });
+  }
+});
+
+// Accept invitation
+app.put('/api/invitations/:invitationId/accept', authenticateToken, async (req, res) => {
+  try {
+    const { invitationId } = req.params;
+
+    const invitation = await SessionInvitation.findOne({
+      _id: invitationId,
+      invitedUserId: req.user.id,
+      status: 'pending',
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!invitation) {
+      return res.status(404).json({ message: 'Invitation not found or expired' });
+    }
+
+    // Add user as collaborator
+    await Session.findByIdAndUpdate(
+      invitation.sessionId,
+      {
+        $push: {
+          collaborators: {
+            userId: req.user.id,
+            permissions: invitation.permissions,
+            addedAt: new Date()
+          }
+        }
+      }
+    );
+
+    // Update invitation status
+    invitation.status = 'accepted';
+    await invitation.save();
+
+    res.json({ message: 'Invitation accepted successfully' });
+  } catch (error) {
+    console.error('Accept invitation error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Decline invitation
+app.put('/api/invitations/:invitationId/decline', authenticateToken, async (req, res) => {
+  try {
+    const { invitationId } = req.params;
+
+    const invitation = await SessionInvitation.findOne({
+      _id: invitationId,
+      invitedUserId: req.user.id,
+      status: 'pending'
+    });
+
+    if (!invitation) {
+      return res.status(404).json({ message: 'Invitation not found' });
+    }
+
+    invitation.status = 'declined';
+    await invitation.save();
+
+    res.json({ message: 'Invitation declined successfully' });
+  } catch (error) {
+    console.error('Decline invitation error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Cancel/revoke an invitation (only the person who sent it can cancel it)
+app.delete('/api/invitations/:invitationId', authenticateToken, async (req, res) => {
+  try {
+    const invitation = await SessionInvitation.findById(req.params.invitationId);
+    
+    if (!invitation) {
+      return res.status(404).json({ error: 'Invitation not found' });
+    }
+    
+    // Only the person who sent the invitation can cancel it
+    if (invitation.invitedBy.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'You can only cancel invitations you sent' });
+    }
+    
+    // Only pending invitations can be cancelled
+    if (invitation.status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending invitations can be cancelled' });
+    }
+    
+    await SessionInvitation.findByIdAndDelete(req.params.invitationId);
+    res.json({ message: 'Invitation cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling invitation:', error);
+    res.status(500).json({ error: 'Failed to cancel invitation' });
+  }
+});
+
+// Clear/delete an accepted or declined invitation (only the person who sent it can clear it)
+app.delete('/api/invitations/:invitationId/clear', authenticateToken, async (req, res) => {
+  try {
+    const invitation = await SessionInvitation.findById(req.params.invitationId);
+    
+    if (!invitation) {
+      return res.status(404).json({ error: 'Invitation not found' });
+    }
+    
+    // Only the person who sent the invitation can clear it
+    if (invitation.invitedBy.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'You can only clear invitations you sent' });
+    }
+    
+    // Only accepted or declined invitations can be cleared
+    if (invitation.status === 'pending') {
+      return res.status(400).json({ error: 'Pending invitations cannot be cleared. Use cancel instead.' });
+    }
+    
+    await SessionInvitation.findByIdAndDelete(req.params.invitationId);
+    res.json({ message: 'Invitation cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing invitation:', error);
+    res.status(500).json({ error: 'Failed to clear invitation' });
+  }
+});
+
+// Get session collaborators
+app.get('/api/sessions/:sessionId/collaborators', authenticateToken, checkSessionPermission('view'), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await Session.findById(sessionId)
+      .populate('collaborators.userId', 'username firstName lastName')
+      .populate('createdBy', 'username firstName lastName');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ 
+      owner: session.createdBy,
+      collaborators: session.collaborators 
+    });
+  } catch (error) {
+    console.error('Get collaborators error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update collaborator permissions
+app.put('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, checkSessionPermission('manage'), async (req, res) => {
+  try {
+    const { sessionId, userId } = req.params;
+    const { permissions } = req.body;
+
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ message: 'Valid permissions object is required' });
+    }
+
+    const session = await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        $set: {
+          'collaborators.$[collab].permissions': permissions
+        }
+      },
+      {
+        arrayFilters: [{ 'collab.userId': userId }],
+        new: true
+      }
+    ).populate('collaborators.userId', 'username firstName lastName');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ 
+      message: 'Collaborator permissions updated successfully',
+      collaborators: session.collaborators
+    });
+  } catch (error) {
+    console.error('Update collaborator permissions error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Remove collaborator
+app.delete('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, checkSessionPermission('manage'), async (req, res) => {
+  try {
+    const { sessionId, userId } = req.params;
+
+    const session = await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        $pull: {
+          collaborators: { userId }
+        }
+      },
+      { new: true }
+    ).populate('collaborators.userId', 'username firstName lastName');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ 
+      message: 'Collaborator removed successfully',
+      collaborators: session.collaborators
+    });
+  } catch (error) {
+    console.error('Remove collaborator error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Leave session (for invited users)
+app.delete('/api/sessions/:sessionId/leave', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user.id;
+
+    // Check if session exists
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if user is a collaborator (not the owner)
+    const isCollaborator = session.collaborators.some(collab => collab.userId.toString() === userId);
+    if (!isCollaborator) {
+      return res.status(403).json({ message: 'You can only leave sessions you were invited to' });
+    }
+
+    // Remove user from collaborators
+    const updatedSession = await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        $pull: {
+          collaborators: { userId }
+        }
+      },
+      { new: true }
+    ).populate('collaborators.userId', 'username firstName lastName');
+
+    res.json({ 
+      message: 'Successfully left the session',
+      collaborators: updatedSession.collaborators
+    });
+  } catch (error) {
+    console.error('Leave session error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

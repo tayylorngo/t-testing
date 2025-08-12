@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { testingAPI, apiUtils } from '../services/api'
+import InviteUsersModal from './InviteUsersModal'
+import ManageCollaboratorsModal from './ManageCollaboratorsModal'
+import PendingInvitationsModal from './PendingInvitationsModal'
 
 function Dashboard({ user, onLogout, onViewSession }) {
   const [sessions, setSessions] = useState([])
@@ -7,6 +10,9 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
+  const [showPendingInvitationsModal, setShowPendingInvitationsModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
   const [newSession, setNewSession] = useState({
     name: '',
@@ -92,6 +98,17 @@ function Dashboard({ user, onLogout, onViewSession }) {
     setShowDeleteModal(true)
   }
 
+  const handleLeaveSession = async (sessionId) => {
+    if (window.confirm('Are you sure you want to leave this session? You will lose access to it.')) {
+      try {
+        await testingAPI.leaveSession(sessionId)
+        fetchSessions() // Refresh the list
+      } catch (error) {
+        console.error('Error leaving session:', error)
+      }
+    }
+  }
+
   const handleManageSession = (session) => {
     if (onViewSession) {
       onViewSession(session._id)
@@ -102,6 +119,33 @@ function Dashboard({ user, onLogout, onViewSession }) {
     if (onViewSession) {
       onViewSession(session._id, 'view')
     }
+  }
+
+  const canManageSession = (session) => {
+    return session.createdBy._id === user._id || 
+           session.collaborators?.some(collab => 
+             collab.userId._id === user._id && collab.permissions.manage
+           )
+  }
+
+  const canEditSession = (session) => {
+    return session.createdBy._id === user._id || 
+           session.collaborators?.some(collab => 
+             collab.userId._id === user._id && collab.permissions.manage
+           )
+  }
+
+  const getSessionRole = (session) => {
+    if (session.createdBy._id === user._id) return 'Owner'
+    const collaborator = session.collaborators?.find(collab => collab.userId._id === user._id)
+    if (collaborator) {
+      const permissions = []
+      if (collaborator.permissions.view) permissions.push('View')
+      if (collaborator.permissions.edit) permissions.push('Edit')
+      if (collaborator.permissions.manage) permissions.push('Manage')
+      return `Collaborator (${permissions.join(', ')})`
+    }
+    return 'Unknown'
   }
 
   const formatDate = (dateString) => {
@@ -116,8 +160,9 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const formatTime = (timeString) => {
     if (!timeString) return ''
     return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     })
   }
 
@@ -142,12 +187,23 @@ function Dashboard({ user, onLogout, onViewSession }) {
               <h1 className="text-3xl font-bold text-gray-900">T-Testing Dashboard</h1>
               <p className="text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
             </div>
-            <button
-              onClick={onLogout}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-            >
-              Logout
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowPendingInvitationsModal(true)}
+                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2zM4 15h6v-2H4v2zM4 11h6V9H4v2zM4 7h6V5H4v2z" />
+                </svg>
+                Invitations
+              </button>
+              <button
+                onClick={onLogout}
+                className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -190,26 +246,81 @@ function Dashboard({ user, onLogout, onViewSession }) {
               <div key={session._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition duration-200">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-semibold text-gray-900">{session.name}</h3>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900">{session.name}</h3>
+                      <div className="flex items-center mt-1">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          session.createdBy._id === user._id 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {getSessionRole(session)}
+                        </span>
+                      </div>
+                    </div>
                     <div className="flex space-x-2">
-                      <button
-                        onClick={() => openEditModal(session)}
-                        className="text-blue-500 hover:text-blue-700 transition duration-200"
-                        title="Edit Session"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(session)}
-                        className="text-red-500 hover:text-red-700 transition duration-200"
-                        title="Delete Session"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      {canEditSession(session) && (
+                        <button
+                          onClick={() => openEditModal(session)}
+                          className="text-blue-500 hover:text-blue-700 transition duration-200"
+                          title="Edit Session"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      )}
+                      {canManageSession(session) && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedSession(session)
+                              setShowInviteModal(true)
+                            }}
+                            className="text-green-500 hover:text-green-700 transition duration-200"
+                            title="Invite Users"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedSession(session)
+                              setShowCollaboratorsModal(true)
+                            }}
+                            className="text-purple-500 hover:text-purple-700 transition duration-200"
+                            title="Manage Collaborators"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                      {session.createdBy._id === user._id && (
+                        <button
+                          onClick={() => openDeleteModal(session)}
+                          className="text-red-500 hover:text-red-700 transition duration-200"
+                          title="Delete Session"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                      {/* Leave Session button for collaborators */}
+                      {session.createdBy._id !== user._id && session.collaborators?.some(collab => collab.userId._id === user._id) && (
+                        <button
+                          onClick={() => handleLeaveSession(session._id)}
+                          className="text-orange-500 hover:text-orange-700 transition duration-200"
+                          title="Leave Session"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -240,6 +351,14 @@ function Dashboard({ user, onLogout, onViewSession }) {
                       </svg>
                       {session.sections?.length || 0} sections
                     </div>
+                    {session.collaborators && session.collaborators.length > 0 && (
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        {session.collaborators.length} collaborator{session.collaborators.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="mt-6 space-y-2">
@@ -494,6 +613,40 @@ function Dashboard({ user, onLogout, onViewSession }) {
           </div>
         </div>
       )}
+
+      {/* Modals */}
+      <InviteUsersModal
+        sessionId={selectedSession?._id}
+        isOpen={showInviteModal}
+        onClose={() => {
+          setShowInviteModal(false)
+          setSelectedSession(null)
+        }}
+        onInvitationSent={() => {
+          fetchSessions()
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        sessionId={selectedSession?._id}
+        isOpen={showCollaboratorsModal}
+        onClose={() => {
+          setShowCollaboratorsModal(false)
+          setSelectedSession(null)
+        }}
+        onCollaboratorUpdated={() => {
+          fetchSessions()
+        }}
+      />
+
+      <PendingInvitationsModal
+        user={user}
+        isOpen={showPendingInvitationsModal}
+        onClose={() => setShowPendingInvitationsModal(false)}
+        onInvitationResponded={() => {
+          fetchSessions()
+        }}
+      />
     </div>
   )
 }
