@@ -563,10 +563,14 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Name, date, start time, and end time are required' });
     }
 
+    // Fix timezone issue by ensuring the date is treated as local date
+    const [year, month, day] = date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day); // month is 0-indexed
+    
     const newSession = new Session({
       name,
       description,
-      date: new Date(date),
+      date: localDate,
       startTime,
       endTime,
       createdBy: req.user.id
@@ -630,7 +634,11 @@ app.put('/api/sessions/:id', authenticateToken, async (req, res) => {
 
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (date) updateData.date = new Date(date);
+    if (date) {
+      // Fix timezone issue by ensuring the date is treated as local date
+      const [year, month, day] = date.split('-').map(Number);
+      updateData.date = new Date(year, month - 1, day); // month is 0-indexed
+    }
     if (startTime) updateData.startTime = startTime;
     if (endTime) updateData.endTime = endTime;
     if (status) updateData.status = status;
