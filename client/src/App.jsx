@@ -101,7 +101,7 @@ function App() {
     <Routes>
       <Route path="/dashboard" element={<Dashboard user={user} onLogout={handleLogout} onViewSession={handleViewSession} />} />
       <Route path="/session/:sessionId/manage" element={<SessionDetail onBack={handleBackToDashboard} />} />
-      <Route path="/session/:sessionId/view" element={<SessionView onBack={handleBackToDashboard} />} />
+      <Route path="/session/:sessionId/view" element={<SessionView user={user} onBack={handleBackToDashboard} />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )

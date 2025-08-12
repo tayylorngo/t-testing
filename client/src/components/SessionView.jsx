@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
 
-function SessionView({ onBack }) {
+function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -19,6 +19,29 @@ function SessionView({ onBack }) {
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
+
+  // Permission checking functions
+  const canEditSession = () => {
+    if (!session || !user) return false
+    return session.createdBy._id === user._id || 
+           session.collaborators?.some(collab => 
+             collab.userId._id === user._id && (collab.permissions.edit || collab.permissions.manage)
+           )
+  }
+
+  const getSessionRole = () => {
+    if (!session || !user) return 'Unknown'
+    if (session.createdBy._id === user._id) return 'Owner'
+    const collaborator = session.collaborators?.find(collab => collab.userId._id === user._id)
+    if (collaborator) {
+      const permissions = []
+      if (collaborator.permissions.view) permissions.push('View')
+      if (collaborator.permissions.edit) permissions.push('Edit')
+      if (collaborator.permissions.manage) permissions.push('Manage')
+      return `Collaborator (${permissions.join(', ')})`
+    }
+    return 'Unknown'
+  }
 
   // Sort state
   const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
@@ -59,6 +82,20 @@ function SessionView({ onBack }) {
         }))
       })))
       setSession(sessionData.session)
+      
+      // Check if user has permission to view this session
+      if (sessionData.session) {
+        const hasAccess = sessionData.session.createdBy._id === user._id || 
+                         sessionData.session.collaborators?.some(collab => 
+                           collab.userId._id === user._id && collab.permissions.view
+                         )
+        if (!hasAccess) {
+          console.error('User does not have permission to view this session')
+          // Redirect back to dashboard or show access denied message
+          onBack()
+          return
+        }
+      }
     } catch (error) {
       console.error('Error fetching session data:', error)
     } finally {
@@ -740,6 +777,11 @@ function SessionView({ onBack }) {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{session.name}</h1>
               <p className="text-gray-600">Session Progress View</p>
+              <div className="mt-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  {getSessionRole()}
+                </span>
+              </div>
             </div>
             <button
               onClick={onBack}
@@ -753,6 +795,25 @@ function SessionView({ onBack }) {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Permission Info Message */}
+        {!canEditSession() && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">View-Only Access</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>You have view-only access to this session. You can see all session information, room statuses, and progress, but you cannot make any changes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Session Info and Timer */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Session Details */}
@@ -1050,51 +1111,59 @@ function SessionView({ onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
-                            {room.status === 'completed' ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleMarkRoomIncomplete(room._id)
-                                }}
-                                className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors duration-200"
-                                title="Mark Incomplete"
-                              >
-                                ↺
-                              </button>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleMarkRoomComplete(room._id)
-                                }}
-                                className="px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg font-medium transition-colors duration-200"
-                                title="Mark Complete"
-                              >
-                                ✓
-                              </button>
+                            {canEditSession() && (
+                              <>
+                                {room.status === 'completed' ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleMarkRoomIncomplete(room._id)
+                                    }}
+                                    className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors duration-200"
+                                    title="Mark Incomplete"
+                                  >
+                                    ↺
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleMarkRoomComplete(room._id)
+                                    }}
+                                    className="px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg font-medium transition-colors duration-200"
+                                    title="Mark Complete"
+                                  >
+                                    ✓
+                                  </button>
+                                )}
+                              </>
                             )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedRoom(room)
-                                setShowAddSupplyModal(true)
-                              }}
-                              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
-                              title="Add Supply"
-                            >
-                              +
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setMoveFromRoom(room)
-                                setShowMoveStudentsModal(true)
-                              }}
-                              className="px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg font-medium transition-colors duration-200"
-                              title="Move Students"
-                            >
-                              →
-                            </button>
+                            {canEditSession() && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedRoom(room)
+                                    setShowAddSupplyModal(true)
+                                  }}
+                                  className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
+                                  title="Add Supply"
+                                >
+                                  +
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setMoveFromRoom(room)
+                                    setShowMoveStudentsModal(true)
+                                  }}
+                                  className="px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg font-medium transition-colors duration-200"
+                                  title="Move Students"
+                                >
+                                  →
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1155,33 +1224,37 @@ function SessionView({ onBack }) {
                                           <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
                                             <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
                                             <div className="flex items-center space-x-2">
-                                              <button
-                                                onClick={() => {
-                                                  // Parse supply name and quantity for editing
-                                                  const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
-                                                  const supplyName = supplyMatch ? supplyMatch[1] : supply
-                                                  const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
-                                                  
-                                                  setEditingSupply({
-                                                    original: supply,
-                                                    name: supplyName
-                                                  })
-                                                  setEditSupplyQuantity(quantity)
-                                                  setSelectedRoom(room)
-                                                  setShowEditSupplyModal(true)
-                                                }}
-                                                className="text-blue-500 hover:text-blue-700 text-sm"
-                                                title="Edit Supply"
-                                              >
-                                                ✎
-                                              </button>
-                                              <button
-                                                onClick={() => handleRemoveSupply(room._id, supply)}
-                                                className="text-red-500 hover:text-red-700 text-sm"
-                                                title="Remove Supply"
-                                              >
-                                                ×
-                                              </button>
+                                              {canEditSession() && (
+                                                <>
+                                                  <button
+                                                    onClick={() => {
+                                                      // Parse supply name and quantity for editing
+                                                      const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
+                                                      const supplyName = supplyMatch ? supplyMatch[1] : supply
+                                                      const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
+                                                      
+                                                      setEditingSupply({
+                                                        original: supply,
+                                                        name: supplyName
+                                                      })
+                                                      setEditSupplyQuantity(quantity)
+                                                      setSelectedRoom(room)
+                                                      setShowEditSupplyModal(true)
+                                                    }}
+                                                    className="text-blue-500 hover:text-blue-700 text-sm"
+                                                    title="Edit Supply"
+                                                  >
+                                                    ✎
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleRemoveSupply(room._id, supply)}
+                                                    className="text-red-500 hover:text-red-700 text-sm"
+                                                    title="Remove Supply"
+                                                  >
+                                                    ×
+                                                  </button>
+                                                </>
+                                              )}
                                             </div>
                                           </div>
                                         ))}
@@ -1249,49 +1322,53 @@ function SessionView({ onBack }) {
 
                 {/* Room Actions */}
                 <div className="space-y-3 mb-4">
-                  {room.status === 'completed' ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleMarkRoomIncomplete(room._id)
-                      }}
-                      className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                    >
-                      Mark Incomplete
-                    </button>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleMarkRoomComplete(room._id)
-                      }}
-                      className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                    >
-                      Mark Complete
-                    </button>
+                  {canEditSession() && (
+                    <>
+                      {room.status === 'completed' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleMarkRoomIncomplete(room._id)
+                          }}
+                          className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                        >
+                          Mark Incomplete
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleMarkRoomComplete(room._id)
+                          }}
+                          className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                        >
+                          Mark Complete
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedRoom(room)
+                          setShowAddSupplyModal(true)
+                        }}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                      >
+                        Add Supply
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMoveFromRoom(room)
+                          setShowMoveStudentsModal(true)
+                        }}
+                        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                      >
+                        Move Students
+                      </button>
+                    </>
                   )}
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedRoom(room)
-                      setShowAddSupplyModal(true)
-                    }}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Add Supply
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setMoveFromRoom(room)
-                      setShowMoveStudentsModal(true)
-                    }}
-                    className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                  >
-                    Move Students
-                  </button>
                 </div>
 
 
@@ -1347,37 +1424,41 @@ function SessionView({ onBack }) {
                             <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
                               <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
                               <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    // Parse supply name and quantity for editing
-                                    const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
-                                    const supplyName = supplyMatch ? supplyMatch[1] : supply
-                                    const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
-                                    
-                                    setEditingSupply({
-                                      original: supply,
-                                      name: supplyName
-                                    })
-                                    setEditSupplyQuantity(quantity)
-                                    setSelectedRoom(room)
-                                    setShowEditSupplyModal(true)
-                                  }}
-                                  className="text-blue-500 hover:text-blue-700 text-sm"
-                                  title="Edit Supply"
-                                >
-                                  ✎
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRemoveSupply(room._id, supply)
-                                  }}
-                                  className="text-red-500 hover:text-red-700 text-sm"
-                                  title="Remove Supply"
-                                >
-                                  ×
-                                </button>
+                                {canEditSession() && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // Parse supply name and quantity for editing
+                                        const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
+                                        const supplyName = supplyMatch ? supplyMatch[1] : supply
+                                        const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
+                                        
+                                        setEditingSupply({
+                                          original: supply,
+                                          name: supplyName
+                                        })
+                                        setEditSupplyQuantity(quantity)
+                                        setSelectedRoom(room)
+                                        setShowEditSupplyModal(true)
+                                      }}
+                                      className="text-blue-500 hover:text-blue-700 text-sm"
+                                      title="Edit Supply"
+                                    >
+                                      ✎
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleRemoveSupply(room._id, supply)
+                                      }}
+                                      className="text-red-500 hover:text-red-700 text-sm"
+                                      title="Remove Supply"
+                                    >
+                                      ×
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           ))}

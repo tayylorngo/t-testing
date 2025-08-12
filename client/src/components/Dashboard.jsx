@@ -472,7 +472,13 @@ function Dashboard({ user, onLogout, onViewSession }) {
                   <div className="mt-6 space-y-2">
                     <button 
                       onClick={() => handleManageSession(session)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                      disabled={!canManageSession(session)}
+                      className={`w-full font-semibold py-2 px-4 rounded-lg transition duration-200 ${
+                        canManageSession(session)
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      }`}
+                      title={canManageSession(session) ? 'Manage Session' : 'You need manage permissions to access this feature'}
                     >
                       Manage Session
                     </button>
