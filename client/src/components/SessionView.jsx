@@ -123,6 +123,17 @@ function SessionView({ user, onBack }) {
   useEffect(() => {
     silentRefreshRef.current = silentRefreshSession
   }, [silentRefreshSession])
+  
+  // Function to add temporary CSS class for real-time updates
+  const addUpdateAnimation = useCallback((elementId, animationClass, duration = 1500) => {
+    const element = document.querySelector(`[data-room-id="${elementId}"]`)
+    if (element) {
+      element.classList.add(animationClass)
+      setTimeout(() => {
+        element.classList.remove(animationClass)
+      }, duration)
+    }
+  }, [])
 
   useEffect(() => {
     fetchSessionData()
@@ -175,15 +186,8 @@ function SessionView({ user, onBack }) {
             setSession(updatedSession)
             console.log('SessionView - Session state updated')
             
-            // Add subtle visual feedback for the updated room
-            const roomElement = document.querySelector(`[data-room-id="${update.data.roomId}"]`)
-            if (roomElement) {
-              roomElement.classList.add('room-status-updated')
-              // Remove the class after animation completes
-              setTimeout(() => {
-                roomElement.classList.remove('room-status-updated')
-              }, 1500)
-            }
+            // Add animation for room status updates
+            addUpdateAnimation(update.data.roomId, 'room-status-updated')
           } else {
             console.log('SessionView - Room not found in current session, performing silent refresh')
             silentRefreshRef.current()
@@ -257,6 +261,94 @@ function SessionView({ user, onBack }) {
           console.log('SessionView - Section removed from local state')
         } else {
           // Fallback to silent refresh if we can't update locally
+          silentRefreshRef.current()
+        }
+        break
+        
+      case 'room-updated':
+        console.log('Room updated by another user:', update.data.room)
+        // For room updates (like supplies), we can update local state
+        if (memoizedSession && update.data.room && update.data.roomId) {
+          const updatedSession = { ...memoizedSession }
+          const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
+          if (roomIndex !== -1) {
+            updatedSession.rooms[roomIndex] = update.data.room
+            setSession(updatedSession)
+            console.log('SessionView - Room updated in local state')
+            // Add animation for room updates
+            addUpdateAnimation(update.data.roomId, 'room-updated')
+          } else {
+            silentRefreshRef.current()
+          }
+        } else {
+          silentRefreshRef.current()
+        }
+        break
+        
+      case 'section-updated':
+        console.log('Section updated by another user:', update.data.section)
+        // For section updates (like student count), we can update local state
+        if (memoizedSession && update.data.section && update.data.sectionId) {
+          const updatedSession = { ...memoizedSession }
+          // Find which room contains this section to animate it
+          let roomToAnimate = null
+          updatedSession.rooms = updatedSession.rooms.map(room => ({
+            ...room,
+            sections: room.sections?.map(section => 
+              section._id === update.data.sectionId ? update.data.section : section
+            ) || []
+          }))
+          // Find the room that contains this section
+          roomToAnimate = updatedSession.rooms.find(room => 
+            room.sections?.some(section => section._id === update.data.sectionId)
+          )
+          setSession(updatedSession)
+          console.log('SessionView - Section updated in local state')
+          // Add animation for section updates
+          if (roomToAnimate) {
+            addUpdateAnimation(roomToAnimate._id, 'section-updated')
+          }
+        } else {
+          silentRefreshRef.current()
+        }
+        break
+        
+      case 'section-added-to-room':
+        console.log('Section added to room by another user:', update.data)
+        // For section additions to rooms, we can update local state
+        if (memoizedSession && update.data.room && update.data.roomId) {
+          const updatedSession = { ...memoizedSession }
+          const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
+          if (roomIndex !== -1) {
+            updatedSession.rooms[roomIndex] = update.data.room
+            setSession(updatedSession)
+            console.log('SessionView - Section added to room in local state')
+            // Add animation for section added to room
+            addUpdateAnimation(update.data.roomId, 'section-added-to-room')
+          } else {
+            silentRefreshRef.current()
+          }
+        } else {
+          silentRefreshRef.current()
+        }
+        break
+        
+      case 'section-removed-from-room':
+        console.log('Section removed from room by another user:', update.data)
+        // For section removals from rooms, we can update local state
+        if (memoizedSession && update.data.room && update.data.roomId) {
+          const updatedSession = { ...memoizedSession }
+          const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
+          if (roomIndex !== -1) {
+            updatedSession.rooms[roomIndex] = update.data.room
+            setSession(updatedSession)
+            console.log('SessionView - Section removed from room in local state')
+            // Add animation for section removed from room
+            addUpdateAnimation(update.data.roomId, 'section-removed-from-room')
+          } else {
+            silentRefreshRef.current()
+          }
+        } else {
           silentRefreshRef.current()
         }
         break

@@ -681,6 +681,15 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Find the session that contains this room to emit real-time update
+    const session = await Session.findOne({ rooms: id });
+    if (session) {
+      console.log(`Room update - Emitting real-time update for session: ${session._id}`);
+      emitSessionUpdate(session._id, 'room-updated', { roomId: id, room });
+    } else {
+      console.log(`Room update - No session found containing room: ${id}`);
+    }
+
     res.json({ message: 'Room updated successfully', room });
   } catch (error) {
     console.error('Update room error:', error);
@@ -1485,6 +1494,15 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Section not found' });
     }
 
+    // Find the session that contains this section to emit real-time update
+    const session = await Session.findOne({ sections: id });
+    if (session) {
+      console.log(`Section update - Emitting real-time update for session: ${session._id}`);
+      emitSessionUpdate(session._id, 'section-updated', { sectionId: id, section });
+    } else {
+      console.log(`Section update - No session found containing section: ${id}`);
+    }
+
     res.json({ message: 'Section updated successfully', section });
   } catch (error) {
     console.error('Update section error:', error);
@@ -1617,6 +1635,15 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
     const updatedRoom = await Room.findById(roomId)
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Find the session that contains this room to emit real-time update
+    const session = await Session.findOne({ rooms: roomId });
+    if (session) {
+      console.log(`Section added to room - Emitting real-time update for session: ${session._id}`);
+      emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom });
+    } else {
+      console.log(`Section added to room - No session found containing room: ${roomId}`);
+    }
+
     res.json({ 
       message: 'Section added to room successfully', 
       room: updatedRoom 
@@ -1716,6 +1743,15 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
     // Return updated room with populated sections
     const updatedRoom = await Room.findById(roomId)
       .populate('sections', 'number studentCount accommodations notes');
+
+    // Find the session that contains this room to emit real-time update
+    const session = await Session.findOne({ rooms: roomId });
+    if (session) {
+      console.log(`Section removed from room - Emitting real-time update for session: ${session._id}`);
+      emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom });
+    } else {
+      console.log(`Section removed from room - No session found containing room: ${roomId}`);
+    }
 
     res.json({ 
       message: 'Section removed from room successfully', 

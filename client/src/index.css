@@ -85,6 +85,22 @@
   animation: roomUpdateHighlight 1.5s ease-out;
 }
 
+.room-updated {
+  animation: roomUpdateHighlight 1.5s ease-out;
+}
+
+.section-updated {
+  animation: sectionUpdateHighlight 1.5s ease-out;
+}
+
+.section-added-to-room {
+  animation: sectionAddHighlight 1.5s ease-out;
+}
+
+.section-removed-from-room {
+  animation: sectionRemoveHighlight 1.5s ease-out;
+}
+
 @keyframes roomUpdateHighlight {
   0% {
     background-color: rgba(59, 130, 246, 0.1);
@@ -93,6 +109,51 @@
   50% {
     background-color: rgba(59, 130, 246, 0.05);
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes sectionUpdateHighlight {
+  0% {
+    background-color: rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    background-color: rgba(16, 185, 129, 0.05);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes sectionAddHighlight {
+  0% {
+    background-color: rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.05);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes sectionRemoveHighlight {
+  0% {
+    background-color: rgba(239, 68, 68, 0.1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.05);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
   }
   100% {
     background-color: transparent;
