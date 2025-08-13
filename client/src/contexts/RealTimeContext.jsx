@@ -15,31 +15,85 @@ export const RealTimeProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
   const updateCallbacks = useRef(new Map()); // sessionId -> Set of callback functions
+  const pendingSessionJoin = useRef(null); // Store session to join once connected
+  const reconnectTimeoutRef = useRef(null);
+  const maxReconnectAttempts = 5;
+  const reconnectDelay = 1000; // Start with 1 second
 
-  useEffect(() => {
-    // Initialize socket connection
+  // Initialize socket connection
+  const initializeSocket = () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    console.log('Connecting to WebSocket server at:', apiUrl);
+    console.log('🔌 Initializing WebSocket connection to:', apiUrl);
     
+    // Clean up existing socket if any
+    if (socket) {
+      console.log('🔌 Cleaning up existing socket connection');
+      socket.close();
+    }
+
     const newSocket = io(apiUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: maxReconnectAttempts,
+      reconnectionDelay: reconnectDelay,
+      timeout: 10000,
     });
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to real-time server with socket ID:', newSocket.id);
       setIsConnected(true);
+      setConnectionAttempts(0);
+      
+      // If there was a pending session join, execute it now
+      if (pendingSessionJoin.current) {
+        console.log('🔄 Executing pending session join:', pendingSessionJoin.current);
+        const sessionId = pendingSessionJoin.current;
+        pendingSessionJoin.current = null;
+        joinSessionInternal(sessionId);
+      }
     });
 
     newSocket.on('connect_error', (error) => {
       console.error('❌ WebSocket connection error:', error);
       setIsConnected(false);
+      
+      // Increment connection attempts
+      const newAttempts = connectionAttempts + 1;
+      setConnectionAttempts(newAttempts);
+      
+      if (newAttempts < maxReconnectAttempts) {
+        console.log(`🔄 Connection attempt ${newAttempts} failed. Retrying in ${reconnectDelay}ms...`);
+        // Clear any existing timeout
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        // Set up reconnection attempt
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('🔄 Attempting to reconnect...');
+          initializeSocket();
+        }, reconnectDelay);
+      } else {
+        console.error('❌ Max reconnection attempts reached. Please refresh the page.');
+      }
     });
 
     newSocket.on('disconnect', (reason) => {
       console.log('🔌 Disconnected from real-time server. Reason:', reason);
       setIsConnected(false);
+      
+      // If it's not a manual disconnect, try to reconnect
+      if (reason !== 'io client disconnect') {
+        console.log('🔄 Disconnection was not manual, attempting to reconnect...');
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          initializeSocket();
+        }, reconnectDelay);
+      }
     });
 
     newSocket.on('session-update', (update) => {
@@ -67,18 +121,28 @@ export const RealTimeProvider = ({ children }) => {
     });
 
     setSocket(newSocket);
+    return newSocket;
+  };
+
+  useEffect(() => {
+    // Initialize socket connection on mount
+    initializeSocket();
 
     return () => {
-      newSocket.close();
+      // Cleanup on unmount
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (socket) {
+        console.log('🔌 Cleaning up socket connection on unmount');
+        socket.close();
+      }
     };
   }, []);
 
-  // Join a session room
-  const joinSession = (sessionId) => {
-    console.log(`🔄 Attempting to join session: ${sessionId}`);
-    console.log(`🔄 Current socket state:`, { socket: !!socket, isConnected, currentSessionId });
-    
-    if (socket && sessionId && sessionId !== currentSessionId) {
+  // Internal function to join session (used after connection is established)
+  const joinSessionInternal = (sessionId) => {
+    if (socket && isConnected && sessionId && sessionId !== currentSessionId) {
       // Leave previous session if any
       if (currentSessionId) {
         console.log(`🔄 Leaving previous session: ${currentSessionId}`);
@@ -90,14 +154,33 @@ export const RealTimeProvider = ({ children }) => {
       socket.emit('join-session', sessionId);
       setCurrentSessionId(sessionId);
       console.log(`✅ Successfully joined real-time session: ${sessionId}`);
-    } else {
-      console.log(`❌ Cannot join session:`, { 
-        hasSocket: !!socket, 
-        sessionId, 
-        currentSessionId,
-        isConnected 
-      });
+      return true;
     }
+    return false;
+  };
+
+  // Join a session room
+  const joinSession = (sessionId) => {
+    console.log(`🔄 Attempting to join session: ${sessionId}`);
+    console.log(`🔄 Current socket state:`, { socket: !!socket, isConnected, currentSessionId });
+    
+    if (!sessionId) {
+      console.log('❌ Cannot join session: No session ID provided');
+      return false;
+    }
+
+    if (!socket) {
+      console.log('❌ Cannot join session: Socket not initialized');
+      return false;
+    }
+
+    if (!isConnected) {
+      console.log('⏳ Cannot join session: Socket not connected. Storing for later...');
+      pendingSessionJoin.current = sessionId;
+      return false;
+    }
+
+    return joinSessionInternal(sessionId);
   };
 
   // Leave current session
@@ -148,14 +231,23 @@ export const RealTimeProvider = ({ children }) => {
     }
   };
 
+  // Manual reconnection function
+  const reconnect = () => {
+    console.log('🔄 Manual reconnection requested');
+    setConnectionAttempts(0);
+    initializeSocket();
+  };
+
   const value = {
     socket,
     isConnected,
     currentSessionId,
+    connectionAttempts,
     joinSession,
     leaveSession,
     onSessionUpdate,
     offSessionUpdate,
+    reconnect,
   };
 
   return (

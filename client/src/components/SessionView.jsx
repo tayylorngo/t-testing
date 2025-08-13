@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -6,19 +6,16 @@ import { useRealTime } from '../contexts/RealTimeContext'
 
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
-  const { joinSession, leaveSession, onSessionUpdate, isConnected } = useRealTime()
+  const { joinSession, leaveSession, onSessionUpdate, isConnected, reconnect, connectionAttempts } = useRealTime()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(null)
   
   // Memoize session data to prevent unnecessary re-renders
-  const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.map(room => ({ id: room._id, status: room.status }))])
+  const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.length])
   
   // Debounced session update to prevent rapid successive updates
   const [debouncedSession, setDebouncedSession] = useState(null)
-  
-  // Track when updates are happening
-  const [isUpdating, setIsUpdating] = useState(false)
   
   // Ref to store fetchSessionData function to avoid dependency issues
   const fetchSessionDataRef = useRef()
@@ -26,7 +23,6 @@ function SessionView({ user, onBack }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSession(session)
-      setIsUpdating(false)
     }, 50) // Reduced to 50ms for more responsive feel
     
     return () => clearTimeout(timer)
@@ -83,15 +79,7 @@ function SessionView({ user, onBack }) {
       setIsLoading(true)
       const sessionData = await testingAPI.getSession(sessionId)
       console.log('SessionView - Session data received:', sessionData.session)
-      console.log('SessionView - Rooms with sections:', sessionData.session.rooms?.map(room => ({
-        name: room.name,
-        sections: room.sections?.map(section => ({
-          number: section.number,
-          studentCount: section.studentCount,
-          accommodations: section.accommodations,
-          notes: section.notes
-        }))
-      })))
+      console.log('SessionView - Rooms count:', sessionData.session.rooms?.length || 0)
       setSession(sessionData.session)
       
       // Check if user has permission to view this session
@@ -113,17 +101,41 @@ function SessionView({ user, onBack }) {
       setIsLoading(false)
     }
   }, [sessionId, user, onBack])
+
+  // Silent refresh function that doesn't show loading state
+  const silentRefreshSession = useCallback(async () => {
+    try {
+      const sessionData = await testingAPI.getSession(sessionId)
+      console.log('SessionView - Silent refresh: Session data received:', sessionData.session)
+      setSession(sessionData.session)
+    } catch (error) {
+      console.error('Error in silent refresh:', error)
+    }
+  }, [sessionId])
   
   // Store fetchSessionData in ref to avoid dependency issues in handleRealTimeUpdate
   useEffect(() => {
     fetchSessionDataRef.current = fetchSessionData
   }, [fetchSessionData])
 
+  // Store silentRefreshSession in ref for handleRealTimeUpdate
+  const silentRefreshRef = useRef()
+  useEffect(() => {
+    silentRefreshRef.current = silentRefreshSession
+  }, [silentRefreshSession])
+
   useEffect(() => {
     fetchSessionData()
     
-    // Join real-time session
-    joinSession(sessionId)
+    // Join real-time session with retry logic
+    const attemptJoinSession = () => {
+      const success = joinSession(sessionId)
+      if (!success) {
+        console.log('⏳ Session join failed, will retry when connected...')
+      }
+    }
+    
+    attemptJoinSession()
     
     // Set up real-time update listener
     const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
@@ -132,7 +144,7 @@ function SessionView({ user, onBack }) {
       cleanup()
       leaveSession()
     }
-  }, [sessionId])
+  }, [sessionId, isConnected])
 
   // Handle real-time updates from other users
   const handleRealTimeUpdate = useCallback((update) => {
@@ -144,7 +156,6 @@ function SessionView({ user, onBack }) {
       case 'room-status-updated':
         console.log('Room status updated by another user:', update.data)
         console.log('SessionView - Current session:', memoizedSession)
-        setIsUpdating(true)
         // Update the specific room in the local session state
         if (memoizedSession) {
           const updatedSession = { ...memoizedSession }
@@ -163,13 +174,23 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - New room:', updatedSession.rooms[roomIndex])
             setSession(updatedSession)
             console.log('SessionView - Session state updated')
+            
+            // Add subtle visual feedback for the updated room
+            const roomElement = document.querySelector(`[data-room-id="${update.data.roomId}"]`)
+            if (roomElement) {
+              roomElement.classList.add('room-status-updated')
+              // Remove the class after animation completes
+              setTimeout(() => {
+                roomElement.classList.remove('room-status-updated')
+              }, 1500)
+            }
           } else {
-            console.log('SessionView - Room not found in current session, fetching fresh data')
-            fetchSessionDataRef.current()
+            console.log('SessionView - Room not found in current session, performing silent refresh')
+            silentRefreshRef.current()
           }
         } else {
-          console.log('SessionView - No session available, fetching fresh data')
-          fetchSessionDataRef.current()
+          console.log('SessionView - No session available, performing silent refresh')
+          silentRefreshRef.current()
         }
         break
         
@@ -182,8 +203,8 @@ function SessionView({ user, onBack }) {
           setSession(updatedSession)
           console.log('SessionView - Room added to local state')
         } else {
-          // Fallback to refresh if we don't have complete room data
-          fetchSessionDataRef.current()
+          // Fallback to silent refresh if we don't have complete room data
+          silentRefreshRef.current()
         }
         break
         
@@ -215,11 +236,11 @@ function SessionView({ user, onBack }) {
             setSession(updatedSession)
             console.log('SessionView - Section added to local state')
           } else {
-            fetchSessionDataRef.current()
+            silentRefreshRef.current()
           }
         } else {
-          // Fallback to refresh if we don't have complete section data
-          fetchSessionDataRef.current()
+          // Fallback to silent refresh if we don't have complete section data
+          silentRefreshRef.current()
         }
         break
         
@@ -235,8 +256,8 @@ function SessionView({ user, onBack }) {
           setSession(updatedSession)
           console.log('SessionView - Section removed from local state')
         } else {
-          // Fallback to refresh if we can't update locally
-          fetchSessionDataRef.current()
+          // Fallback to silent refresh if we can't update locally
+          silentRefreshRef.current()
         }
         break
         
@@ -858,13 +879,7 @@ function SessionView({ user, onBack }) {
   const progress = calculateProgress()
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container ${isUpdating ? 'page-updating' : 'page-stable'}`}>
-      {/* Real-time update indicator */}
-      {isUpdating && (
-        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
-          🔄 Updating...
-        </div>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container">
       
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -879,10 +894,27 @@ function SessionView({ user, onBack }) {
                 </span>
                 {/* Real-time connection status */}
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
                   <span className="text-sm text-gray-600">
                     {isConnected ? 'Live' : 'Offline'}
                   </span>
+                  {!isConnected && connectionAttempts > 0 && (
+                    <span className="text-xs text-red-600">
+                      (Attempt {connectionAttempts}/5)
+                    </span>
+                  )}
+                  {!isConnected && (
+                    <button
+                      onClick={() => {
+                        console.log('🔄 Manual reconnect requested')
+                        reconnect()
+                      }}
+                      className="ml-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition-colors"
+                      title="Click to reconnect"
+                    >
+                      Reconnect
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -935,9 +967,6 @@ function SessionView({ user, onBack }) {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(session.status)}`}>
                   {getStatusText(session.status)}
-                  {isUpdating && (
-                    <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                  )}
                 </span>
               </div>
               <div>
@@ -973,9 +1002,6 @@ function SessionView({ user, onBack }) {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Overall Progress</h2>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-blue-600">{progress}%</span>
-              {isUpdating && (
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-              )}
             </div>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
@@ -1179,11 +1205,11 @@ function SessionView({ user, onBack }) {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {getSortedRooms().map((room) => (
-                    <>
+                    <React.Fragment key={room._id}>
                       <tr 
-                        key={room._id} 
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                         onClick={() => toggleRoomExpansion(room._id)}
+                        data-room-id={room._id}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -1193,9 +1219,6 @@ function SessionView({ user, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                             {getStatusText(room.status)}
-                            {isUpdating && room.status === 'completed' && (
-                              <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            )}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1402,7 +1425,7 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -1416,14 +1439,12 @@ function SessionView({ user, onBack }) {
                 key={room._id} 
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
                 onClick={() => toggleCardExpansion(room._id)}
+                data-room-id={room._id}
               >
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
-                    {isUpdating && room.status === 'completed' && (
-                      <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    )}
                   </span>
                 </div>
 

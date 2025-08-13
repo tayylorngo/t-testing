@@ -80,15 +80,22 @@
   transform: scale(1);
 }
 
-/* Prevent entire page refresh appearance */
-.page-container {
-  transition: opacity 0.2s ease-in-out;
+/* Subtle highlight for real-time updates */
+.room-status-updated {
+  animation: roomUpdateHighlight 1.5s ease-out;
 }
 
-.page-updating {
-  opacity: 0.95;
-}
-
-.page-stable {
-  opacity: 1;
+@keyframes roomUpdateHighlight {
+  0% {
+    background-color: rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.05);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
 } 

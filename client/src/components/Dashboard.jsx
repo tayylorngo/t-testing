@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { testingAPI, apiUtils } from '../services/api'
+import { useRealTime } from '../contexts/RealTimeContext'
 import InviteUsersModal from './InviteUsersModal'
 import ManageCollaboratorsModal from './ManageCollaboratorsModal'
 import PendingInvitationsModal from './PendingInvitationsModal'
 
 function Dashboard({ user, onLogout, onViewSession }) {
+  const { isConnected, reconnect } = useRealTime()
   const [sessions, setSessions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -46,6 +48,13 @@ function Dashboard({ user, onLogout, onViewSession }) {
       window.removeEventListener('collaboratorRemoved', handleCollaboratorRemoved)
     }
   }, [])
+
+  // Ensure WebSocket connection is maintained when Dashboard is active
+  useEffect(() => {
+    console.log('Dashboard mounted - WebSocket connection status:', isConnected)
+    // The RealTimeContext will handle connection automatically
+    // This just ensures we're aware of the connection state
+  }, [isConnected])
 
   const fetchSessions = async () => {
     try {
@@ -296,6 +305,25 @@ function Dashboard({ user, onLogout, onViewSession }) {
               <p className="text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
             </div>
             <div className="flex items-center space-x-3">
+              {/* Real-time connection status */}
+              <div className="flex items-center gap-2 mr-4">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+                <span className="text-sm text-gray-600">
+                  {isConnected ? 'Live' : 'Offline'}
+                </span>
+                {!isConnected && (
+                  <button
+                    onClick={() => {
+                      console.log('🔄 Manual reconnect requested from Dashboard')
+                      reconnect()
+                    }}
+                    className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition-colors"
+                    title="Click to reconnect"
+                  >
+                    Reconnect
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setShowPendingInvitationsModal(true)}
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
