@@ -5,13 +5,16 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [permissions, setPermissions] = useState({
+  const [selectedUsers, setSelectedUsers] = useState([]) // Array of {user, permissions}
+  const [isInviting, setIsInviting] = useState(false)
+  const [invitationProgress, setInvitationProgress] = useState({ sent: 0, total: 0, errors: [] })
+
+  // Default permissions for new users
+  const getDefaultPermissions = () => ({
     view: true,
     edit: false,
     manage: false
   })
-  const [isInviting, setIsInviting] = useState(false)
 
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
@@ -36,52 +39,107 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
   }, [searchQuery])
 
   const handleUserSelect = (user) => {
-    setSelectedUser(user)
-    setSearchQuery(user.username)
+    // Check if user is already selected
+    if (selectedUsers.find(u => u.user._id === user._id)) {
+      return
+    }
+    
+    // Add user with default permissions
+    setSelectedUsers(prev => [...prev, { user, permissions: getDefaultPermissions() }])
+    setSearchQuery('') // Clear search after selection
     setSearchResults([])
   }
 
-  const handleSendInvitation = async () => {
-    if (!selectedUser) return
+  const handleUserRemove = (userId) => {
+    setSelectedUsers(prev => prev.filter(u => u.user._id !== userId))
+  }
+
+  const handlePermissionChange = (userId, permission) => {
+    if (permission === 'view') {
+      // View permission can't be disabled
+      return
+    }
+    
+    setSelectedUsers(prev => prev.map(u => {
+      if (u.user._id === userId) {
+        return {
+          ...u,
+          permissions: {
+            ...u.permissions,
+            [permission]: !u.permissions[permission]
+          }
+        }
+      }
+      return u
+    }))
+  }
+
+  const handleSendInvitations = async () => {
+    if (selectedUsers.length === 0) return
 
     setIsInviting(true)
+    setInvitationProgress({ sent: 0, total: selectedUsers.length, errors: [] })
+    
+    const errors = []
+    
     try {
-      await testingAPI.sendInvitation(sessionId, selectedUser._id, permissions)
-      setSelectedUser(null)
+      // Send invitations to all selected users with their individual permissions
+      for (let i = 0; i < selectedUsers.length; i++) {
+        const { user, permissions } = selectedUsers[i]
+        try {
+          await testingAPI.sendInvitation(sessionId, user._id, permissions)
+          setInvitationProgress(prev => ({ ...prev, sent: prev.sent + 1 }))
+        } catch (error) {
+          console.error(`Error sending invitation to ${user.username}:`, error)
+          errors.push({ user: user.username, error: error.message || 'Failed to send invitation' })
+        }
+      }
+      
+      // Reset form and close modal
+      setSelectedUsers([])
       setSearchQuery('')
-      setPermissions({ view: true, edit: false, manage: false })
-      onInvitationSent()
-      onClose()
-    } catch (error) {
-      console.error('Error sending invitation:', error)
-      if (onShowError) {
-        onShowError('Failed to send invitation. Please try again.')
+      setInvitationProgress({ sent: 0, total: 0, errors: [] })
+      
+      if (errors.length === 0) {
+        onInvitationSent()
+        onClose()
+      } else if (errors.length === selectedUsers.length) {
+        // All failed
+        if (onShowError) {
+          onShowError('Failed to send any invitations. Please try again.')
+        } else {
+          alert('Failed to send any invitations. Please try again.')
+        }
       } else {
-        alert('Failed to send invitation. Please try again.')
+        // Some succeeded, some failed
+        const successCount = selectedUsers.length - errors.length
+        const errorMessage = `Successfully sent ${successCount} invitation(s). ${errors.length} invitation(s) failed.`
+        if (onShowError) {
+          onShowError(errorMessage)
+        } else {
+          alert(errorMessage)
+        }
+        onInvitationSent() // Still call this since some succeeded
+        onClose()
+      }
+    } catch (error) {
+      console.error('Error in bulk invitation process:', error)
+      if (onShowError) {
+        onShowError('Failed to send invitations. Please try again.')
+      } else {
+        alert('Failed to send invitations. Please try again.')
       }
     } finally {
       setIsInviting(false)
     }
   }
 
-  const handlePermissionChange = (permission) => {
-    if (permission === 'view') {
-      // View permission can't be disabled
-      return
-    }
-    
-    setPermissions(prev => ({
-      ...prev,
-      [permission]: !prev[permission]
-    }))
-  }
-
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Invite User to Session</h2>
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Invite Users to Session</h2>
         
         <div className="space-y-4">
           {/* User Search */}
@@ -105,12 +163,18 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
                     <button
                       key={user._id}
                       onClick={() => handleUserSelect(user)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                      disabled={selectedUsers.find(u => u.user._id === user._id)}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                        selectedUsers.find(u => u.user._id === user._id) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                      }`}
                     >
                       <div className="font-medium">{user.username}</div>
                       <div className="text-sm text-gray-600">
                         {user.firstName} {user.lastName}
                       </div>
+                      {selectedUsers.find(u => u.user._id === user._id) && (
+                        <div className="text-xs text-blue-600">Already selected</div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -124,74 +188,107 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
             </div>
           </div>
 
-          {/* Selected User Display */}
-          {selectedUser && (
+          {/* Selected Users with Individual Permissions */}
+          {selectedUsers.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-blue-900">{selectedUser.username}</div>
-                  <div className="text-sm text-blue-700">
-                    {selectedUser.firstName} {selectedUser.lastName}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium text-blue-900">
+                  Selected Users ({selectedUsers.length})
+                </h3>
                 <button
-                  onClick={() => {
-                    setSelectedUser(null)
-                    setSearchQuery('')
-                  }}
-                  className="text-blue-500 hover:text-blue-700"
+                  onClick={() => setSelectedUsers([])}
+                  className="text-blue-500 hover:text-blue-700 text-sm"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  Clear All
                 </button>
+              </div>
+              <div className="space-y-4">
+                {selectedUsers.map(({ user, permissions }) => (
+                  <div key={user._id} className="bg-white rounded-lg p-4 border border-blue-200">
+                    {/* User Info */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="font-medium text-blue-900">{user.username}</div>
+                        <div className="text-sm text-blue-700">
+                          {user.firstName} {user.lastName}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleUserRemove(user._id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    {/* Individual Permissions */}
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Permissions:</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={permissions.view}
+                            disabled
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label className="ml-2 text-sm text-gray-700">
+                            View Session
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={permissions.edit}
+                            onChange={() => handlePermissionChange(user._id, 'edit')}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label className="ml-2 text-sm text-gray-700">
+                            Edit Details
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={permissions.manage}
+                            onChange={() => handlePermissionChange(user._id, 'manage')}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label className="ml-2 text-sm text-gray-700">
+                            Manage Others
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Permissions */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Permissions
-            </label>
-            <div className="space-y-3">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={permissions.view}
-                  disabled
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label className="ml-2 text-sm text-gray-700">
-                  View Session (Required)
-                </label>
+          {/* Progress Bar */}
+          {isInviting && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Sending Invitations...
+                </span>
+                <span className="text-sm text-gray-600">
+                  {invitationProgress.sent} of {invitationProgress.total}
+                </span>
               </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={permissions.edit}
-                  onChange={() => handlePermissionChange('edit')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label className="ml-2 text-sm text-gray-700">
-                  Edit Session Details
-                </label>
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={permissions.manage}
-                  onChange={() => handlePermissionChange('manage')}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label className="ml-2 text-sm text-gray-700">
-                  Manage Collaborators & Invitations
-                </label>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(invitationProgress.sent / invitationProgress.total) * 100}%` }}
+                ></div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex space-x-3 pt-4">
@@ -202,11 +299,14 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
               Cancel
             </button>
             <button
-              onClick={handleSendInvitation}
-              disabled={!selectedUser || isInviting}
+              onClick={handleSendInvitations}
+              disabled={selectedUsers.length === 0 || isInviting}
               className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
             >
-              {isInviting ? 'Sending...' : 'Send Invitation'}
+              {isInviting 
+                ? `Sending... (${invitationProgress.sent}/${invitationProgress.total})` 
+                : `Send Invitations (${selectedUsers.length})`
+              }
             </button>
           </div>
         </div>

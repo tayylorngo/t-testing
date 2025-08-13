@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { testingAPI } from '../services/api'
 
 function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded }) {
@@ -7,12 +7,47 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
   const [isLoading, setIsLoading] = useState(true)
   const [respondingTo, setRespondingTo] = useState(null)
   const [activeTab, setActiveTab] = useState('received') // 'received' or 'sent'
+  
+  // Use ref to preserve tab state across re-renders
+  const activeTabRef = useRef(activeTab)
+  
+  // Update ref whenever activeTab changes
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
+  
+  // Restore tab state if it gets reset unexpectedly
+  const restoreTabState = () => {
+    if (activeTabRef.current && activeTabRef.current !== activeTab) {
+      console.log('Restoring tab state from:', activeTab, 'to:', activeTabRef.current)
+      setActiveTab(activeTabRef.current)
+    }
+  }
+  
+  // Check and restore tab state after component mounts
+  useEffect(() => {
+    if (isOpen) {
+      // Small delay to ensure state is stable
+      const timer = setTimeout(() => {
+        restoreTabState()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, activeTab])
+  
+  // Check and restore tab state after invitation state changes
+  useEffect(() => {
+    if (isOpen && (invitations.length > 0 || sentInvitations.length > 0)) {
+      restoreTabState()
+    }
+  }, [invitations.length, sentInvitations.length, isOpen])
 
   useEffect(() => {
     if (isOpen) {
+      console.log('Modal opened, fetching invitations, current activeTab:', activeTab)
       fetchInvitations()
     }
-  }, [isOpen])
+  }, [isOpen]) // Only depend on isOpen, not on activeTab
 
   const fetchInvitations = async () => {
     setIsLoading(true)
@@ -42,7 +77,12 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
     setRespondingTo(invitationId)
     try {
       await testingAPI.acceptInvitation(invitationId)
-      await fetchInvitations()
+      
+      // Update local state directly instead of refetching
+      setInvitations(prevInvitations => 
+        prevInvitations.filter(invitation => invitation._id !== invitationId)
+      )
+      
       if (onInvitationResponded) onInvitationResponded()
     } catch (error) {
       console.error('Error accepting invitation:', error)
@@ -55,7 +95,12 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
     setRespondingTo(invitationId)
     try {
       await testingAPI.declineInvitation(invitationId)
-      await fetchInvitations()
+      
+      // Update local state directly instead of refetching
+      setInvitations(prevInvitations => 
+        prevInvitations.filter(invitation => invitation._id !== invitationId)
+      )
+      
       if (onInvitationResponded) onInvitationResponded()
     } catch (error) {
       console.error('Error declining invitation:', error)
@@ -67,8 +112,13 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
   const handleCancelInvitation = async (invitationId) => {
     try {
       await testingAPI.cancelInvitation(invitationId)
-      await fetchInvitations()
-      if (onInvitationResponded) onInvitationResponded()
+      
+      // Update local state directly instead of refetching
+      setSentInvitations(prevInvitations => 
+        prevInvitations.filter(invitation => invitation._id !== invitationId)
+      )
+      
+      // Don't call onInvitationResponded for canceling - it's not needed and can cause tab switching
     } catch (error) {
       console.error('Error cancelling invitation:', error)
     }
@@ -76,11 +126,18 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
 
   const handleClearInvitation = async (invitationId) => {
     try {
-      console.log('Clearing invitation:', invitationId)
+      console.log('Clearing invitation:', invitationId, 'Current activeTab:', activeTab, 'Ref activeTab:', activeTabRef.current)
       await testingAPI.clearInvitation(invitationId)
       console.log('Invitation cleared successfully')
-      await fetchInvitations()
-      if (onInvitationResponded) onInvitationResponded()
+      
+      // Update local state directly instead of refetching
+      setSentInvitations(prevInvitations => 
+        prevInvitations.filter(invitation => invitation._id !== invitationId)
+      )
+      
+      console.log('State updated, activeTab should remain:', activeTab, 'Ref activeTab:', activeTabRef.current)
+      
+      // Don't call onInvitationResponded for clearing - it's not needed and causes tab switching
     } catch (error) {
       console.error('Error clearing invitation:', error)
       // Prevent page reload by handling the error gracefully
@@ -91,7 +148,12 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
   const handleLeaveSession = async (sessionId) => {
     try {
       await testingAPI.leaveSession(sessionId)
-      await fetchInvitations()
+      
+      // Update local state directly instead of refetching
+      setInvitations(prevInvitations => 
+        prevInvitations.filter(invitation => invitation.sessionId?._id !== sessionId)
+      )
+      
       if (onInvitationResponded) onInvitationResponded()
     } catch (error) {
       console.error('Error leaving session:', error)
@@ -162,7 +224,10 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
                 ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50' 
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
-            onClick={() => setActiveTab('received')}
+            onClick={() => {
+              console.log('Switching to received tab, current:', activeTab)
+              setActiveTab('received')
+            }}
           >
             Received ({invitations.length})
           </button>
@@ -172,7 +237,10 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
                 ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50' 
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
-            onClick={() => setActiveTab('sent')}
+            onClick={() => {
+              console.log('Switching to sent tab, current:', activeTab)
+              setActiveTab('sent')
+            }}
           >
             Sent ({sentInvitations.length})
           </button>
