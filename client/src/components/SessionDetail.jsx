@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
+import { useRealTime } from '../contexts/RealTimeContext'
 
 function SessionDetail({ onBack }) {
   const { sessionId } = useParams()
+  const { joinSession, leaveSession, onSessionUpdate, isConnected } = useRealTime()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddRoomModal, setShowAddRoomModal] = useState(false)
@@ -73,7 +75,67 @@ function SessionDetail({ onBack }) {
 
   useEffect(() => {
     fetchSessionData()
+    
+    // Join real-time session
+    joinSession(sessionId)
+    
+    // Set up real-time update listener
+    const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
+    
+    return () => {
+      cleanup()
+      leaveSession()
+    }
   }, [sessionId])
+
+  // Handle real-time updates from other users
+  const handleRealTimeUpdate = (update) => {
+    console.log('Received real-time update:', update)
+    
+    switch (update.type) {
+      case 'room-added':
+        console.log('Room added by another user:', update.data.room)
+        // Refresh session data to get the latest state
+        fetchSessionData()
+        break
+        
+      case 'room-removed':
+        console.log('Room removed by another user:', update.data.roomId)
+        // Refresh session data to get the latest state
+        fetchSessionData()
+        break
+        
+      case 'section-added':
+        console.log('Section added by another user:', update.data.section)
+        // Refresh session data to get the latest state
+        fetchSessionData()
+        break
+        
+      case 'section-removed':
+        console.log('Section removed by another user:', update.data.sectionId)
+        // Refresh session data to get the latest state
+        fetchSessionData()
+        break
+        
+      case 'session-updated':
+        console.log('Session updated by another user:', update.data.session)
+        // Update local session state with new data
+        setSession(update.data.session)
+        // Also update the session updates form
+        setSessionUpdates({
+          name: update.data.session.name,
+          description: update.data.session.description || '',
+          date: update.data.session.date.split('T')[0],
+          startTime: update.data.session.startTime,
+          endTime: update.data.session.endTime,
+          status: update.data.session.status
+        })
+        break
+        
+      default:
+        console.log('Unknown update type:', update.type)
+    }
+  }
 
   const fetchSessionData = async () => {
     try {
@@ -487,6 +549,13 @@ function SessionDetail({ onBack }) {
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(session.status)}`}>
                 {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
               </span>
+              {/* Real-time connection status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-xs text-gray-500">
+                  {isConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

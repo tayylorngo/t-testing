@@ -1,13 +1,37 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
+import { useRealTime } from '../contexts/RealTimeContext'
 
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
+  const { joinSession, leaveSession, onSessionUpdate, isConnected } = useRealTime()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(null)
+  
+  // Memoize session data to prevent unnecessary re-renders
+  const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.map(room => ({ id: room._id, status: room.status }))])
+  
+  // Debounced session update to prevent rapid successive updates
+  const [debouncedSession, setDebouncedSession] = useState(null)
+  
+  // Track when updates are happening
+  const [isUpdating, setIsUpdating] = useState(false)
+  
+  // Ref to store fetchSessionData function to avoid dependency issues
+  const fetchSessionDataRef = useRef()
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSession(session)
+      setIsUpdating(false)
+    }, 50) // Reduced to 50ms for more responsive feel
+    
+    return () => clearTimeout(timer)
+  }, [session])
+  
   const [showAddSupplyModal, setShowAddSupplyModal] = useState(false)
   const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
   const [showMoveStudentsModal, setShowMoveStudentsModal] = useState(false)
@@ -21,18 +45,18 @@ function SessionView({ user, onBack }) {
   const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
 
   // Permission checking functions
-  const canEditSession = () => {
-    if (!session || !user) return false
-    return session.createdBy._id === user._id || 
-           session.collaborators?.some(collab => 
+  const canEditSession = useCallback(() => {
+    if (!memoizedSession || !user) return false
+    return memoizedSession.createdBy._id === user._id || 
+           memoizedSession.collaborators?.some(collab => 
              collab.userId._id === user._id && (collab.permissions.edit || collab.permissions.manage)
            )
-  }
+  }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
-  const getSessionRole = () => {
-    if (!session || !user) return 'Unknown'
-    if (session.createdBy._id === user._id) return 'Owner'
-    const collaborator = session.collaborators?.find(collab => collab.userId._id === user._id)
+  const getSessionRole = useCallback(() => {
+    if (!memoizedSession || !user) return 'Unknown'
+    if (memoizedSession.createdBy._id === user._id) return 'Owner'
+    const collaborator = memoizedSession.collaborators?.find(collab => collab.userId._id === user._id)
     if (collaborator) {
       const permissions = []
       if (collaborator.permissions.view) permissions.push('View')
@@ -41,7 +65,7 @@ function SessionView({ user, onBack }) {
       return `Collaborator (${permissions.join(', ')})`
     }
     return 'Unknown'
-  }
+  }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
   // Sort state
   const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
@@ -54,20 +78,7 @@ function SessionView({ user, onBack }) {
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
 
-  useEffect(() => {
-    fetchSessionData()
-  }, [sessionId])
-
-  useEffect(() => {
-    if (session) {
-      const timer = setInterval(() => {
-        updateTimeRemaining()
-      }, 1000)
-      return () => clearInterval(timer)
-    }
-  }, [session])
-
-  const fetchSessionData = async () => {
+  const fetchSessionData = useCallback(async () => {
     try {
       setIsLoading(true)
       const sessionData = await testingAPI.getSession(sessionId)
@@ -101,14 +112,160 @@ function SessionView({ user, onBack }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sessionId, user, onBack])
+  
+  // Store fetchSessionData in ref to avoid dependency issues in handleRealTimeUpdate
+  useEffect(() => {
+    fetchSessionDataRef.current = fetchSessionData
+  }, [fetchSessionData])
 
-  const updateTimeRemaining = () => {
-    if (!session) return
+  useEffect(() => {
+    fetchSessionData()
+    
+    // Join real-time session
+    joinSession(sessionId)
+    
+    // Set up real-time update listener
+    const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
+    
+    return () => {
+      cleanup()
+      leaveSession()
+    }
+  }, [sessionId])
+
+  // Handle real-time updates from other users
+  const handleRealTimeUpdate = useCallback((update) => {
+    console.log('SessionView - Received real-time update:', update)
+    console.log('SessionView - Update type:', update.type)
+    console.log('SessionView - Update data:', update.data)
+    
+    switch (update.type) {
+      case 'room-status-updated':
+        console.log('Room status updated by another user:', update.data)
+        console.log('SessionView - Current session:', memoizedSession)
+        setIsUpdating(true)
+        // Update the specific room in the local session state
+        if (memoizedSession) {
+          const updatedSession = { ...memoizedSession }
+          const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
+          console.log('SessionView - Room index found:', roomIndex)
+          if (roomIndex !== -1) {
+            console.log('SessionView - Updating room at index:', roomIndex)
+            console.log('SessionView - Old room:', updatedSession.rooms[roomIndex])
+            // Only update the status field to avoid overwriting other properties
+            updatedSession.rooms[roomIndex] = { 
+              ...updatedSession.rooms[roomIndex], 
+              status: update.data.status,
+              // Add a flag to trigger status-specific animations
+              statusUpdatedAt: new Date().toISOString()
+            }
+            console.log('SessionView - New room:', updatedSession.rooms[roomIndex])
+            setSession(updatedSession)
+            console.log('SessionView - Session state updated')
+          } else {
+            console.log('SessionView - Room not found in current session, fetching fresh data')
+            fetchSessionDataRef.current()
+          }
+        } else {
+          console.log('SessionView - No session available, fetching fresh data')
+          fetchSessionDataRef.current()
+        }
+        break
+        
+      case 'room-added':
+        console.log('Room added by another user:', update.data.room)
+        // For room additions, we can update local state if we have the complete room data
+        if (memoizedSession && update.data.room) {
+          const updatedSession = { ...memoizedSession }
+          updatedSession.rooms = [...updatedSession.rooms, update.data.room]
+          setSession(updatedSession)
+          console.log('SessionView - Room added to local state')
+        } else {
+          // Fallback to refresh if we don't have complete room data
+          fetchSessionDataRef.current()
+        }
+        break
+        
+      case 'room-removed':
+        console.log('Room removed by another user:', update.data.roomId)
+        // For room removals, we can update local state if we have the roomId
+        if (memoizedSession && update.data.roomId) {
+          const updatedSession = { ...memoizedSession }
+          updatedSession.rooms = updatedSession.rooms.filter(room => room._id !== update.data.roomId)
+          setSession(updatedSession)
+          console.log('SessionView - Room removed from local state')
+        } else {
+          // Fallback to refresh if we can't update locally
+          fetchSessionDataRef.current()
+        }
+        break
+        
+      case 'section-added':
+        console.log('Section added by another user:', update.data.section)
+        // For section additions, we can update local state if we have the complete section data
+        if (memoizedSession && update.data.section && update.data.roomId) {
+          const updatedSession = { ...memoizedSession }
+          const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
+          if (roomIndex !== -1) {
+            if (!updatedSession.rooms[roomIndex].sections) {
+              updatedSession.rooms[roomIndex].sections = []
+            }
+            updatedSession.rooms[roomIndex].sections.push(update.data.section)
+            setSession(updatedSession)
+            console.log('SessionView - Section added to local state')
+          } else {
+            fetchSessionDataRef.current()
+          }
+        } else {
+          // Fallback to refresh if we don't have complete section data
+          fetchSessionDataRef.current()
+        }
+        break
+        
+      case 'section-removed':
+        console.log('Section removed by another user:', update.data.sectionId)
+        // For section removals, we can try to update local state
+        if (memoizedSession && update.data.sectionId) {
+          const updatedSession = { ...memoizedSession }
+          updatedSession.rooms = updatedSession.rooms.map(room => ({
+            ...room,
+            sections: room.sections?.filter(section => section._id !== update.data.sectionId) || []
+          }))
+          setSession(updatedSession)
+          console.log('SessionView - Section removed from local state')
+        } else {
+          // Fallback to refresh if we can't update locally
+          fetchSessionDataRef.current()
+        }
+        break
+        
+      case 'session-updated':
+        console.log('Session updated by another user:', update.data.session)
+        // Update local session state with new data
+        setSession(update.data.session)
+        break
+        
+      default:
+        console.log('Unknown update type:', update.type)
+    }
+  }, [memoizedSession])
+
+  useEffect(() => {
+    if (memoizedSession) {
+      const timer = setInterval(() => {
+        updateTimeRemaining()
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.endTime]) // Only depend on specific session properties that affect time calculation
+
+  const updateTimeRemaining = useCallback(() => {
+    if (!memoizedSession) return
 
     const now = new Date()
-    const sessionDate = new Date(session.date)
-    const [endHour, endMinute] = session.endTime.split(':')
+    const sessionDate = new Date(memoizedSession.date)
+    const [endHour, endMinute] = memoizedSession.endTime.split(':')
     const endTime = new Date(sessionDate)
     endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
 
@@ -121,19 +278,19 @@ function SessionView({ user, onBack }) {
       const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
       setTimeRemaining({ hours, minutes, seconds, isOver: false })
     }
-  }
+  }, [memoizedSession?.date, memoizedSession?.endTime])
 
-  const calculateProgress = () => {
-    if (!session || !session.rooms) return 0
+  const calculateProgress = useCallback(() => {
+    if (!debouncedSession || !debouncedSession.rooms) return 0
     
-    const totalRooms = session.rooms.length
+    const totalRooms = debouncedSession.rooms.length
     if (totalRooms === 0) return 0
     
-    const completedRooms = session.rooms.filter(room => room.status === 'completed').length
+    const completedRooms = debouncedSession.rooms.filter(room => room.status === 'completed').length
     return Math.round((completedRooms / totalRooms) * 100)
-  }
+  }, [debouncedSession?.rooms])
 
-  const handleMarkRoomComplete = async (roomId) => {
+  const handleMarkRoomComplete = useCallback(async (roomId) => {
     try {
       console.log('Marking room complete:', roomId)
       const response = await testingAPI.updateRoomStatus(roomId, 'completed')
@@ -170,9 +327,9 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
-  }
+  }, [sessionId])
 
-  const handleMarkRoomIncomplete = async (roomId) => {
+  const handleMarkRoomIncomplete = useCallback(async (roomId) => {
     try {
       await testingAPI.updateRoomStatus(roomId, 'active')
       
@@ -199,9 +356,9 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error marking room incomplete:', error)
     }
-  }
+  }, [sessionId])
 
-  const handleAddSupply = async () => {
+  const handleAddSupply = useCallback(async () => {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
     
     try {
@@ -250,9 +407,9 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error adding supply:', error)
     }
-  }
+  }, [selectedPresetSupply, selectedRoom, newSupplyQuantity])
 
-  const handleRemoveSupply = async (roomId, supply) => {
+  const handleRemoveSupply = useCallback(async (roomId, supply) => {
     try {
       const room = session.rooms.find(r => r._id === roomId)
       const updatedSupplies = room.supplies.filter(s => s !== supply)
@@ -271,9 +428,9 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error removing supply:', error)
     }
-  }
+  }, [session?.rooms])
 
-  const handleEditSupply = async () => {
+  const handleEditSupply = useCallback(async () => {
     if (!editingSupply || !selectedRoom || editSupplyQuantity < 1) return
     
     try {
@@ -305,9 +462,9 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error editing supply:', error)
     }
-  }
+  }, [editingSupply, selectedRoom, editSupplyQuantity, session?.rooms])
 
-  const handleMoveStudents = async () => {
+  const handleMoveStudents = useCallback(async () => {
     if (!moveFromRoom || Object.keys(studentMoveData).length === 0) return
     
     try {
@@ -427,152 +584,84 @@ function SessionView({ user, onBack }) {
                   notes: section.notes || ''
                 }
                 
-                console.log('Creating new section with data:', newSectionData)
+                console.log('Creating new section in destination room with data:', newSectionData)
                 
                 // Create the new section
                 const newSectionResponse = await testingAPI.createSection(newSectionData)
-                console.log('New section created:', newSectionResponse)
+                console.log('New section created in destination room:', newSectionResponse)
                 
                 // Add the new section to the destination room
                 await testingAPI.addSectionToRoom(moveInfo.destinationRoom, newSectionResponse.section._id)
-                console.log(`Added section to room ${moveInfo.destinationRoom}`)
-              }
-              
-              // Update the original section in the source room
-              const newStudentCount = section.studentCount - moveInfo.studentsToMove
-              
-              if (newStudentCount === 0) {
-                // If all students are moved, remove the section from the room
-                console.log(`All students moved from section ${sectionId}, removing section from room`)
-                await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
-              } else {
-                // Update the section with the remaining students
-                await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
-                console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
+                console.log(`Added section to destination room ${moveInfo.destinationRoom}`)
+                
+                // Update the original section in the source room
+                const newStudentCount = section.studentCount - moveInfo.studentsToMove
+                
+                if (newStudentCount === 0) {
+                  // If all students are moved, remove the section from the room
+                  console.log(`All students moved from section ${sectionId}, removing section from room`)
+                  await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
+                } else {
+                  // Update the section with the remaining students
+                  await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
+                  console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
+                }
               }
             }
+          } else {
+            console.error(`Invalid move: ${moveInfo.studentsToMove} students cannot be moved from section with ${section?.studentCount || 0} students`)
           }
         }
       }
       
-      console.log('All moves completed, updating local state...')
+      // Refresh session data to get the updated state
+      await fetchSessionData()
       
-      // Update local state to reflect the changes
-      setSession(prevSession => {
-        const updatedSession = { ...prevSession }
-        
-        // Update rooms based on the moves that were made
-        updatedSession.rooms = updatedSession.rooms.map(room => {
-          // Check if this room was involved in any moves
-          const wasSourceRoom = room._id === moveFromRoom._id
-          const wasDestinationRoom = Object.values(studentMoveData).some(moveInfo => 
-            moveInfo.destinationRoom === room._id
-          )
-          
-          if (wasSourceRoom || wasDestinationRoom) {
-            // This room was involved in moves, we need to update its sections
-            const updatedRoom = { ...room }
-            
-            // For source room: reduce student counts or remove sections
-            if (wasSourceRoom) {
-              updatedRoom.sections = room.sections.map(section => {
-                const moveInfo = studentMoveData[section._id]
-                if (moveInfo && moveInfo.studentsToMove > 0) {
-                  const newStudentCount = section.studentCount - moveInfo.studentsToMove
-                  if (newStudentCount === 0) {
-                    return null // Remove this section
-                  } else {
-                    return { ...section, studentCount: newStudentCount }
-                  }
-                }
-                return section
-              }).filter(Boolean) // Remove null sections
-            }
-            
-            // For destination room: add new sections or update existing ones
-            if (wasDestinationRoom) {
-              // Add new sections that were created
-              const newSections = []
-              Object.entries(studentMoveData).forEach(([sectionId, moveInfo]) => {
-                if (moveInfo.destinationRoom === room._id && moveInfo.studentsToMove > 0) {
-                  const sourceSection = moveFromRoom.sections.find(s => s._id === sectionId)
-                  if (sourceSection) {
-                    // Check if section with same number already exists
-                    const existingSection = room.sections.find(s => s.number === sourceSection.number)
-                    if (existingSection) {
-                      // Update existing section
-                      existingSection.studentCount += moveInfo.studentsToMove
-                    } else {
-                      // Add new section
-                      newSections.push({
-                        _id: `temp_${Date.now()}_${Math.random()}`, // Temporary ID
-                        number: sourceSection.number,
-                        studentCount: moveInfo.studentsToMove,
-                        accommodations: sourceSection.accommodations || [],
-                        notes: sourceSection.notes || ''
-                      })
-                    }
-                  }
-                }
-              })
-              
-              updatedRoom.sections = [...room.sections, ...newSections]
-            }
-            
-            return updatedRoom
-          }
-          
-          return room
-        })
-        
-        return updatedSession
-      })
-      
+      // Reset the modal state
       setShowMoveStudentsModal(false)
       setMoveFromRoom(null)
       setStudentMoveData({})
       
-      console.log('Move students process completed successfully')
+      console.log('Student move process completed successfully')
     } catch (error) {
       console.error('Error moving students:', error)
-      alert('Error moving students. Please try again.')
     }
-  }
+  }, [moveFromRoom, studentMoveData, session?.rooms, fetchSessionData])
 
-  const formatTime = (timeString) => {
+  const formatTime = useCallback((timeString) => {
     if (!timeString) return ''
     return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
+  }, [])
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     switch (status) {
       case 'completed': return 'bg-green-500'
       case 'active': return 'bg-blue-500'
       default: return 'bg-blue-500' // Default to active (in progress)
     }
-  }
+  }, [])
 
-  const getStatusText = (status) => {
+  const getStatusText = useCallback((status) => {
     switch (status) {
       case 'completed': return 'Completed'
       case 'active': return 'In Progress'
       default: return 'In Progress' // Default to active (in progress)
     }
-  }
+  }, [])
 
-  const calculateTotalStudents = (sections) => {
+  const calculateTotalStudents = useCallback((sections) => {
     if (!sections || sections.length === 0) return 0
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
-  }
+  }, [])
 
 
 
 
 
-  const getRoomSortKey = (roomName) => {
+  const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
     if (match) {
       const number = parseInt(match[1])
@@ -580,12 +669,12 @@ function SessionView({ user, onBack }) {
       return { number, letter, full: roomName }
     }
     return { number: 999, letter: '', full: roomName }
-  }
+  }, [])
 
-  const getSortedRooms = () => {
-    if (!session || !session.rooms) return []
+  const getSortedRooms = useCallback(() => {
+    if (!debouncedSession || !debouncedSession.rooms) return []
     
-    let sortedRooms = [...session.rooms]
+    let sortedRooms = [...debouncedSession.rooms]
     
     // Filter by search query first
     if (searchQuery.trim()) {
@@ -671,12 +760,12 @@ function SessionView({ user, onBack }) {
       // Apply sort direction
       return sortDescending ? -comparison : comparison
     })
-  }
+  }, [debouncedSession?.rooms, searchQuery, sortBy, sortDescending])
 
 
 
-  const calculateRoomTimeRemaining = (room) => {
-    if (!session || !timeRemaining || timeRemaining.isOver) return null
+  const calculateRoomTimeRemaining = useCallback((room) => {
+    if (!memoizedSession || !timeRemaining || timeRemaining.isOver) return null
     
     // Get time multiplier for this room (default 1x, future: 1.5x, 2x, etc.)
     const timeMultiplier = roomTimeMultipliers[room._id] || 1
@@ -710,9 +799,9 @@ function SessionView({ user, onBack }) {
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
     
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
-  }
+  }, [session?.startTime, session?.endTime, session?.date, timeRemaining, roomTimeMultipliers])
 
-  const toggleRoomExpansion = (roomId) => {
+  const toggleRoomExpansion = useCallback((roomId) => {
     setExpandedRooms(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -722,9 +811,9 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
-  }
+  }, [])
 
-  const toggleCardExpansion = (roomId) => {
+  const toggleCardExpansion = useCallback((roomId) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -736,7 +825,7 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
-  }
+  }, [])
 
 
   if (isLoading) {
@@ -769,7 +858,14 @@ function SessionView({ user, onBack }) {
   const progress = calculateProgress()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container ${isUpdating ? 'page-updating' : 'page-stable'}`}>
+      {/* Real-time update indicator */}
+      {isUpdating && (
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+          🔄 Updating...
+        </div>
+      )}
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -777,10 +873,17 @@ function SessionView({ user, onBack }) {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{session.name}</h1>
               <p className="text-gray-600">Session Progress View</p>
-              <div className="mt-2">
+              <div className="mt-2 flex items-center gap-3">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                   {getSessionRole()}
                 </span>
+                {/* Real-time connection status */}
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="text-sm text-gray-600">
+                    {isConnected ? 'Live' : 'Offline'}
+                  </span>
+                </div>
               </div>
             </div>
             <button
@@ -830,8 +933,11 @@ function SessionView({ user, onBack }) {
               </div>
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(session.status)}`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(session.status)}`}>
                   {getStatusText(session.status)}
+                  {isUpdating && (
+                    <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  )}
                 </span>
               </div>
               <div>
@@ -865,11 +971,16 @@ function SessionView({ user, onBack }) {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Overall Progress</h2>
-            <span className="text-2xl font-bold text-blue-600">{progress}%</span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-blue-600">{progress}%</span>
+              {isUpdating && (
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+              )}
+            </div>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
             <div 
-              className="bg-blue-600 h-4 rounded-full transition-all duration-500"
+              className="bg-blue-600 h-4 rounded-full progress-bar-transition"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
@@ -1080,8 +1191,11 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                             {getStatusText(room.status)}
+                            {isUpdating && room.status === 'completed' && (
+                              <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                            )}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1171,7 +1285,7 @@ function SessionView({ user, onBack }) {
                       {/* Expanded Details Row */}
                       <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
                         <td colSpan="7" className="px-0 py-0">
-                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                          <div className={`overflow-hidden room-expansion-transition ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="px-6 py-3">
                               <div className="grid grid-cols-2 gap-4">
                                 {/* Sections Column */}
@@ -1305,8 +1419,11 @@ function SessionView({ user, onBack }) {
               >
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(room.status)}`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
+                    {isUpdating && room.status === 'completed' && (
+                      <div className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    )}
                   </span>
                 </div>
 
@@ -1741,4 +1858,4 @@ function SessionView({ user, onBack }) {
   )
 }
 
-export default SessionView 
+export default memo(SessionView) 

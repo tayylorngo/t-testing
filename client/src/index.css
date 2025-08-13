@@ -1,37 +1,94 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+/* Smooth transitions for real-time updates */
+.room-status-transition {
+  transition: all 0.3s ease-in-out;
+}
 
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
+.room-status-completed {
+  animation: statusUpdate 0.5s ease-in-out;
+}
 
-  body {
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-  }
+.room-status-active {
+  animation: statusUpdate 0.5s ease-in-out;
+}
 
-  #root {
-    width: 100%;
-    min-height: 100vh;
+@keyframes statusUpdate {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
-/* Test class to verify Tailwind is working */
-.test-tailwind {
-  @apply bg-red-500 text-white p-4 rounded;
+/* Prevent layout shifts during updates */
+.room-card {
+  min-height: 200px;
+  transition: all 0.3s ease-in-out;
+}
+
+.room-status-badge {
+  transition: all 0.3s ease-in-out;
+  transform-origin: center;
+}
+
+/* Smooth progress bar updates */
+.progress-bar-transition {
+  transition: width 0.5s ease-in-out;
+}
+
+/* Smooth room expansion/collapse */
+.room-expansion-transition {
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+/* Smooth card expansion/collapse */
+.card-expansion-transition {
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+/* Smooth supply changes */
+.supply-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Smooth student count updates */
+.student-count-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Smooth time updates */
+.time-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Prevent flash of unstyled content during updates */
+.room-update-pending {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+.room-update-complete {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Prevent entire page refresh appearance */
+.page-container {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.page-updating {
+  opacity: 0.95;
+}
+
+.page-stable {
+  opacity: 1;
 } 

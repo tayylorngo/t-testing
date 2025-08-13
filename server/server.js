@@ -7,12 +7,91 @@ import { body, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 3001;
+
+// Real-time session management
+const activeSessions = new Map(); // sessionId -> Set of socketIds
+const userSessions = new Map(); // socketId -> sessionId
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Join a session room
+  socket.on('join-session', (sessionId) => {
+    socket.join(`session-${sessionId}`);
+    
+    // Track user's active session
+    userSessions.set(socket.id, sessionId);
+    
+    // Add to active sessions tracking
+    if (!activeSessions.has(sessionId)) {
+      activeSessions.set(sessionId, new Set());
+    }
+    activeSessions.get(sessionId).add(socket.id);
+    
+    console.log(`User ${socket.id} joined session ${sessionId}`);
+  });
+
+  // Leave a session room
+  socket.on('leave-session', (sessionId) => {
+    socket.leave(`session-${sessionId}`);
+    
+    // Remove from tracking
+    userSessions.delete(socket.id);
+    if (activeSessions.has(sessionId)) {
+      activeSessions.get(sessionId).delete(socket.id);
+      if (activeSessions.get(sessionId).size === 0) {
+        activeSessions.delete(sessionId);
+      }
+    }
+    
+    console.log(`User ${socket.id} left session ${sessionId}`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    const sessionId = userSessions.get(socket.id);
+    if (sessionId) {
+      if (activeSessions.has(sessionId)) {
+        activeSessions.get(sessionId).delete(socket.id);
+        if (activeSessions.get(sessionId).size === 0) {
+          activeSessions.delete(sessionId);
+        }
+      }
+      userSessions.delete(socket.id);
+    }
+    console.log('User disconnected:', socket.id);
+  });
+});
+
+// Helper function to emit updates to all users in a session
+const emitSessionUpdate = (sessionId, eventType, data) => {
+  const updatePayload = {
+    type: eventType,
+    sessionId,
+    data,
+    timestamp: new Date().toISOString()
+  };
+  console.log(`Emitting ${eventType} update to session ${sessionId}:`, updatePayload);
+  io.to(`session-${sessionId}`).emit('session-update', updatePayload);
+  console.log(`Emitted ${eventType} update to session ${sessionId}`);
+};
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -539,6 +618,16 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Find the session that contains this room to emit real-time update
+    const session = await Session.findOne({ rooms: id });
+    console.log(`Room status update - Found session:`, session ? session._id : 'None');
+    if (session) {
+      console.log(`Room status update - Emitting real-time update for session: ${session._id}`);
+      emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status });
+    } else {
+      console.log(`Room status update - No session found containing room: ${id}`);
+    }
+
     res.json({ message: 'Room status updated', room });
   } catch (error) {
     console.error('Update room error:', error);
@@ -814,6 +903,9 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
     }
+
+    // Emit real-time update to all users in the session
+    emitSessionUpdate(req.params.id, 'session-updated', { session });
 
     res.json({ message: 'Session updated successfully', session });
   } catch (error) {
@@ -1270,6 +1362,9 @@ app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) =
       })
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Emit real-time update to all users in the session
+    emitSessionUpdate(sessionId, 'room-added', { room: room, session: updatedSession });
+
     res.json({ 
       message: 'Room added to session successfully', 
       session: updatedSession 
@@ -1311,12 +1406,15 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
       })
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Emit real-time update to all users in the session
+    emitSessionUpdate(sessionId, 'room-removed', { roomId, session: updatedSession });
+
     res.json({ 
       message: 'Room removed from session successfully', 
       session: updatedSession 
     });
   } catch (error) {
-    console.error('Remove room from session error:', error);
+    console.error('Remove room to session error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -1433,6 +1531,9 @@ app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res
     const updatedSession = await Session.findById(sessionId)
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Emit real-time update to all users in the session
+    emitSessionUpdate(sessionId, 'section-added', { section, session: updatedSession });
+
     res.json({ 
       message: 'Section added to session successfully', 
       session: updatedSession 
@@ -1465,6 +1566,9 @@ app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, as
     // Return updated session with populated sections
     const updatedSession = await Session.findById(sessionId)
       .populate('sections', 'number studentCount accommodations notes');
+
+    // Emit real-time update to all users in the session
+    emitSessionUpdate(sessionId, 'section-removed', { sectionId, session: updatedSession });
 
     res.json({ 
       message: 'Section removed from session successfully', 
@@ -1635,8 +1739,9 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 T-Testing Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🗄️  MongoDB URI: ${MONGODB_URI}`);
+  console.log(`🔌 WebSocket server ready for real-time updates`);
 }); 

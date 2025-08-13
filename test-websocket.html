@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; max-height: 400px; overflow-y: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Real-Time Test</h1>
+    
+    <div id="connectionStatus" class="status disconnected">
+        Disconnected
+    </div>
+    
+    <div>
+        <input type="text" id="sessionId" placeholder="Enter Session ID" value="test-session">
+        <button onclick="joinSession()">Join Session</button>
+        <button onclick="leaveSession()">Leave Session</button>
+    </div>
+    
+    <div>
+        <button onclick="testRoomStatusUpdate()">Test Room Status Update</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div id="log" class="log"></div>
+
+    <script>
+        const socket = io('http://localhost:3001');
+        let currentSessionId = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = 'Connected';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = 'Disconnected';
+            }
+        }
+
+        // Socket event handlers
+        socket.on('connect', () => {
+            log('Connected to server');
+            updateConnectionStatus(true);
+        });
+
+        socket.on('disconnect', () => {
+            log('Disconnected from server');
+            updateConnectionStatus(false);
+        });
+
+        socket.on('session-update', (update) => {
+            log(`Received session update: ${JSON.stringify(update, null, 2)}`);
+        });
+
+        function joinSession() {
+            const sessionId = document.getElementById('sessionId').value;
+            if (sessionId) {
+                socket.emit('join-session', sessionId);
+                currentSessionId = sessionId;
+                log(`Joined session: ${sessionId}`);
+            }
+        }
+
+        function leaveSession() {
+            if (currentSessionId) {
+                socket.emit('leave-session', currentSessionId);
+                log(`Left session: ${currentSessionId}`);
+                currentSessionId = null;
+            }
+        }
+
+        function testRoomStatusUpdate() {
+            if (!currentSessionId) {
+                log('Please join a session first');
+                return;
+            }
+            
+            // Simulate a room status update
+            const testUpdate = {
+                type: 'room-status-updated',
+                sessionId: currentSessionId,
+                data: {
+                    roomId: 'test-room-123',
+                    room: {
+                        _id: 'test-room-123',
+                        name: 'Test Room',
+                        status: 'completed'
+                    },
+                    status: 'completed'
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            log(`Emitting test update: ${JSON.stringify(testUpdate, null, 2)}`);
+            socket.emit('session-update', testUpdate);
+        }
+
+        // Initialize
+        log('WebSocket test page loaded');
+    </script>
+</body>
+</html>

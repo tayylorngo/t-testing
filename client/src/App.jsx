@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { authAPI, apiUtils } from './services/api'
+import { RealTimeProvider } from './contexts/RealTimeContext'
 import LoginPage from './components/LoginPage'
 import RegisterPage from './components/RegisterPage'
 import Dashboard from './components/Dashboard'
@@ -98,12 +99,14 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/dashboard" element={<Dashboard user={user} onLogout={handleLogout} onViewSession={handleViewSession} />} />
-      <Route path="/session/:sessionId/manage" element={<SessionDetail onBack={handleBackToDashboard} />} />
-      <Route path="/session/:sessionId/view" element={<SessionView user={user} onBack={handleBackToDashboard} />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+    <RealTimeProvider>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard user={user} onLogout={handleLogout} onViewSession={handleViewSession} />} />
+        <Route path="/session/:sessionId/manage" element={<SessionDetail onBack={handleBackToDashboard} />} />
+        <Route path="/session/:sessionId/view" element={<SessionView user={user} onBack={handleBackToDashboard} />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </RealTimeProvider>
   )
 }
 
