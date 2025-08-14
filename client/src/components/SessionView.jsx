@@ -40,6 +40,23 @@ function SessionView({ user, onBack }) {
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
 
+  // Activity log state
+  const [activityLog, setActivityLog] = useState([])
+  const [showActivityLog, setShowActivityLog] = useState(true)
+
+
+
+  const clearActivityLog = useCallback(async () => {
+    try {
+      await testingAPI.clearActivityLog(sessionId)
+      setActivityLog([])
+      console.log('Activity log cleared successfully')
+    } catch (error) {
+      console.error('Error clearing activity log:', error)
+      // You could show a toast notification here if you have one
+    }
+  }, [sessionId])
+
   // Permission checking functions
   const canEditSession = useCallback(() => {
     if (!memoizedSession || !user) return false
@@ -94,6 +111,17 @@ function SessionView({ user, onBack }) {
           onBack()
           return
         }
+
+        // Fetch the persistent activity log
+        try {
+          const activityLogData = await testingAPI.getActivityLog(sessionId)
+          console.log('SessionView - Activity log data received:', activityLogData.activityLog)
+          setActivityLog(activityLogData.activityLog || [])
+        } catch (error) {
+          console.error('Error fetching activity log:', error)
+          // If we can't fetch the activity log, start with an empty array
+          setActivityLog([])
+        }
       }
     } catch (error) {
       console.error('Error fetching session data:', error)
@@ -136,10 +164,12 @@ function SessionView({ user, onBack }) {
   }, [])
 
   useEffect(() => {
-    fetchSessionData()
+    console.log('🔄 SessionView useEffect - Setting up real-time updates for session:', sessionId)
+    console.log('🔄 SessionView useEffect - isConnected:', isConnected)
+    console.log('🔄 SessionView useEffect - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
     
-    // Join real-time session with retry logic
     const attemptJoinSession = () => {
+      console.log('🔄 SessionView useEffect - Attempting to join session:', sessionId)
       const success = joinSession(sessionId)
       if (!success) {
         console.log('⏳ Session join failed, will retry when connected...')
@@ -149,32 +179,51 @@ function SessionView({ user, onBack }) {
     attemptJoinSession()
     
     // Set up real-time update listener
+    console.log('🔄 SessionView useEffect - Registering onSessionUpdate callback for session:', sessionId)
     const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
+    console.log('🔄 SessionView useEffect - Callback registered successfully')
     
     return () => {
+      console.log('🔄 SessionView useEffect - Cleaning up real-time updates for session:', sessionId)
       cleanup()
       leaveSession()
     }
   }, [sessionId, isConnected])
 
+  // Fetch session data when component mounts or sessionId changes
+  useEffect(() => {
+    console.log('📥 SessionView useEffect - Fetching session data for session:', sessionId)
+    fetchSessionData()
+  }, [sessionId])
+
   // Handle real-time updates from other users
   const handleRealTimeUpdate = useCallback((update) => {
-    console.log('SessionView - Received real-time update:', update)
-    console.log('SessionView - Update type:', update.type)
-    console.log('SessionView - Update data:', update.data)
+    console.log('🔔 SessionView - Received real-time update:', update)
+    console.log('🔔 SessionView - Update type:', update.type)
+    console.log('🔔 SessionView - Update data:', update.data)
+    console.log('🔔 SessionView - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
+    console.log('🔔 SessionView - Current session ID:', sessionId)
+    console.log('🔔 SessionView - Update session ID:', update.sessionId)
+    console.log('🔔 SessionView - Memoized session exists:', !!memoizedSession)
+    
+    // Add log entry to local state if provided in the update
+    if (update.logEntry) {
+      console.log('🔔 SessionView - Adding log entry to local state:', update.logEntry)
+      setActivityLog(prevLog => [update.logEntry, ...prevLog])
+    }
     
     switch (update.type) {
       case 'room-status-updated':
-        console.log('Room status updated by another user:', update.data)
-        console.log('SessionView - Current session:', memoizedSession)
+        console.log('🔔 Room status updated by another user:', update.data)
+        console.log('🔔 SessionView - Current session:', memoizedSession)
         // Update the specific room in the local session state
         if (memoizedSession) {
           const updatedSession = { ...memoizedSession }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
-          console.log('SessionView - Room index found:', roomIndex)
+          console.log('🔔 SessionView - Room index found:', roomIndex)
           if (roomIndex !== -1) {
-            console.log('SessionView - Updating room at index:', roomIndex)
-            console.log('SessionView - Old room:', updatedSession.rooms[roomIndex])
+            console.log('🔔 SessionView - Updating room at index:', roomIndex)
+            console.log('🔔 SessionView - Old room:', updatedSession.rooms[roomIndex])
             // Only update the status field to avoid overwriting other properties
             updatedSession.rooms[roomIndex] = { 
               ...updatedSession.rooms[roomIndex], 
@@ -182,18 +231,18 @@ function SessionView({ user, onBack }) {
               // Add a flag to trigger status-specific animations
               statusUpdatedAt: new Date().toISOString()
             }
-            console.log('SessionView - New room:', updatedSession.rooms[roomIndex])
+            console.log('🔔 SessionView - New room:', updatedSession.rooms[roomIndex])
             setSession(updatedSession)
-            console.log('SessionView - Session state updated')
+            console.log('🔔 SessionView - Session state updated')
             
             // Add animation for room status updates
             addUpdateAnimation(update.data.roomId, 'room-status-updated')
           } else {
-            console.log('SessionView - Room not found in current session, performing silent refresh')
+            console.log('🔔 SessionView - Room not found in current session, performing silent refresh')
             silentRefreshRef.current()
           }
         } else {
-          console.log('SessionView - No session available, performing silent refresh')
+          console.log('🔔 SessionView - No session available, performing silent refresh')
           silentRefreshRef.current()
         }
         break
@@ -206,6 +255,8 @@ function SessionView({ user, onBack }) {
           updatedSession.rooms = [...updatedSession.rooms, update.data.room]
           setSession(updatedSession)
           console.log('SessionView - Room added to local state')
+
+          // Activity log entry is now handled by the server
         } else {
           // Fallback to silent refresh if we don't have complete room data
           silentRefreshRef.current()
@@ -220,6 +271,8 @@ function SessionView({ user, onBack }) {
           updatedSession.rooms = updatedSession.rooms.filter(room => room._id !== update.data.roomId)
           setSession(updatedSession)
           console.log('SessionView - Room removed from local state')
+
+          // Activity log entry is now handled by the server
         } else {
           // Fallback to refresh if we can't update locally
           fetchSessionDataRef.current()
@@ -239,6 +292,8 @@ function SessionView({ user, onBack }) {
             updatedSession.rooms[roomIndex].sections.push(update.data.section)
             setSession(updatedSession)
             console.log('SessionView - Section added to local state')
+
+            // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
           }
@@ -253,12 +308,15 @@ function SessionView({ user, onBack }) {
         // For section removals, we can try to update local state
         if (memoizedSession && update.data.sectionId) {
           const updatedSession = { ...memoizedSession }
+          
           updatedSession.rooms = updatedSession.rooms.map(room => ({
             ...room,
             sections: room.sections?.filter(section => section._id !== update.data.sectionId) || []
           }))
           setSession(updatedSession)
           console.log('SessionView - Section removed from local state')
+
+          // Activity log entry is now handled by the server
         } else {
           // Fallback to silent refresh if we can't update locally
           silentRefreshRef.current()
@@ -277,6 +335,8 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - Room updated in local state')
             // Add animation for room updates
             addUpdateAnimation(update.data.roomId, 'room-updated')
+
+            // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
           }
@@ -308,6 +368,8 @@ function SessionView({ user, onBack }) {
           if (roomToAnimate) {
             addUpdateAnimation(roomToAnimate._id, 'section-updated')
           }
+
+          // Activity log entry is now handled by the server
         } else {
           silentRefreshRef.current()
         }
@@ -325,6 +387,8 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - Section added to room in local state')
             // Add animation for section added to room
             addUpdateAnimation(update.data.roomId, 'section-added-to-room')
+            
+            // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
           }
@@ -345,6 +409,8 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - Section removed from room in local state')
             // Add animation for section removed from room
             addUpdateAnimation(update.data.roomId, 'section-removed-from-room')
+            
+            // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
           }
@@ -357,6 +423,14 @@ function SessionView({ user, onBack }) {
         console.log('Session updated by another user:', update.data.session)
         // Update local session state with new data
         setSession(update.data.session)
+        
+        // Activity log entry is now handled by the server
+        break
+        
+      case 'activity-log-cleared':
+        console.log('Activity log cleared by another user:', update.data)
+        // Clear the local activity log state
+        setActivityLog([])
         break
         
       default:
@@ -437,10 +511,12 @@ function SessionView({ user, onBack }) {
         
         return updatedSession
       })
+
+      // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
-  }, [sessionId])
+  }, [sessionId, session?.rooms])
 
   const handleMarkRoomIncomplete = useCallback(async (roomId) => {
     try {
@@ -466,10 +542,12 @@ function SessionView({ user, onBack }) {
         
         return updatedSession
       })
+
+      // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error marking room incomplete:', error)
     }
-  }, [sessionId])
+  }, [sessionId, session?.rooms])
 
   const handleAddSupply = useCallback(async () => {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
@@ -517,6 +595,8 @@ function SessionView({ user, onBack }) {
       setSelectedPresetSupply('')
       setNewSupplyQuantity(1)
       setSelectedRoom(null)
+
+      // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error adding supply:', error)
     }
@@ -538,6 +618,8 @@ function SessionView({ user, onBack }) {
             : room
         )
       }))
+
+      // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error removing supply:', error)
     }
@@ -572,6 +654,8 @@ function SessionView({ user, onBack }) {
       setEditingSupply(null)
       setEditSupplyQuantity(1)
       setSelectedRoom(null)
+
+      // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error editing supply:', error)
     }
@@ -735,6 +819,7 @@ function SessionView({ user, onBack }) {
       setMoveFromRoom(null)
       setStudentMoveData({})
       
+      // Activity log entry is now handled by the server
       console.log('Student move process completed successfully')
     } catch (error) {
       console.error('Error moving students:', error)
@@ -769,10 +854,6 @@ function SessionView({ user, onBack }) {
     if (!sections || sections.length === 0) return 0
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
   }, [])
-
-
-
-
 
   const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
@@ -1967,6 +2048,82 @@ function SessionView({ user, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Activity Log Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Activity Log</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowActivityLog(!showActivityLog)}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+              >
+                {showActivityLog ? 'Hide Log' : 'Show Log'}
+              </button>
+              {getSessionRole() === 'Owner' && (
+                <button
+                  onClick={clearActivityLog}
+                  className="px-3 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200"
+                  title="Clear activity log (Owner only)"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {showActivityLog && (
+            <div className="space-y-4">
+              {activityLog.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="mt-2">No activity recorded yet</p>
+                  <p className="text-sm">Actions will appear here as they happen</p>
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto space-y-3">
+                  {activityLog.map((log, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-500"
+                    >
+                      <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {log.action}
+                          </p>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {log.timestamp}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-gray-600 dark:text-gray-300">
+                            User: <span className="font-medium">{log.userName}</span>
+                          </span>
+                          {log.roomName && (
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
+                              Room: <span className="font-medium">{log.roomName}</span>
+                            </span>
+                          )}
+                          {log.details && (
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
+                              {log.details}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

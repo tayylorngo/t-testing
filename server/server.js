@@ -30,10 +30,11 @@ const userSessions = new Map(); // socketId -> sessionId
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('🔌 User connected:', socket.id);
 
   // Join a session room
   socket.on('join-session', (sessionId) => {
+    console.log(`🔌 Socket ${socket.id} joining session: ${sessionId}`);
     socket.join(`session-${sessionId}`);
     
     // Track user's active session
@@ -45,11 +46,14 @@ io.on('connection', (socket) => {
     }
     activeSessions.get(sessionId).add(socket.id);
     
-    console.log(`User ${socket.id} joined session ${sessionId}`);
+    console.log(`🔌 User ${socket.id} joined session ${sessionId}`);
+    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
+    console.log(`🔌 Session ${sessionId} now has ${activeSessions.get(sessionId).size} users`);
   });
 
   // Leave a session room
   socket.on('leave-session', (sessionId) => {
+    console.log(`🔌 Socket ${socket.id} leaving session: ${sessionId}`);
     socket.leave(`session-${sessionId}`);
     
     // Remove from tracking
@@ -61,13 +65,15 @@ io.on('connection', (socket) => {
       }
     }
     
-    console.log(`User ${socket.id} left session ${sessionId}`);
+    console.log(`🔌 User ${socket.id} left session ${sessionId}`);
+    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
   });
 
   // Handle disconnection
   socket.on('disconnect', () => {
     const sessionId = userSessions.get(socket.id);
     if (sessionId) {
+      console.log(`🔌 Socket ${socket.id} disconnected from session: ${sessionId}`);
       if (activeSessions.has(sessionId)) {
         activeSessions.get(sessionId).delete(socket.id);
         if (activeSessions.get(sessionId).size === 0) {
@@ -76,21 +82,72 @@ io.on('connection', (socket) => {
       }
       userSessions.delete(socket.id);
     }
-    console.log('User disconnected:', socket.id);
+    console.log('🔌 User disconnected:', socket.id);
+    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
   });
 });
 
 // Helper function to emit updates to all users in a session
-const emitSessionUpdate = (sessionId, eventType, data) => {
+const emitSessionUpdate = (sessionId, eventType, data, user = null, logEntry = null) => {
+  console.log(`🚀 emitSessionUpdate called for session: ${sessionId}`)
+  console.log(`🚀 Event type: ${eventType}`)
+  console.log(`🚀 Data:`, data)
+  console.log(`🚀 User:`, user ? `${user.firstName} ${user.lastName}` : 'Unknown User')
+  console.log(`🚀 Log entry:`, logEntry)
+  
   const updatePayload = {
     type: eventType,
     sessionId,
-    data,
+    data: {
+      ...data,
+      userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User'
+    },
+    logEntry: logEntry,
     timestamp: new Date().toISOString()
   };
-  console.log(`Emitting ${eventType} update to session ${sessionId}:`, updatePayload);
+  
+  console.log(`🚀 Final update payload:`, updatePayload)
+  console.log(`🚀 Emitting ${eventType} update to session ${sessionId}`);
+  
+  // Check how many sockets are in the session room
+  const sessionRoom = io.sockets.adapter.rooms.get(`session-${sessionId}`);
+  const socketCount = sessionRoom ? sessionRoom.size : 0;
+  console.log(`🚀 Number of sockets in session-${sessionId}: ${socketCount}`);
+  
   io.to(`session-${sessionId}`).emit('session-update', updatePayload);
-  console.log(`Emitted ${eventType} update to session ${sessionId}`);
+  console.log(`🚀 Emitted ${eventType} update to session ${sessionId}`);
+};
+
+// Helper function to add activity log entries to sessions
+const addActivityLogEntry = async (sessionId, action, roomName = null, details = null, userName = null) => {
+  try {
+    console.log(`📝 addActivityLogEntry called for session: ${sessionId}`)
+    console.log(`📝 Action: ${action}, Room: ${roomName}, Details: ${details}, User: ${userName}`)
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      console.log(`❌ Session ${sessionId} not found for activity log entry`);
+      return null;
+    }
+
+    const logEntry = {
+      action,
+      timestamp: new Date(),
+      userName: userName || 'Unknown User',
+      roomName,
+      details
+    };
+
+    // Add to beginning of array and keep only last 100 entries
+    session.activityLog = [logEntry, ...(session.activityLog || [])].slice(0, 100);
+    await session.save();
+
+    console.log(`✅ Activity log entry added to session ${sessionId}:`, logEntry);
+    return logEntry;
+  } catch (error) {
+    console.error(`❌ Error adding activity log entry to session ${sessionId}:`, error);
+    return null;
+  }
 };
 
 // MongoDB Connection
@@ -308,7 +365,27 @@ const sessionSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  activityLog: [{
+    action: {
+      type: String,
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    userName: {
+      type: String,
+      required: true
+    },
+    roomName: {
+      type: String
+    },
+    details: {
+      type: String
+    }
+  }]
 });
 
 // Update the updatedAt field before saving
@@ -623,7 +700,14 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
     console.log(`Room status update - Found session:`, session ? session._id : 'None');
     if (session) {
       console.log(`Room status update - Emitting real-time update for session: ${session._id}`);
-      emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status });
+      // Get user information for the real-time update
+      const user = await User.findById(req.user.id);
+      
+      // Add activity log entry
+      const action = status === 'completed' ? 'marked room as complete' : 'marked room as incomplete';
+      const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
+      
+      emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status }, user, logEntry);
     } else {
       console.log(`Room status update - No session found containing room: ${id}`);
     }
@@ -685,7 +769,20 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
     const session = await Session.findOne({ rooms: id });
     if (session) {
       console.log(`Room update - Emitting real-time update for session: ${session._id}`);
-      emitSessionUpdate(session._id, 'room-updated', { roomId: id, room });
+      // Get user information for the real-time update
+      const user = await User.findById(req.user.id);
+      
+      // Add activity log entry for supply changes
+      let logEntry = null;
+      if (supplies !== undefined) {
+        const oldRoom = await Room.findById(id);
+        if (oldRoom && JSON.stringify(oldRoom.supplies) !== JSON.stringify(supplies)) {
+          const action = 'updated room supplies';
+          logEntry = await addActivityLogEntry(session._id, action, room.name, `Supplies changed`, `${user.firstName} ${user.lastName}`);
+        }
+      }
+      
+      emitSessionUpdate(session._id, 'room-updated', { roomId: id, room }, user, logEntry);
     } else {
       console.log(`Room update - No session found containing room: ${id}`);
     }
@@ -913,8 +1010,13 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
       return res.status(404).json({ message: 'Session not found' });
     }
 
+    // Add activity log entry for session update
+    const user = await User.findById(req.user.id);
+    const action = 'updated session details';
+    const logEntry = await addActivityLogEntry(req.params.id, action, null, 'Session information was modified', `${user.firstName} ${user.lastName}`);
+
     // Emit real-time update to all users in the session
-    emitSessionUpdate(req.params.id, 'session-updated', { session });
+    emitSessionUpdate(req.params.id, 'session-updated', { session }, user, logEntry);
 
     res.json({ message: 'Session updated successfully', session });
   } catch (error) {
@@ -1371,8 +1473,13 @@ app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) =
       })
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Add activity log entry for room addition
+    const user = await User.findById(req.user.id);
+    const action = `added room ${room.name} to the session`;
+    const logEntry = await addActivityLogEntry(sessionId, action, room.name, null, `${user.firstName} ${user.lastName}`);
+
     // Emit real-time update to all users in the session
-    emitSessionUpdate(sessionId, 'room-added', { room: room, session: updatedSession });
+    emitSessionUpdate(sessionId, 'room-added', { room: room, session: updatedSession }, user, logEntry);
 
     res.json({ 
       message: 'Room added to session successfully', 
@@ -1415,8 +1522,17 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
       })
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Add activity log entry for room removal
+    const user = await User.findById(req.user.id);
+    const room = await Room.findById(roomId);
+    let logEntry = null;
+    if (room) {
+      const action = `removed room ${room.name} from the session`;
+      logEntry = await addActivityLogEntry(sessionId, action, room.name, null, `${user.firstName} ${user.lastName}`);
+    }
+
     // Emit real-time update to all users in the session
-    emitSessionUpdate(sessionId, 'room-removed', { roomId, session: updatedSession });
+    emitSessionUpdate(sessionId, 'room-removed', { roomId, session: updatedSession }, user, logEntry);
 
     res.json({ 
       message: 'Room removed from session successfully', 
@@ -1498,7 +1614,14 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
     const session = await Session.findOne({ sections: id });
     if (session) {
       console.log(`Section update - Emitting real-time update for session: ${session._id}`);
-      emitSessionUpdate(session._id, 'section-updated', { sectionId: id, section });
+      // Get user information for the real-time update
+      const user = await User.findById(req.user.id);
+      
+      // Add activity log entry for section update
+      const action = `updated section ${section.number} to ${section.studentCount} students`;
+      const logEntry = await addActivityLogEntry(session._id, action, null, null, `${user.firstName} ${user.lastName}`);
+      
+      emitSessionUpdate(session._id, 'section-updated', { sectionId: id, section }, user, logEntry);
     } else {
       console.log(`Section update - No session found containing section: ${id}`);
     }
@@ -1549,8 +1672,13 @@ app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res
     const updatedSession = await Session.findById(sessionId)
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Add activity log entry for section addition
+    const user = await User.findById(req.user.id);
+    const action = `added section ${section.number} with ${section.studentCount} students to the session`;
+    const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
+
     // Emit real-time update to all users in the session
-    emitSessionUpdate(sessionId, 'section-added', { section, session: updatedSession });
+    emitSessionUpdate(sessionId, 'section-added', { section, session: updatedSession }, user, logEntry);
 
     res.json({ 
       message: 'Section added to session successfully', 
@@ -1585,8 +1713,17 @@ app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, as
     const updatedSession = await Session.findById(sessionId)
       .populate('sections', 'number studentCount accommodations notes');
 
+    // Add activity log entry for section removal
+    const user = await User.findById(req.user.id);
+    const section = await Section.findById(sectionId);
+    let logEntry = null;
+    if (section) {
+      const action = `removed section ${section.number} with ${section.studentCount} students from the session`;
+      logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
+    }
+
     // Emit real-time update to all users in the session
-    emitSessionUpdate(sessionId, 'section-removed', { sectionId, session: updatedSession });
+    emitSessionUpdate(sessionId, 'section-removed', { sectionId, session: updatedSession }, user, logEntry);
 
     res.json({ 
       message: 'Section removed from session successfully', 
@@ -1594,6 +1731,55 @@ app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, as
     });
   } catch (error) {
     console.error('Remove section from session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Activity Log Management
+
+// Get activity log for a session
+app.get('/api/sessions/:sessionId/activity-log', authenticateToken, checkSessionPermission('view'), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ activityLog: session.activityLog || [] });
+  } catch (error) {
+    console.error('Get activity log error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Clear activity log for a session (owner only)
+app.delete('/api/sessions/:sessionId/activity-log', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if user is the session owner
+    if (session.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only the session owner can clear the activity log' });
+    }
+
+    // Clear the activity log
+    session.activityLog = [];
+    await session.save();
+
+    // Emit real-time update to all users in the session
+    const user = await User.findById(req.user.id);
+    emitSessionUpdate(sessionId, 'activity-log-cleared', { message: 'Activity log cleared' }, user);
+
+    res.json({ message: 'Activity log cleared successfully' });
+  } catch (error) {
+    console.error('Clear activity log error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -1639,7 +1825,14 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
     const session = await Session.findOne({ rooms: roomId });
     if (session) {
       console.log(`Section added to room - Emitting real-time update for session: ${session._id}`);
-      emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom });
+      // Get user information for the real-time update
+      const user = await User.findById(req.user.id);
+      
+      // Add activity log entry
+      const action = `added section ${section.number} with ${section.studentCount} students to room`;
+      const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
+      
+      emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, logEntry);
     } else {
       console.log(`Section added to room - No session found containing room: ${roomId}`);
     }
@@ -1748,7 +1941,18 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
     const session = await Session.findOne({ rooms: roomId });
     if (session) {
       console.log(`Section removed from room - Emitting real-time update for session: ${session._id}`);
-      emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom });
+      // Get user information for the real-time update
+      const user = await User.findById(req.user.id);
+      
+      // Add activity log entry
+      const section = await Section.findById(sectionId);
+      let logEntry = null;
+      if (section) {
+        const action = `removed section ${section.number} with ${section.studentCount} students from room`;
+        logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
+      }
+      
+      emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom }, user, logEntry);
     } else {
       console.log(`Section removed from room - No session found containing room: ${roomId}`);
     }
