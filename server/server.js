@@ -85,6 +85,11 @@ io.on('connection', (socket) => {
     console.log('🔌 User disconnected:', socket.id);
     console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
   });
+  
+  // Handle heartbeat ping
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
 });
 
 // Helper function to emit updates to all users in a session
@@ -116,6 +121,43 @@ const emitSessionUpdate = (sessionId, eventType, data, user = null, logEntry = n
   
   io.to(`session-${sessionId}`).emit('session-update', updatePayload);
   console.log(`🚀 Emitted ${eventType} update to session ${sessionId}`);
+};
+
+// Helper function to normalize supply names (remove quantities in parentheses)
+const normalizeSupplyName = (supplyName) => {
+  if (!supplyName) return '';
+  // Remove patterns like " (1)", " (2)", etc.
+  return supplyName.replace(/\s*\(\d+\)$/, '');
+};
+
+// Helper function to pluralize supply names
+const pluralize = (count, singular, plural) => {
+  return count === 1 ? singular : plural;
+};
+
+// Helper function to get supply summary for logging
+const getSupplySummary = (supplies) => {
+  if (!supplies || supplies.length === 0) return { summary: '', count: 0 };
+  
+  // Normalize all supply names and count them
+  const normalizedSupplies = supplies.map(normalizeSupplyName);
+  const supplyCounts = {};
+  
+  normalizedSupplies.forEach(supply => {
+    supplyCounts[supply] = (supplyCounts[supply] || 0) + 1;
+  });
+  
+  // Create summary string
+  const summaryParts = Object.entries(supplyCounts).map(([supply, count]) => {
+    const pluralized = pluralize(count, supply, supply + 's');
+    return `${count} ${pluralized}`;
+  });
+  
+  return {
+    summary: summaryParts.join(', '),
+    count: supplies.length,
+    individualCounts: supplyCounts
+  };
 };
 
 // Helper function to add activity log entries to sessions
@@ -703,8 +745,8 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
-      // Add activity log entry
-      const action = status === 'completed' ? 'marked room as complete' : 'marked room as incomplete';
+      // Add activity log entry with room name
+      const action = `${user.firstName} ${user.lastName} marked room ${room.name} ${status === 'completed' ? 'complete' : 'incomplete'}`;
       const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
       
       emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status }, user, logEntry);
@@ -755,15 +797,17 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
     if (name !== undefined) updateData.name = name;
     if (supplies !== undefined) updateData.supplies = supplies;
 
+    // Get the old room data BEFORE updating to compare supplies
+    const oldRoom = await Room.findById(id);
+    if (!oldRoom) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
     const room = await Room.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).populate('sections', 'number studentCount accommodations notes');
-
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
 
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
@@ -775,11 +819,63 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
       // Add activity log entry for supply changes
       let logEntry = null;
       if (supplies !== undefined) {
-        const oldRoom = await Room.findById(id);
-        if (oldRoom && JSON.stringify(oldRoom.supplies) !== JSON.stringify(supplies)) {
-          const action = 'updated room supplies';
-          logEntry = await addActivityLogEntry(session._id, action, room.name, `Supplies changed`, `${user.firstName} ${user.lastName}`);
+        console.log(`🔍 Supply update detected for room ${id}`);
+        console.log(`🔍 Old supplies:`, oldRoom.supplies);
+        console.log(`🔍 New supplies:`, supplies);
+        
+        if (JSON.stringify(oldRoom.supplies) !== JSON.stringify(supplies)) {
+          console.log(`🔍 Supplies changed, creating log entry`);
+          // Compare old and new supplies to create a more descriptive log message
+          const oldSupplies = oldRoom.supplies || [];
+          const newSupplies = supplies || [];
+          
+          // Find added supplies (normalize names for comparison)
+          const normalizedOldSupplies = oldSupplies.map(normalizeSupplyName);
+          const normalizedNewSupplies = newSupplies.map(normalizeSupplyName);
+          
+          const addedSupplies = newSupplies.filter((supply, index) => 
+            !normalizedOldSupplies.includes(normalizeSupplyName(supply))
+          );
+          const removedSupplies = oldSupplies.filter((supply, index) => 
+            !normalizedNewSupplies.includes(normalizeSupplyName(supply))
+          );
+          
+          console.log(`🔍 Added supplies:`, addedSupplies);
+          console.log(`🔍 Removed supplies:`, removedSupplies);
+          
+          let action = '';
+          let details = '';
+          
+          if (addedSupplies.length > 0 && removedSupplies.length > 0) {
+            // Format: "{user name} added {summary} and removed {summary} in Room {room name}"
+            const addedSummary = getSupplySummary(addedSupplies);
+            const removedSummary = getSupplySummary(removedSupplies);
+            action = `${user.firstName} ${user.lastName} added ${addedSummary.summary} and removed ${removedSummary.summary} in Room ${room.name}`;
+            details = `Added: ${addedSummary.summary}. Removed: ${removedSummary.summary}`;
+          } else if (addedSupplies.length > 0) {
+            // Format: "{user name} added {summary} to Room {room name}"
+            const addedSummary = getSupplySummary(addedSupplies);
+            action = `${user.firstName} ${user.lastName} added ${addedSummary.summary} to Room ${room.name}`;
+            details = `Added: ${addedSummary.summary}`;
+          } else if (removedSupplies.length > 0) {
+            // Format: "{user name} removed {summary} from Room {room name}"
+            const removedSummary = getSupplySummary(removedSupplies);
+            action = `${user.firstName} ${user.lastName} removed ${removedSummary.summary} from Room ${room.name}`;
+            details = `Removed: ${removedSummary.summary}`;
+          }
+          
+          console.log(`🔍 Action:`, action);
+          console.log(`🔍 Details:`, details);
+          
+          if (action) {
+            logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
+            console.log(`🔍 Log entry created:`, logEntry);
+          }
+        } else {
+          console.log(`🔍 No supply changes detected`);
         }
+      } else {
+        console.log(`🔍 No supplies in request body`);
       }
       
       emitSessionUpdate(session._id, 'room-updated', { roomId: id, room }, user, logEntry);
@@ -1963,6 +2059,74 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
     });
   } catch (error) {
     console.error('Remove section from room error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Move students between rooms
+app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { sourceRoomId, destinationRoomId, sectionId, studentsToMove } = req.body;
+
+    if (!sourceRoomId || !destinationRoomId || !sectionId || !studentsToMove) {
+      return res.status(400).json({ message: 'All fields are required: sourceRoomId, destinationRoomId, sectionId, studentsToMove' });
+    }
+
+    // Check if session exists and user has permission
+    const session = await Session.findOne({ 
+      _id: sessionId,
+      $or: [
+        { createdBy: req.user.id },
+        { 'collaborators.userId': req.user.id }
+      ]
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if source and destination rooms exist and are in the session
+    const sourceRoom = await Room.findById(sourceRoomId);
+    const destinationRoom = await Room.findById(destinationRoomId);
+    
+    if (!sourceRoom || !destinationRoom) {
+      return res.status(404).json({ message: 'Source or destination room not found' });
+    }
+
+    if (!session.rooms.includes(sourceRoomId) || !session.rooms.includes(destinationRoomId)) {
+      return res.status(400).json({ message: 'Both rooms must be in the session' });
+    }
+
+    // Check if section exists in source room
+    const sourceSection = sourceRoom.sections.find(s => s.toString() === sectionId);
+    if (!sourceSection) {
+      return res.status(400).json({ message: 'Section not found in source room' });
+    }
+
+    // Get user information for logging
+    const user = await User.findById(req.user.id);
+
+    // Add comprehensive activity log entry for student movement
+    const action = `moved ${studentsToMove} students from ${sourceRoom.name} to ${destinationRoom.name}`;
+    const logEntry = await addActivityLogEntry(sessionId, action, null, `Section ${sourceSection.number}`, `${user.firstName} ${user.lastName}`);
+
+    // Emit real-time update with the log entry
+    emitSessionUpdate(sessionId, 'students-moved', { 
+      sourceRoomId, 
+      destinationRoomId, 
+      sectionId, 
+      studentsToMove,
+      sourceRoom: sourceRoom.name,
+      destinationRoom: destinationRoom.name
+    }, user, logEntry);
+
+    res.json({ 
+      message: 'Student movement logged successfully',
+      logEntry
+    });
+  } catch (error) {
+    console.error('Move students logging error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

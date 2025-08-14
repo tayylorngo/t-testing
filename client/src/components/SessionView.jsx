@@ -6,7 +6,7 @@ import { useRealTime } from '../contexts/RealTimeContext'
 
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
-  const { joinSession, leaveSession, onSessionUpdate, isConnected, reconnect, connectionAttempts } = useRealTime()
+  const { joinSession, onSessionUpdate, isConnected, reconnect, connectionAttempts } = useRealTime()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(null)
@@ -167,6 +167,13 @@ function SessionView({ user, onBack }) {
     console.log('🔄 SessionView useEffect - Setting up real-time updates for session:', sessionId)
     console.log('🔄 SessionView useEffect - isConnected:', isConnected)
     console.log('🔄 SessionView useEffect - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
+    console.log('🔄 SessionView useEffect - Session loaded:', !!session)
+    
+    // Only set up real-time updates if we have session data
+    if (!session) {
+      console.log('⏳ Session not loaded yet, skipping real-time setup')
+      return
+    }
     
     const attemptJoinSession = () => {
       console.log('🔄 SessionView useEffect - Attempting to join session:', sessionId)
@@ -186,15 +193,26 @@ function SessionView({ user, onBack }) {
     return () => {
       console.log('🔄 SessionView useEffect - Cleaning up real-time updates for session:', sessionId)
       cleanup()
-      leaveSession()
+      // Don't leave session here as it can cause connection issues
+      // The RealTimeContext will handle session management
     }
-  }, [sessionId, isConnected])
+  }, [sessionId, isConnected, session])
 
   // Fetch session data when component mounts or sessionId changes
   useEffect(() => {
     console.log('📥 SessionView useEffect - Fetching session data for session:', sessionId)
     fetchSessionData()
   }, [sessionId])
+
+  // Debug session state changes
+  useEffect(() => {
+    console.log('🔍 SessionView - Session state changed:', {
+      sessionId,
+      sessionExists: !!session,
+      sessionObjectId: session?._id,
+      roomsCount: session?.rooms?.length || 0
+    })
+  }, [session, sessionId])
 
   // Handle real-time updates from other users
   const handleRealTimeUpdate = useCallback((update) => {
@@ -204,7 +222,7 @@ function SessionView({ user, onBack }) {
     console.log('🔔 SessionView - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
     console.log('🔔 SessionView - Current session ID:', sessionId)
     console.log('🔔 SessionView - Update session ID:', update.sessionId)
-    console.log('🔔 SessionView - Memoized session exists:', !!memoizedSession)
+    console.log('🔔 SessionView - Session exists:', !!session)
     
     // Add log entry to local state if provided in the update
     if (update.logEntry) {
@@ -215,10 +233,10 @@ function SessionView({ user, onBack }) {
     switch (update.type) {
       case 'room-status-updated':
         console.log('🔔 Room status updated by another user:', update.data)
-        console.log('🔔 SessionView - Current session:', memoizedSession)
+        console.log('🔔 SessionView - Current session:', session)
         // Update the specific room in the local session state
-        if (memoizedSession) {
-          const updatedSession = { ...memoizedSession }
+        if (session) {
+          const updatedSession = { ...session }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
           console.log('🔔 SessionView - Room index found:', roomIndex)
           if (roomIndex !== -1) {
@@ -250,8 +268,8 @@ function SessionView({ user, onBack }) {
       case 'room-added':
         console.log('Room added by another user:', update.data.room)
         // For room additions, we can update local state if we have the complete room data
-        if (memoizedSession && update.data.room) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.room) {
+          const updatedSession = { ...session }
           updatedSession.rooms = [...updatedSession.rooms, update.data.room]
           setSession(updatedSession)
           console.log('SessionView - Room added to local state')
@@ -266,8 +284,8 @@ function SessionView({ user, onBack }) {
       case 'room-removed':
         console.log('Room removed by another user:', update.data.roomId)
         // For room removals, we can update local state if we have the roomId
-        if (memoizedSession && update.data.roomId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.roomId) {
+          const updatedSession = { ...session }
           updatedSession.rooms = updatedSession.rooms.filter(room => room._id !== update.data.roomId)
           setSession(updatedSession)
           console.log('SessionView - Room removed from local state')
@@ -282,8 +300,8 @@ function SessionView({ user, onBack }) {
       case 'section-added':
         console.log('Section added by another user:', update.data.section)
         // For section additions, we can update local state if we have the complete section data
-        if (memoizedSession && update.data.section && update.data.roomId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.section && update.data.roomId) {
+          const updatedSession = { ...session }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
           if (roomIndex !== -1) {
             if (!updatedSession.rooms[roomIndex].sections) {
@@ -306,8 +324,8 @@ function SessionView({ user, onBack }) {
       case 'section-removed':
         console.log('Section removed by another user:', update.data.sectionId)
         // For section removals, we can try to update local state
-        if (memoizedSession && update.data.sectionId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.sectionId) {
+          const updatedSession = { ...session }
           
           updatedSession.rooms = updatedSession.rooms.map(room => ({
             ...room,
@@ -326,8 +344,8 @@ function SessionView({ user, onBack }) {
       case 'room-updated':
         console.log('Room updated by another user:', update.data.room)
         // For room updates (like supplies), we can update local state
-        if (memoizedSession && update.data.room && update.data.roomId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.room && update.data.roomId) {
+          const updatedSession = { ...session }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
           if (roomIndex !== -1) {
             updatedSession.rooms[roomIndex] = update.data.room
@@ -348,8 +366,8 @@ function SessionView({ user, onBack }) {
       case 'section-updated':
         console.log('Section updated by another user:', update.data.section)
         // For section updates (like student count), we can update local state
-        if (memoizedSession && update.data.section && update.data.sectionId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.section && update.data.sectionId) {
+          const updatedSession = { ...session }
           // Find which room contains this section to animate it
           let roomToAnimate = null
           updatedSession.rooms = updatedSession.rooms.map(room => ({
@@ -378,8 +396,8 @@ function SessionView({ user, onBack }) {
       case 'section-added-to-room':
         console.log('Section added to room by another user:', update.data)
         // For section additions to rooms, we can update local state
-        if (memoizedSession && update.data.room && update.data.roomId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.room && update.data.roomId) {
+          const updatedSession = { ...session }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
           if (roomIndex !== -1) {
             updatedSession.rooms[roomIndex] = update.data.room
@@ -400,8 +418,8 @@ function SessionView({ user, onBack }) {
       case 'section-removed-from-room':
         console.log('Section removed from room by another user:', update.data)
         // For section removals from rooms, we can update local state
-        if (memoizedSession && update.data.room && update.data.roomId) {
-          const updatedSession = { ...memoizedSession }
+        if (session && update.data.room && update.data.roomId) {
+          const updatedSession = { ...session }
           const roomIndex = updatedSession.rooms.findIndex(room => room._id === update.data.roomId)
           if (roomIndex !== -1) {
             updatedSession.rooms[roomIndex] = update.data.room
@@ -414,6 +432,19 @@ function SessionView({ user, onBack }) {
           } else {
             silentRefreshRef.current()
           }
+        } else {
+          silentRefreshRef.current()
+        }
+        break
+        
+      case 'students-moved':
+        console.log('Students moved by another user:', update.data)
+        // For student movements, we can update local state
+        if (session && update.data.sourceRoomId && update.data.destinationRoomId) {
+          // Refresh session data to get the updated state after student movement
+          silentRefreshRef.current()
+          
+          // Activity log entry is now handled by the server
         } else {
           silentRefreshRef.current()
         }
@@ -436,7 +467,7 @@ function SessionView({ user, onBack }) {
       default:
         console.log('Unknown update type:', update.type)
     }
-  }, [memoizedSession])
+  }, [session, sessionId, user, addUpdateAnimation, silentRefreshRef, fetchSessionDataRef])
 
   useEffect(() => {
     if (memoizedSession) {
@@ -553,33 +584,45 @@ function SessionView({ user, onBack }) {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
     
     try {
+      console.log('🔍 handleAddSupply called');
+      console.log('🔍 selectedPresetSupply:', selectedPresetSupply);
+      console.log('🔍 selectedRoom:', selectedRoom);
+      console.log('🔍 newSupplyQuantity:', newSupplyQuantity);
+      
       const currentSupplies = selectedRoom.supplies || []
       const newSupplyName = selectedPresetSupply
       const newQuantity = newSupplyQuantity
       
+      console.log('🔍 currentSupplies:', currentSupplies);
+      
       // Check if the supply already exists
-      const existingSupplyIndex = currentSupplies.findIndex(supply => {
-        const supplyName = supply.split(' (')[0]
-        return supplyName === newSupplyName
-      })
+      const existingSupplyIndex = currentSupplies.findIndex(supply => supply === newSupplyName)
+      
+      console.log('🔍 existingSupplyIndex:', existingSupplyIndex);
       
       let updatedSupplies
       if (existingSupplyIndex !== -1) {
-        // Supply exists, combine quantities
-        const existingSupply = currentSupplies[existingSupplyIndex]
-        const existingQuantity = parseInt(existingSupply.match(/\((\d+)\)/)?.[1] || 0)
-        const combinedQuantity = existingQuantity + newQuantity
-        const combinedSupply = `${newSupplyName} (${combinedQuantity})`
-        
+        // Supply exists, add more of the same supply
+        // Just add the supply name multiple times (backend will count them)
         updatedSupplies = [...currentSupplies]
-        updatedSupplies[existingSupplyIndex] = combinedSupply
+        for (let i = 0; i < newQuantity; i++) {
+          updatedSupplies.push(newSupplyName)
+        }
       } else {
         // Supply doesn't exist, add new one
-        const supplyWithQuantity = `${newSupplyName} (${newQuantity})`
-        updatedSupplies = [...currentSupplies, supplyWithQuantity]
+        // Add the supply name multiple times based on quantity
+        updatedSupplies = [...currentSupplies]
+        for (let i = 0; i < newQuantity; i++) {
+          updatedSupplies.push(newSupplyName)
+        }
       }
       
+      console.log('🔍 updatedSupplies:', updatedSupplies);
+      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: updatedSupplies });
+      
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
+      
+      console.log('🔍 testingAPI.updateRoom completed successfully');
       
       // Update local state immediately
       setSession(prevSession => ({
@@ -604,10 +647,20 @@ function SessionView({ user, onBack }) {
 
   const handleRemoveSupply = useCallback(async (roomId, supply) => {
     try {
+      console.log('🔍 handleRemoveSupply called');
+      console.log('🔍 roomId:', roomId);
+      console.log('🔍 supply to remove:', supply);
+      
       const room = session.rooms.find(r => r._id === roomId)
       const updatedSupplies = room.supplies.filter(s => s !== supply)
       
+      console.log('🔍 room:', room);
+      console.log('🔍 updatedSupplies:', updatedSupplies);
+      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: updatedSupplies });
+      
       await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
+      
+      console.log('🔍 testingAPI.updateRoom completed successfully');
       
       // Update local state immediately
       setSession(prevSession => ({
@@ -630,13 +683,14 @@ function SessionView({ user, onBack }) {
     
     try {
       const room = session.rooms.find(r => r._id === selectedRoom._id)
-      const updatedSupplies = room.supplies.map(supply => {
-        if (supply === editingSupply.original) {
-          const supplyName = editingSupply.name
-          return `${supplyName} (${editSupplyQuantity})`
-        }
-        return supply
-      })
+      
+      // Remove the old supply and add the new quantity as individual items
+      const updatedSupplies = room.supplies.filter(supply => supply !== editingSupply.original)
+      
+      // Add the new quantity as individual supply names
+      for (let i = 0; i < editSupplyQuantity; i++) {
+        updatedSupplies.push(editingSupply.name)
+      }
       
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
       
@@ -676,6 +730,22 @@ function SessionView({ user, onBack }) {
           const section = moveFromRoom.sections.find(s => s._id === sectionId)
           if (section && moveInfo.studentsToMove <= section.studentCount) {
             console.log(`Moving ${moveInfo.studentsToMove} students from section ${section.number}`)
+            
+            // Log the student movement action first (only when moving to a different room)
+            if (moveInfo.destinationRoom !== moveFromRoom._id) {
+              try {
+                await testingAPI.logStudentMovement(
+                  session._id,
+                  moveFromRoom._id,
+                  moveInfo.destinationRoom,
+                  sectionId,
+                  moveInfo.studentsToMove
+                )
+                console.log('Student movement logged successfully')
+              } catch (error) {
+                console.error('Error logging student movement:', error)
+              }
+            }
             
             // Check if moving to the same room
             if (moveInfo.destinationRoom === moveFromRoom._id) {
@@ -832,6 +902,27 @@ function SessionView({ user, onBack }) {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }, [])
+
+  const formatTimestamp = useCallback((timestamp) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    
+    // Format date as MM/DD/YYYY
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const year = date.getFullYear()
+    
+    // Format time as HH:MM:SS AM/PM
+    const timeString = date.toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    })
+    
+    // Return date first, then time: MM/DD/YYYY, HH:MM:SS AM/PM
+    return `${month}/${day}/${year}, ${timeString}`
   }, [])
 
   const getStatusColor = useCallback((status) => {
@@ -1530,44 +1621,49 @@ function SessionView({ user, onBack }) {
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
                                     {room.supplies && room.supplies.length > 0 ? (
                                       <div className="space-y-1">
-                                        {room.supplies.map((supply, index) => (
-                                          <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
-                                            <div className="flex items-center space-x-2">
-                                              {canEditSession() && (
-                                                <>
-                                                  <button
-                                                    onClick={() => {
-                                                      // Parse supply name and quantity for editing
-                                                      const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
-                                                      const supplyName = supplyMatch ? supplyMatch[1] : supply
-                                                      const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
-                                                      
-                                                      setEditingSupply({
-                                                        original: supply,
-                                                        name: supplyName
-                                                      })
-                                                      setEditSupplyQuantity(quantity)
-                                                      setSelectedRoom(room)
-                                                      setShowEditSupplyModal(true)
-                                                    }}
-                                                    className="text-blue-500 hover:text-blue-700 text-sm"
-                                                    title="Edit Supply"
-                                                  >
-                                                    ✎
-                                                  </button>
-                                                  <button
-                                                    onClick={() => handleRemoveSupply(room._id, supply)}
-                                                    className="text-red-500 hover:text-red-700 text-sm"
-                                                    title="Remove Supply"
-                                                  >
-                                                    ×
-                                                  </button>
-                                                </>
-                                              )}
+                                        {(() => {
+                                          // Group supplies by name and count them
+                                          const supplyCounts = {}
+                                          room.supplies.forEach(supply => {
+                                            supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
+                                          })
+                                          
+                                          return Object.entries(supplyCounts).map(([supplyName, count], index) => (
+                                            <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
+                                              <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                {count > 1 ? `${count} ${supplyName}s` : supplyName}
+                                              </span>
+                                              <div className="flex items-center space-x-2">
+                                                {canEditSession() && (
+                                                  <>
+                                                    <button
+                                                      onClick={() => {
+                                                        setEditingSupply({
+                                                          original: supplyName,
+                                                          name: supplyName
+                                                        })
+                                                        setEditSupplyQuantity(count)
+                                                        setSelectedRoom(room)
+                                                        setShowEditSupplyModal(true)
+                                                      }}
+                                                      className="text-blue-500 hover:text-blue-700 text-sm"
+                                                      title="Edit Supply"
+                                                    >
+                                                      ✎
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleRemoveSupply(room._id, supplyName)}
+                                                      className="text-red-500 hover:text-red-700 text-sm"
+                                                      title="Remove Supply"
+                                                    >
+                                                      ×
+                                                    </button>
+                                                  </>
+                                                )}
+                                              </div>
                                             </div>
-                                          </div>
-                                        ))}
+                                          ))
+                                        })()}
                                       </div>
                                     ) : (
                                       <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
@@ -1731,48 +1827,53 @@ function SessionView({ user, onBack }) {
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
                       {room.supplies && room.supplies.length > 0 ? (
                         <div className="space-y-1">
-                          {room.supplies.map((supply, index) => (
-                            <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{supply}</span>
-                              <div className="flex items-center space-x-2">
-                                {canEditSession() && (
-                                  <>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // Parse supply name and quantity for editing
-                                        const supplyMatch = supply.match(/^(.+?)(?:\s*\((\d+)\))?$/)
-                                        const supplyName = supplyMatch ? supplyMatch[1] : supply
-                                        const quantity = supplyMatch ? parseInt(supplyMatch[2]) || 1 : 1
-                                        
-                                        setEditingSupply({
-                                          original: supply,
-                                          name: supplyName
-                                        })
-                                        setEditSupplyQuantity(quantity)
-                                        setSelectedRoom(room)
-                                        setShowEditSupplyModal(true)
-                                      }}
-                                      className="text-blue-500 hover:text-blue-700 text-sm"
-                                      title="Edit Supply"
-                                    >
-                                      ✎
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleRemoveSupply(room._id, supply)
-                                      }}
-                                      className="text-red-500 hover:text-red-700 text-sm"
-                                      title="Remove Supply"
-                                    >
-                                      ×
-                                    </button>
-                                  </>
-                                )}
+                          {(() => {
+                            // Group supplies by name and count them
+                            const supplyCounts = {}
+                            room.supplies.forEach(supply => {
+                              supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
+                            })
+                            
+                            return Object.entries(supplyCounts).map(([supplyName, count], index) => (
+                              <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                  {count > 1 ? `${count} ${supplyName}s` : supplyName}
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                  {canEditSession() && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setEditingSupply({
+                                            original: supplyName,
+                                            name: supplyName
+                                          })
+                                          setEditSupplyQuantity(count)
+                                          setSelectedRoom(room)
+                                          setShowEditSupplyModal(true)
+                                        }}
+                                        className="text-blue-500 hover:text-blue-700 text-sm"
+                                        title="Edit Supply"
+                                      >
+                                        ✎
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleRemoveSupply(room._id, supplyName)
+                                        }}
+                                        className="text-red-500 hover:text-red-700 text-sm"
+                                        title="Remove Supply"
+                                      >
+                                        ×
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))
+                          })()}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
@@ -2097,7 +2198,7 @@ function SessionView({ user, onBack }) {
                             {log.action}
                           </p>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {log.timestamp}
+                            {formatTimestamp(log.timestamp)}
                           </span>
                         </div>
                         <div className="mt-1 flex items-center gap-2">

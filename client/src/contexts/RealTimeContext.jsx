@@ -30,6 +30,11 @@ export const RealTimeProvider = ({ children }) => {
     // Clean up existing socket if any
     if (socket) {
       console.log('🔌 Cleaning up existing socket connection');
+      // Clear heartbeat interval
+      if (socket.heartbeatInterval) {
+        clearInterval(socket.heartbeatInterval);
+        socket.heartbeatInterval = null;
+      }
       socket.close();
     }
 
@@ -54,6 +59,23 @@ export const RealTimeProvider = ({ children }) => {
         pendingSessionJoin.current = null;
         joinSessionInternal(sessionId);
       }
+      
+      // Set up heartbeat to keep connection alive
+      const heartbeatInterval = setInterval(() => {
+        if (newSocket.connected) {
+          newSocket.emit('ping');
+        } else {
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000); // Send ping every 30 seconds
+      
+      // Store the interval for cleanup
+      newSocket.heartbeatInterval = heartbeatInterval;
+    });
+    
+    // Handle pong response from server
+    newSocket.on('pong', () => {
+      console.log('💓 Heartbeat response received from server');
     });
 
     newSocket.on('connect_error', (error) => {
@@ -83,6 +105,12 @@ export const RealTimeProvider = ({ children }) => {
     newSocket.on('disconnect', (reason) => {
       console.log('🔌 Disconnected from real-time server. Reason:', reason);
       setIsConnected(false);
+      
+      // Clear heartbeat interval
+      if (newSocket.heartbeatInterval) {
+        clearInterval(newSocket.heartbeatInterval);
+        newSocket.heartbeatInterval = null;
+      }
       
       // If it's not a manual disconnect, try to reconnect
       if (reason !== 'io client disconnect') {
@@ -142,15 +170,15 @@ export const RealTimeProvider = ({ children }) => {
 
   // Internal function to join session (used after connection is established)
   const joinSessionInternal = (sessionId) => {
-    if (socket && isConnected && sessionId && sessionId !== currentSessionId) {
-      // Leave previous session if any
-      if (currentSessionId) {
+    if (socket && isConnected && sessionId) {
+      // Only leave previous session if it's different
+      if (currentSessionId && currentSessionId !== sessionId) {
         console.log(`🔄 Leaving previous session: ${currentSessionId}`);
         socket.emit('leave-session', currentSessionId);
       }
       
-      // Join new session
-      console.log(`🔄 Joining new session: ${sessionId}`);
+      // Join new session (even if it's the same one to ensure connection)
+      console.log(`🔄 Joining session: ${sessionId}`);
       socket.emit('join-session', sessionId);
       setCurrentSessionId(sessionId);
       console.log(`✅ Successfully joined real-time session: ${sessionId}`);
@@ -180,6 +208,8 @@ export const RealTimeProvider = ({ children }) => {
       return false;
     }
 
+    // Always attempt to join, even if we're already in the session
+    // This ensures the connection is maintained
     return joinSessionInternal(sessionId);
   };
 

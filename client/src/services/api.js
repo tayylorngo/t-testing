@@ -534,6 +534,25 @@ export const testingAPI = {
     });
     return handleResponse(response);
   },
+
+  // Log student movement between rooms
+  logStudentMovement: async (sessionId, sourceRoomId, destinationRoomId, sectionId, studentsToMove) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/move-students`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sourceRoomId,
+        destinationRoomId,
+        sectionId,
+        studentsToMove
+      }),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Utility functions
