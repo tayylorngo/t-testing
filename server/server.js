@@ -135,6 +135,42 @@ const pluralize = (count, singular, plural) => {
   return count === 1 ? singular : plural;
 };
 
+// Helper function to get the correct plural form of a supply name
+const getPluralForm = (supplyName) => {
+  // Handle common irregular plurals
+  const irregularPlurals = {
+    'pencil': 'pencils',
+    'pen': 'pens',
+    'calculator': 'calculators',
+    'protractor': 'protractors',
+    'ruler': 'rulers',
+    'notebook': 'notebooks',
+    'textbook': 'textbooks',
+    'paper': 'papers',
+    'marker': 'markers',
+    'eraser': 'erasers',
+    'scissors': 'scissors',
+    'tape': 'tape',
+    'stapler': 'staplers',
+    'folder': 'folders',
+    'binder': 'binders'
+  };
+  
+  // Check if we have an irregular plural
+  if (irregularPlurals[supplyName.toLowerCase()]) {
+    return irregularPlurals[supplyName.toLowerCase()];
+  }
+  
+  // Handle regular plurals
+  if (supplyName.toLowerCase().endsWith('s')) {
+    // If it already ends with 's', just return as is
+    return supplyName;
+  }
+  
+  // Add 's' for regular plurals
+  return supplyName + 's';
+};
+
 // Helper function to get supply summary for logging
 const getSupplySummary = (supplies) => {
   if (!supplies || supplies.length === 0) return { summary: '', count: 0 };
@@ -149,7 +185,7 @@ const getSupplySummary = (supplies) => {
   
   // Create summary string
   const summaryParts = Object.entries(supplyCounts).map(([supply, count]) => {
-    const pluralized = pluralize(count, supply, supply + 's');
+    const pluralized = pluralize(count, supply, getPluralForm(supply));
     return `${count} ${pluralized}`;
   });
   
@@ -829,16 +865,46 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           const oldSupplies = oldRoom.supplies || [];
           const newSupplies = supplies || [];
           
-          // Find added supplies (normalize names for comparison)
-          const normalizedOldSupplies = oldSupplies.map(normalizeSupplyName);
-          const normalizedNewSupplies = newSupplies.map(normalizeSupplyName);
+          // Find added and removed supplies by comparing counts
+          const oldSupplyCounts = {};
+          const newSupplyCounts = {};
           
-          const addedSupplies = newSupplies.filter((supply, index) => 
-            !normalizedOldSupplies.includes(normalizeSupplyName(supply))
-          );
-          const removedSupplies = oldSupplies.filter((supply, index) => 
-            !normalizedNewSupplies.includes(normalizeSupplyName(supply))
-          );
+          // Count old supplies
+          oldSupplies.forEach(supply => {
+            const normalized = normalizeSupplyName(supply);
+            oldSupplyCounts[normalized] = (oldSupplyCounts[normalized] || 0) + 1;
+          });
+          
+          // Count new supplies
+          newSupplies.forEach(supply => {
+            const normalized = normalizeSupplyName(supply);
+            newSupplyCounts[normalized] = (newSupplyCounts[normalized] || 0) + 1;
+          });
+          
+          // Find supplies that were added or removed
+          const allSupplyNames = new Set([...Object.keys(oldSupplyCounts), ...Object.keys(newSupplyCounts)]);
+          
+          const addedSupplies = [];
+          const removedSupplies = [];
+          
+          allSupplyNames.forEach(supplyName => {
+            const oldCount = oldSupplyCounts[supplyName] || 0;
+            const newCount = newSupplyCounts[supplyName] || 0;
+            
+            if (newCount > oldCount) {
+              // Supply was added (or quantity increased)
+              const addedCount = newCount - oldCount;
+              for (let i = 0; i < addedCount; i++) {
+                addedSupplies.push(supplyName);
+              }
+            } else if (oldCount > newCount) {
+              // Supply was removed (or quantity decreased)
+              const removedCount = oldCount - newCount;
+              for (let i = 0; i < removedCount; i++) {
+                removedSupplies.push(supplyName);
+              }
+            }
+          });
           
           console.log(`🔍 Added supplies:`, addedSupplies);
           console.log(`🔍 Removed supplies:`, removedSupplies);

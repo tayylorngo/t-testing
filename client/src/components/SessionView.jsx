@@ -925,6 +925,42 @@ function SessionView({ user, onBack }) {
     return `${month}/${day}/${year}, ${timeString}`
   }, [])
 
+  // Helper function to get the correct plural form of a supply name
+  const getPluralForm = useCallback((supplyName) => {
+    // Handle common irregular plurals
+    const irregularPlurals = {
+      'pencil': 'pencils',
+      'pen': 'pens',
+      'calculator': 'calculators',
+      'protractor': 'protractors',
+      'ruler': 'rulers',
+      'notebook': 'notebooks',
+      'textbook': 'textbooks',
+      'paper': 'papers',
+      'marker': 'markers',
+      'eraser': 'erasers',
+      'scissors': 'scissors',
+      'tape': 'tape',
+      'stapler': 'staplers',
+      'folder': 'folders',
+      'binder': 'binders'
+    };
+    
+    // Check if we have an irregular plural
+    if (irregularPlurals[supplyName.toLowerCase()]) {
+      return irregularPlurals[supplyName.toLowerCase()];
+    }
+    
+    // Handle regular plurals
+    if (supplyName.toLowerCase().endsWith('s')) {
+      // If it already ends with 's', just return as is
+      return supplyName;
+    }
+    
+    // Add 's' for regular plurals
+    return supplyName + 's';
+  }, [])
+
   const getStatusColor = useCallback((status) => {
     switch (status) {
       case 'completed': return 'bg-green-500'
@@ -1631,7 +1667,7 @@ function SessionView({ user, onBack }) {
                                           return Object.entries(supplyCounts).map(([supplyName, count], index) => (
                                             <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
                                               <span className="text-sm text-gray-700 dark:text-gray-300">
-                                                {count > 1 ? `${count} ${supplyName}s` : supplyName}
+                                                {count > 1 ? `${count} ${getPluralForm(supplyName)}` : supplyName}
                                               </span>
                                               <div className="flex items-center space-x-2">
                                                 {canEditSession() && (
@@ -1837,7 +1873,7 @@ function SessionView({ user, onBack }) {
                             return Object.entries(supplyCounts).map(([supplyName, count], index) => (
                               <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
                                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {count > 1 ? `${count} ${supplyName}s` : supplyName}
+                                  {count > 1 ? `${count} ${getPluralForm(supplyName)}` : supplyName}
                                 </span>
                                 <div className="flex items-center space-x-2">
                                   {canEditSession() && (
