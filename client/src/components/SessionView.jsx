@@ -439,14 +439,31 @@ function SessionView({ user, onBack }) {
         
       case 'students-moved':
         console.log('Students moved by another user:', update.data)
-        // For student movements, we can update local state
-        if (session && update.data.sourceRoomId && update.data.destinationRoomId) {
-          // Refresh session data to get the updated state after student movement
-          silentRefreshRef.current()
+        // For student movements, update local state smoothly without page refresh
+        if (session && update.data.sourceRoomId && update.data.destinationRoomId && update.data.sourceRoom && update.data.destinationRoom) {
+          // Update local session state with the new room data
+          setSession(prevSession => {
+            if (!prevSession) return prevSession;
+            
+            const updatedRooms = prevSession.rooms.map(room => {
+              if (room._id === update.data.sourceRoomId) {
+                return update.data.sourceRoom;
+              } else if (room._id === update.data.destinationRoomId) {
+                return update.data.destinationRoom;
+              }
+              return room;
+            });
+            
+            return {
+              ...prevSession,
+              rooms: updatedRooms
+            };
+          });
           
-          // Activity log entry is now handled by the server
+          // Log entry is already handled by the general mechanism above
         } else {
-          silentRefreshRef.current()
+          // Fallback to silent refresh if data is incomplete
+          silentRefreshRef.current();
         }
         break
         
@@ -731,7 +748,7 @@ function SessionView({ user, onBack }) {
           if (section && moveInfo.studentsToMove <= section.studentCount) {
             console.log(`Moving ${moveInfo.studentsToMove} students from section ${section.number}`)
             
-            // Log the student movement action first (only when moving to a different room)
+            // Use the server endpoint to move students (only when moving to a different room)
             if (moveInfo.destinationRoom !== moveFromRoom._id) {
               try {
                 await testingAPI.logStudentMovement(
@@ -745,12 +762,9 @@ function SessionView({ user, onBack }) {
               } catch (error) {
                 console.error('Error logging student movement:', error)
               }
-            }
-            
-            // Check if moving to the same room
-            if (moveInfo.destinationRoom === moveFromRoom._id) {
-              // If moving within the same room, find a section with the same number and merge
-              console.log('Moving within the same room - looking for section to merge into')
+            } else {
+              // For same room moves, handle locally since the server endpoint is for room-to-room moves
+              console.log('Moving within the same room - handling locally')
               
               // Find a section with the same number in the same room (excluding current section)
               const targetSection = moveFromRoom.sections.find(s => s.number === section.number && s._id !== sectionId)
@@ -808,72 +822,6 @@ function SessionView({ user, onBack }) {
                   console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
                 }
               }
-            } else {
-              // Moving to a different room
-              console.log('Moving to different room')
-              
-              // Find the destination room to check existing section numbers
-              const destinationRoom = session.rooms.find(r => r._id === moveInfo.destinationRoom)
-              if (!destinationRoom) {
-                console.error('Destination room not found')
-                continue
-              }
-              
-              // Check if destination room already has a section with the same number
-              const existingSection = destinationRoom.sections?.find(s => s.number === section.number)
-              
-              if (existingSection) {
-                // Merge students into the existing section
-                console.log(`Merging ${moveInfo.studentsToMove} students into existing section ${existingSection.number} in destination room`)
-                const newTotalStudents = existingSection.studentCount + moveInfo.studentsToMove
-                await testingAPI.updateSection(existingSection._id, { studentCount: newTotalStudents })
-                console.log(`Updated existing section ${existingSection._id} to have ${newTotalStudents} students`)
-              } else {
-                // Create a new section in the destination room
-                console.log('Creating new section in destination room')
-                
-                // Find a unique section number for the destination room
-                let newSectionNumber = section.number
-                const existingNumbers = destinationRoom.sections?.map(s => s.number) || []
-                let counter = 1
-                while (existingNumbers.includes(newSectionNumber)) {
-                  newSectionNumber = section.number + counter
-                  counter++
-                }
-                
-                console.log(`Using section number ${newSectionNumber} for destination room (original was ${section.number})`)
-                
-                // Create a new section in the destination room
-                const newSectionData = {
-                  number: newSectionNumber,
-                  studentCount: moveInfo.studentsToMove,
-                  accommodations: section.accommodations || [],
-                  notes: section.notes || ''
-                }
-                
-                console.log('Creating new section in destination room with data:', newSectionData)
-                
-                // Create the new section
-                const newSectionResponse = await testingAPI.createSection(newSectionData)
-                console.log('New section created in destination room:', newSectionResponse)
-                
-                // Add the new section to the destination room
-                await testingAPI.addSectionToRoom(moveInfo.destinationRoom, newSectionResponse.section._id)
-                console.log(`Added section to destination room ${moveInfo.destinationRoom}`)
-                
-                // Update the original section in the source room
-                const newStudentCount = section.studentCount - moveInfo.studentsToMove
-                
-                if (newStudentCount === 0) {
-                  // If all students are moved, remove the section from the room
-                  console.log(`All students moved from section ${sectionId}, removing section from room`)
-                  await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
-                } else {
-                  // Update the section with the remaining students
-                  await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
-                  console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
-                }
-              }
             }
           } else {
             console.error(`Invalid move: ${moveInfo.studentsToMove} students cannot be moved from section with ${section?.studentCount || 0} students`)
@@ -881,20 +829,17 @@ function SessionView({ user, onBack }) {
         }
       }
       
-      // Refresh session data to get the updated state
-      await fetchSessionData()
-      
       // Reset the modal state
       setShowMoveStudentsModal(false)
       setMoveFromRoom(null)
       setStudentMoveData({})
       
-      // Activity log entry is now handled by the server
+      // Real-time updates will handle the state changes automatically
       console.log('Student move process completed successfully')
     } catch (error) {
       console.error('Error moving students:', error)
     }
-  }, [moveFromRoom, studentMoveData, session?.rooms, fetchSessionData])
+  }, [moveFromRoom, studentMoveData, session?.rooms])
 
   const formatTime = useCallback((timeString) => {
     if (!timeString) return ''
@@ -959,6 +904,53 @@ function SessionView({ user, onBack }) {
     
     // Add 's' for regular plurals
     return supplyName + 's';
+  }, [])
+
+    // Helper function to get activity log colors based on action type
+  const getActivityLogColors = useCallback((action) => {
+    const lowerAction = action.toLowerCase();
+
+    // Room status updates - check incomplete first to avoid substring conflicts
+    if (lowerAction.includes('marked room') && lowerAction.includes('incomplete')) {
+      return {
+        border: 'border-yellow-500',
+        dot: 'bg-yellow-500'
+      };
+    }
+    if (lowerAction.includes('marked room') && lowerAction.includes('complete')) {
+      return {
+        border: 'border-green-500',
+        dot: 'bg-green-500'
+      };
+    }
+    
+    // Supply actions
+    if (lowerAction.includes('added')) {
+      return {
+        border: 'border-blue-500',
+        dot: 'bg-blue-500'
+      };
+    }
+    if (lowerAction.includes('removed')) {
+      return {
+        border: 'border-red-500',
+        dot: 'bg-red-500'
+      };
+    }
+    
+    // Student movement
+    if (lowerAction.includes('moved') && lowerAction.includes('students')) {
+      return {
+        border: 'border-purple-500',
+        dot: 'bg-purple-500'
+      };
+    }
+    
+    // Default color for other actions
+    return {
+      border: 'border-gray-500',
+      dot: 'bg-gray-500'
+    };
   }, [])
 
   const getStatusColor = useCallback((status) => {
@@ -2222,39 +2214,42 @@ function SessionView({ user, onBack }) {
                 </div>
               ) : (
                 <div className="max-h-96 overflow-y-auto space-y-3">
-                  {activityLog.map((log, index) => (
-                    <div 
-                      key={index} 
-                      className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-500"
-                    >
-                      <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {log.action}
-                          </p>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatTimestamp(log.timestamp)}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-xs text-gray-600 dark:text-gray-300">
-                            User: <span className="font-medium">{log.userName}</span>
-                          </span>
-                          {log.roomName && (
-                            <span className="text-xs text-gray-600 dark:text-gray-300">
-                              Room: <span className="font-medium">{log.roomName}</span>
+                  {activityLog.map((log, index) => {
+                    const colors = getActivityLogColors(log.action);
+                    return (
+                      <div 
+                        key={index} 
+                        className={`flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 ${colors.border}`}
+                      >
+                        <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {log.action}
+                            </p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatTimestamp(log.timestamp)}
                             </span>
-                          )}
-                          {log.details && (
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
                             <span className="text-xs text-gray-600 dark:text-gray-300">
-                              {log.details}
+                              User: <span className="font-medium">{log.userName}</span>
                             </span>
-                          )}
+                            {log.roomName && (
+                              <span className="text-xs text-gray-600 dark:text-gray-300">
+                                Room: <span className="font-medium">{log.roomName}</span>
+                              </span>
+                            )}
+                            {log.details && (
+                              <span className="text-xs text-gray-600 dark:text-gray-300">
+                                {log.details}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

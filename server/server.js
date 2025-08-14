@@ -782,7 +782,7 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       const user = await User.findById(req.user.id);
       
       // Add activity log entry with room name
-      const action = `${user.firstName} ${user.lastName} marked room ${room.name} ${status === 'completed' ? 'complete' : 'incomplete'}`;
+      const action = `${user.firstName} ${user.lastName} marked Room ${room.name} ${status === 'completed' ? 'complete' : 'incomplete'}`;
       const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
       
       emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status }, user, logEntry);
@@ -1990,11 +1990,7 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
-      // Add activity log entry
-      const action = `added section ${section.number} with ${section.studentCount} students to room`;
-      const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
-      
-      emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, logEntry);
+             emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, null);
     } else {
       console.log(`Section added to room - No session found containing room: ${roomId}`);
     }
@@ -2106,15 +2102,7 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
-      // Add activity log entry
-      const section = await Section.findById(sectionId);
-      let logEntry = null;
-      if (section) {
-        const action = `removed section ${section.number} with ${section.studentCount} students from room`;
-        logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
-      }
-      
-      emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom }, user, logEntry);
+             emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom }, user, null);
     } else {
       console.log(`Section removed from room - No session found containing room: ${roomId}`);
     }
@@ -2173,26 +2161,45 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
     // Get user information for logging
     const user = await User.findById(req.user.id);
 
-    // Add comprehensive activity log entry for student movement
-    const action = `moved ${studentsToMove} students from ${sourceRoom.name} to ${destinationRoom.name}`;
-    const logEntry = await addActivityLogEntry(sessionId, action, null, `Section ${sourceSection.number}`, `${user.firstName} ${user.lastName}`);
+    // Actually move the section from source room to destination room
+    // Remove section from source room
+    await Room.findByIdAndUpdate(sourceRoomId, {
+      $pull: { sections: sectionId }
+    });
 
-    // Emit real-time update with the log entry
+    // Add section to destination room
+    await Room.findByIdAndUpdate(destinationRoomId, {
+      $push: { sections: sectionId }
+    });
+
+    // Get updated rooms with populated sections
+    const updatedSourceRoom = await Room.findById(sourceRoomId)
+      .populate('sections', 'number studentCount accommodations notes');
+    const updatedDestinationRoom = await Room.findById(destinationRoomId)
+      .populate('sections', 'number studentCount accommodations notes');
+
+    // Add comprehensive activity log entry for student movement
+    const action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name}`;
+    const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
+
+    // Emit real-time update with the log entry and updated room data
     emitSessionUpdate(sessionId, 'students-moved', { 
       sourceRoomId, 
       destinationRoomId, 
       sectionId, 
       studentsToMove,
-      sourceRoom: sourceRoom.name,
-      destinationRoom: destinationRoom.name
+      sourceRoom: updatedSourceRoom,
+      destinationRoom: updatedDestinationRoom
     }, user, logEntry);
 
     res.json({ 
-      message: 'Student movement logged successfully',
-      logEntry
+      message: 'Students moved successfully',
+      logEntry,
+      sourceRoom: updatedSourceRoom,
+      destinationRoom: updatedDestinationRoom
     });
   } catch (error) {
-    console.error('Move students logging error:', error);
+    console.error('Move students error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
