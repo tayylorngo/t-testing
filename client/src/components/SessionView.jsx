@@ -974,6 +974,20 @@ function SessionView({ user, onBack }) {
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
   }, [])
 
+  const calculateTotalStudentsInSession = useCallback(() => {
+    if (!session?.rooms) return 0
+    return session.rooms.reduce((total, room) => {
+      return total + calculateTotalStudents(room.sections)
+    }, 0)
+  }, [session?.rooms, calculateTotalStudents])
+
+  const calculateTotalSectionsInSession = useCallback(() => {
+    if (!session?.rooms) return 0
+    return session.rooms.reduce((total, room) => {
+      return total + (room.sections?.length || 0)
+    }, 0)
+  }, [session?.rooms])
+
   const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
     if (match) {
@@ -1246,7 +1260,7 @@ function SessionView({ user, onBack }) {
           {/* Session Details */}
           <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Session Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Date</p>
                 <p className="font-medium dark:text-white">{new Date(session.date).toLocaleDateString()}</p>
@@ -1262,8 +1276,16 @@ function SessionView({ user, onBack }) {
                 </span>
               </div>
               <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Students</p>
+                <p className="font-medium dark:text-white">{calculateTotalStudentsInSession()}</p>
+              </div>
+              <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Rooms</p>
                 <p className="font-medium dark:text-white">{session.rooms?.length || 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Sections</p>
+                <p className="font-medium dark:text-white">{calculateTotalSectionsInSession()}</p>
               </div>
             </div>
           </div>
