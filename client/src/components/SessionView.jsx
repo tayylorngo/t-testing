@@ -936,6 +936,18 @@ function SessionView({ user, onBack }) {
     }, 0)
   }, [session?.rooms])
 
+  const calculateTotalAbsentStudents = useCallback(() => {
+    if (!session?.rooms) return 0
+    return session.rooms.reduce((total, room) => {
+      if (room.status === 'completed' && room.presentStudents !== undefined) {
+        const totalStudents = calculateTotalStudents(room.sections)
+        const presentStudents = room.presentStudents || 0
+        return total + (totalStudents - presentStudents)
+      }
+      return total
+    }, 0)
+  }, [session?.rooms, calculateTotalStudents])
+
   const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
     if (match) {
@@ -1239,6 +1251,10 @@ function SessionView({ user, onBack }) {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Present Students</p>
                 <p className="font-medium dark:text-white">{calculateTotalPresentStudents()}</p>
               </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Absent Students</p>
+                <p className="font-medium dark:text-white">{calculateTotalAbsentStudents()}</p>
+              </div>
             </div>
           </div>
 
@@ -1459,6 +1475,9 @@ function SessionView({ user, onBack }) {
                       Present
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Absent
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Sections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -1498,6 +1517,13 @@ function SessionView({ user, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-white">
                             {room.presentStudents !== undefined ? room.presentStudents : '-'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {room.status === 'completed' && room.presentStudents !== undefined 
+                              ? calculateTotalStudents(room.sections) - room.presentStudents 
+                              : '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1581,7 +1607,7 @@ function SessionView({ user, onBack }) {
                       
                       {/* Expanded Details Row */}
                       <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
-                        <td colSpan="8" className="px-0 py-0">
+                        <td colSpan="9" className="px-0 py-0">
                           <div className={`overflow-hidden room-expansion-transition ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="px-6 py-3">
                               <div className="grid grid-cols-2 gap-4">
@@ -1725,6 +1751,18 @@ function SessionView({ user, onBack }) {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Present Students:</span>
                     <span className="text-2xl font-bold text-green-600">
                       {room.presentStudents !== undefined ? room.presentStudents : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Absent Students */}
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Absent Students:</span>
+                    <span className="text-2xl font-bold text-red-600">
+                      {room.status === 'completed' && room.presentStudents !== undefined 
+                        ? calculateTotalStudents(room.sections) - room.presentStudents 
+                        : '-'}
                     </span>
                   </div>
                 </div>
