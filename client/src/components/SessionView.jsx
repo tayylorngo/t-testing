@@ -1259,22 +1259,24 @@ function SessionView({ user, onBack }) {
           </div>
 
           {/* Timer */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Time Remaining</h2>
-            {timeRemaining ? (
-              <div className="text-center">
-                {timeRemaining.isOver ? (
-                  <div className="text-red-600 font-bold text-2xl">EXAM ENDED</div>
-                ) : (
-                  <div className="text-3xl font-bold text-blue-600">
-                    {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
-                  </div>
-                )}
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Until exam ends</p>
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 dark:text-gray-400">Loading timer...</div>
-            )}
+            <div className="flex-1 flex items-center justify-center">
+              {timeRemaining ? (
+                <div className="text-center">
+                  {timeRemaining.isOver ? (
+                    <div className="text-red-600 font-bold text-4xl">EXAM ENDED</div>
+                  ) : (
+                    <div className="text-5xl font-bold text-orange-600">
+                      {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Until exam ends</p>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 dark:text-gray-400">Loading timer...</div>
+              )}
+            </div>
           </div>
         </div>
 
