@@ -826,12 +826,14 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
 // Update room
 app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, supplies } = req.body;
-    const updateData = {};
+      const { id } = req.params;
+  const { name, supplies, status, presentStudents } = req.body;
+  const updateData = {};
 
-    if (name !== undefined) updateData.name = name;
-    if (supplies !== undefined) updateData.supplies = supplies;
+  if (name !== undefined) updateData.name = name;
+  if (supplies !== undefined) updateData.supplies = supplies;
+  if (status !== undefined) updateData.status = status;
+  if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
 
     // Get the old room data BEFORE updating to compare supplies
     const oldRoom = await Room.findById(id);
@@ -852,7 +854,7 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
-      // Add activity log entry for supply changes
+      // Add activity log entry for supply changes or room completion
       let logEntry = null;
       if (supplies !== undefined) {
         console.log(`🔍 Supply update detected for room ${id}`);
@@ -940,6 +942,18 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         } else {
           console.log(`🔍 No supply changes detected`);
         }
+      } else if (status === 'completed' && presentStudents !== undefined) {
+        // Room completion with present students
+        const action = `${user.firstName} ${user.lastName} marked Room ${room.name} complete with ${presentStudents} students present`;
+        const details = `Present students: ${presentStudents}`;
+        logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
+        console.log(`🔍 Room completion log entry created:`, logEntry);
+      } else if (status === 'active' && presentStudents === undefined) {
+        // Room marked incomplete - clear present students
+        const action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete`;
+        const details = `Present students count cleared`;
+        logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
+        console.log(`🔍 Room incomplete log entry created:`, logEntry);
       } else {
         console.log(`🔍 No supplies in request body`);
       }

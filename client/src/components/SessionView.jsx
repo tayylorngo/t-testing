@@ -31,6 +31,7 @@ function SessionView({ user, onBack }) {
   const [showAddSupplyModal, setShowAddSupplyModal] = useState(false)
   const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
   const [showMoveStudentsModal, setShowMoveStudentsModal] = useState(false)
+  const [showPresentStudentsModal, setShowPresentStudentsModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [newSupplyQuantity, setNewSupplyQuantity] = useState(1)
   const [selectedPresetSupply, setSelectedPresetSupply] = useState('')
@@ -39,6 +40,8 @@ function SessionView({ user, onBack }) {
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
+  const [presentStudentsCount, setPresentStudentsCount] = useState('')
+  const [roomToComplete, setRoomToComplete] = useState(null)
 
   // Activity log state
   const [activityLog, setActivityLog] = useState([])
@@ -525,10 +528,40 @@ function SessionView({ user, onBack }) {
     return Math.round((completedRooms / totalRooms) * 100)
   }, [debouncedSession?.rooms])
 
-  const handleMarkRoomComplete = useCallback(async (roomId) => {
+  const handleMarkRoomComplete = useCallback((roomId) => {
+    // Find the room to get its name and total students
+    const room = session?.rooms?.find(r => r._id === roomId)
+    if (!room) return
+    
+    setRoomToComplete(room)
+    setPresentStudentsCount('')
+    setShowPresentStudentsModal(true)
+  }, [session?.rooms])
+
+  const calculateTotalStudents = useCallback((sections) => {
+    if (!sections || sections.length === 0) return 0
+    return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
+  }, [])
+
+  const handleConfirmRoomComplete = useCallback(async () => {
+    if (!roomToComplete || !presentStudentsCount || isNaN(parseInt(presentStudentsCount))) return
+    
+    const presentCount = parseInt(presentStudentsCount)
+    const totalStudents = calculateTotalStudents(roomToComplete.sections)
+    
+    if (presentCount < 0 || presentCount > totalStudents) {
+      alert(`Present students must be between 0 and ${totalStudents}`)
+      return
+    }
+    
     try {
-      console.log('Marking room complete:', roomId)
-      const response = await testingAPI.updateRoomStatus(roomId, 'completed')
+      console.log('Marking room complete with present students:', presentCount)
+      
+      // Update room with present students count
+      const response = await testingAPI.updateRoom(roomToComplete._id, { 
+        status: 'completed',
+        presentStudents: presentCount
+      })
       console.log('Room status update response:', response)
       
       // Update local state immediately
@@ -536,8 +569,8 @@ function SessionView({ user, onBack }) {
         const updatedSession = {
           ...prevSession,
           rooms: prevSession.rooms.map(room => 
-            room._id === roomId 
-              ? { ...room, status: 'completed' }
+            room._id === roomToComplete._id 
+              ? { ...room, status: 'completed', presentStudents: presentCount }
               : room
           )
         }
@@ -560,15 +593,24 @@ function SessionView({ user, onBack }) {
         return updatedSession
       })
 
+      // Close modal
+      setShowPresentStudentsModal(false)
+      setRoomToComplete(null)
+      setPresentStudentsCount('')
+
       // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
-  }, [sessionId, session?.rooms])
+  }, [roomToComplete, presentStudentsCount, sessionId, calculateTotalStudents])
 
   const handleMarkRoomIncomplete = useCallback(async (roomId) => {
     try {
-      await testingAPI.updateRoomStatus(roomId, 'active')
+      // Update room status to active and clear present students
+      await testingAPI.updateRoom(roomId, { 
+        status: 'active',
+        presentStudents: undefined
+      })
       
       // Update local state immediately
       setSession(prevSession => {
@@ -576,7 +618,7 @@ function SessionView({ user, onBack }) {
           ...prevSession,
           rooms: prevSession.rooms.map(room => 
             room._id === roomId 
-              ? { ...room, status: 'active' }
+              ? { ...room, status: 'active', presentStudents: undefined }
               : room
           )
         }
@@ -872,10 +914,6 @@ function SessionView({ user, onBack }) {
     }
   }, [])
 
-  const calculateTotalStudents = useCallback((sections) => {
-    if (!sections || sections.length === 0) return 0
-    return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
-  }, [])
 
   const calculateTotalStudentsInSession = useCallback(() => {
     if (!session?.rooms) return 0
@@ -888,6 +926,13 @@ function SessionView({ user, onBack }) {
     if (!session?.rooms) return 0
     return session.rooms.reduce((total, room) => {
       return total + (room.sections?.length || 0)
+    }, 0)
+  }, [session?.rooms])
+
+  const calculateTotalPresentStudents = useCallback(() => {
+    if (!session?.rooms) return 0
+    return session.rooms.reduce((total, room) => {
+      return total + (room.presentStudents || 0)
     }, 0)
   }, [session?.rooms])
 
@@ -1190,6 +1235,10 @@ function SessionView({ user, onBack }) {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Sections</p>
                 <p className="font-medium dark:text-white">{calculateTotalSectionsInSession()}</p>
               </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Present Students</p>
+                <p className="font-medium dark:text-white">{calculateTotalPresentStudents()}</p>
+              </div>
             </div>
           </div>
 
@@ -1407,6 +1456,9 @@ function SessionView({ user, onBack }) {
                       Students
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Present
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Sections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -1441,6 +1493,11 @@ function SessionView({ user, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-white font-medium">
                             {calculateTotalStudents(room.sections)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {room.presentStudents !== undefined ? room.presentStudents : '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -1524,7 +1581,7 @@ function SessionView({ user, onBack }) {
                       
                       {/* Expanded Details Row */}
                       <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
-                        <td colSpan="7" className="px-0 py-0">
+                        <td colSpan="8" className="px-0 py-0">
                           <div className={`overflow-hidden room-expansion-transition ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="px-6 py-3">
                               <div className="grid grid-cols-2 gap-4">
@@ -1658,6 +1715,16 @@ function SessionView({ user, onBack }) {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Students:</span>
                     <span className="text-2xl font-bold text-blue-600">
                       {calculateTotalStudents(room.sections)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Present Students */}
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Present Students:</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      {room.presentStudents !== undefined ? room.presentStudents : '-'}
                     </span>
                   </div>
                 </div>
@@ -2163,6 +2230,63 @@ function SessionView({ user, onBack }) {
           )}
         </div>
       </div>
+
+      {/* Present Students Modal */}
+      {showPresentStudentsModal && roomToComplete && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Room: {roomToComplete.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Total Students: {calculateTotalStudents(roomToComplete.sections)}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  How many students were present?
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={calculateTotalStudents(roomToComplete.sections)}
+                  value={presentStudentsCount}
+                  onChange={(e) => setPresentStudentsCount(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter number of present students"
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Enter a number between 0 and {calculateTotalStudents(roomToComplete.sections)}
+                </p>
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPresentStudentsModal(false)
+                    setRoomToComplete(null)
+                    setPresentStudentsCount('')
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRoomComplete}
+                  disabled={!presentStudentsCount || isNaN(parseInt(presentStudentsCount))}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Mark Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
