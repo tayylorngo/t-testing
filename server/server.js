@@ -1188,7 +1188,7 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
 
     // Add activity log entry for session update
     const user = await User.findById(req.user.id);
-    const action = 'updated session details';
+    const action = `${user.firstName} ${user.lastName} updated session details`;
     const logEntry = await addActivityLogEntry(req.params.id, action, null, 'Session information was modified', `${user.firstName} ${user.lastName}`);
 
     // Emit real-time update to all users in the session
@@ -1651,7 +1651,7 @@ app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) =
 
     // Add activity log entry for room addition
     const user = await User.findById(req.user.id);
-    const action = `added room ${room.name} to the session`;
+    const action = `${user.firstName} ${user.lastName} added Room ${room.name} to the session`;
     const logEntry = await addActivityLogEntry(sessionId, action, room.name, null, `${user.firstName} ${user.lastName}`);
 
     // Emit real-time update to all users in the session
@@ -1703,7 +1703,7 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
     const room = await Room.findById(roomId);
     let logEntry = null;
     if (room) {
-      const action = `removed room ${room.name} from the session`;
+      const action = `${user.firstName} ${user.lastName} removed Room ${room.name} from the session`;
       logEntry = await addActivityLogEntry(sessionId, action, room.name, null, `${user.firstName} ${user.lastName}`);
     }
 
@@ -1794,7 +1794,7 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
       const user = await User.findById(req.user.id);
       
       // Add activity log entry for section update
-      const action = `updated section ${section.number} to ${section.studentCount} students`;
+      const action = `${user.firstName} ${user.lastName} updated section ${section.number} to ${section.studentCount} students`;
       const logEntry = await addActivityLogEntry(session._id, action, null, null, `${user.firstName} ${user.lastName}`);
       
       emitSessionUpdate(session._id, 'section-updated', { sectionId: id, section }, user, logEntry);
@@ -1850,7 +1850,7 @@ app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res
 
     // Add activity log entry for section addition
     const user = await User.findById(req.user.id);
-    const action = `added section ${section.number} with ${section.studentCount} students to the session`;
+    const action = `${user.firstName} ${user.lastName} added section ${section.number} with ${section.studentCount} students to the session`;
     const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
 
     // Emit real-time update to all users in the session
@@ -1894,7 +1894,7 @@ app.delete('/api/sessions/:sessionId/sections/:sectionId', authenticateToken, as
     const section = await Section.findById(sectionId);
     let logEntry = null;
     if (section) {
-      const action = `removed section ${section.number} with ${section.studentCount} students from the session`;
+      const action = `${user.firstName} ${user.lastName} removed section ${section.number} with ${section.studentCount} students from the session`;
       logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
     }
 
