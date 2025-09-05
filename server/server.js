@@ -2161,16 +2161,48 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
     // Get user information for logging
     const user = await User.findById(req.user.id);
 
-    // Actually move the section from source room to destination room
-    // Remove section from source room
-    await Room.findByIdAndUpdate(sourceRoomId, {
-      $pull: { sections: sectionId }
-    });
+    // Get the section details
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
 
-    // Add section to destination room
-    await Room.findByIdAndUpdate(destinationRoomId, {
-      $push: { sections: sectionId }
-    });
+    // Check if destination room already has a section with the same number
+    const destinationRoomSections = await Room.findById(destinationRoomId)
+      .populate('sections', 'number studentCount accommodations notes');
+    
+    const existingSection = destinationRoomSections.sections.find(s => s.number === section.number);
+    
+    if (existingSection) {
+      // Combine sections - add students to existing section
+      const newStudentCount = existingSection.studentCount + studentsToMove;
+      await Section.findByIdAndUpdate(existingSection._id, { 
+        studentCount: newStudentCount 
+      });
+      
+      // Remove the source section from source room
+      await Room.findByIdAndUpdate(sourceRoomId, {
+        $pull: { sections: sectionId }
+      });
+      
+      // Delete the source section since we combined it
+      await Section.findByIdAndDelete(sectionId);
+      
+      console.log(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
+    } else {
+      // No existing section with same number - move the entire section
+      // Remove section from source room
+      await Room.findByIdAndUpdate(sourceRoomId, {
+        $pull: { sections: sectionId }
+      });
+
+      // Add section to destination room
+      await Room.findByIdAndUpdate(destinationRoomId, {
+        $push: { sections: sectionId }
+      });
+      
+      console.log(`Moved entire section ${section.number} with ${studentsToMove} students`);
+    }
 
     // Get updated rooms with populated sections
     const updatedSourceRoom = await Room.findById(sourceRoomId)
@@ -2179,7 +2211,12 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
       .populate('sections', 'number studentCount accommodations notes');
 
     // Add comprehensive activity log entry for student movement
-    const action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name}`;
+    let action;
+    if (existingSection) {
+      action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name} (combined with existing Section ${section.number})`;
+    } else {
+      action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name}`;
+    }
     const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
 
     // Emit real-time update with the log entry and updated room data

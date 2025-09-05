@@ -748,80 +748,18 @@ function SessionView({ user, onBack }) {
           if (section && moveInfo.studentsToMove <= section.studentCount) {
             console.log(`Moving ${moveInfo.studentsToMove} students from section ${section.number}`)
             
-            // Use the server endpoint to move students (only when moving to a different room)
-            if (moveInfo.destinationRoom !== moveFromRoom._id) {
-              try {
-                await testingAPI.logStudentMovement(
-                  session._id,
-                  moveFromRoom._id,
-                  moveInfo.destinationRoom,
-                  sectionId,
-                  moveInfo.studentsToMove
-                )
-                console.log('Student movement logged successfully')
-              } catch (error) {
-                console.error('Error logging student movement:', error)
-              }
-            } else {
-              // For same room moves, handle locally since the server endpoint is for room-to-room moves
-              console.log('Moving within the same room - handling locally')
-              
-              // Find a section with the same number in the same room (excluding current section)
-              const targetSection = moveFromRoom.sections.find(s => s.number === section.number && s._id !== sectionId)
-              
-              if (targetSection) {
-                // Merge students into the existing section
-                const newTotalStudents = targetSection.studentCount + moveInfo.studentsToMove
-                await testingAPI.updateSection(targetSection._id, { studentCount: newTotalStudents })
-                
-                // Remove the current section from the room (since we merged its students)
-                await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
-              } else {
-                // No matching section found, create a new one
-                console.log('No matching section found, creating new section in same room')
-                
-                // Find a unique section number for the destination room (same room)
-                let newSectionNumber = section.number
-                const existingNumbers = moveFromRoom.sections?.map(s => s.number) || []
-                let counter = 1
-                while (existingNumbers.includes(newSectionNumber)) {
-                  newSectionNumber = section.number + counter
-                  counter++
-                }
-                
-                console.log(`Using section number ${newSectionNumber} for same room (original was ${section.number})`)
-                
-                // Create a new section in the same room
-                const newSectionData = {
-                  number: newSectionNumber,
-                  studentCount: moveInfo.studentsToMove,
-                  accommodations: section.accommodations || [],
-                  notes: section.notes || ''
-                }
-                
-                console.log('Creating new section in same room with data:', newSectionData)
-                
-                // Create the new section
-                const newSectionResponse = await testingAPI.createSection(newSectionData)
-                console.log('New section created in same room:', newSectionResponse)
-                
-                // Add the new section to the same room
-                await testingAPI.addSectionToRoom(moveFromRoom._id, newSectionResponse.section._id)
-                console.log(`Added section to same room ${moveFromRoom._id}`)
-                
-                // Update the original section in the source room
-                const newStudentCount = section.studentCount - moveInfo.studentsToMove
-                
-                if (newStudentCount === 0) {
-                  // If all students are moved, remove the section from the room
-                  console.log(`All students moved from section ${sectionId}, removing section from room`)
-                  await testingAPI.removeSectionFromRoom(moveFromRoom._id, sectionId)
-                } else {
-                  // Update the section with the remaining students
-                  await testingAPI.updateSection(sectionId, { studentCount: newStudentCount })
-                  console.log(`Updated original section ${sectionId} to have ${newStudentCount} students`)
-                }
-              }
+            // Use the server endpoint to move students (handles both same-room and cross-room moves)
+            try {
+              await testingAPI.logStudentMovement(
+                session._id,
+                moveFromRoom._id,
+                moveInfo.destinationRoom,
+                sectionId,
+                moveInfo.studentsToMove
+              )
+              console.log('Student movement logged successfully')
+            } catch (error) {
+              console.error('Error logging student movement:', error)
             }
           } else {
             console.error(`Invalid move: ${moveInfo.studentsToMove} students cannot be moved from section with ${section?.studentCount || 0} students`)
