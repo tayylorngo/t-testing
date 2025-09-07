@@ -46,13 +46,15 @@ function SessionView({ user, onBack }) {
   // Activity log state
   const [activityLog, setActivityLog] = useState([])
   const [showActivityLog, setShowActivityLog] = useState(true)
+  const [showClearLogModal, setShowClearLogModal] = useState(false)
 
 
 
-  const clearActivityLog = useCallback(async () => {
+  const confirmClearActivityLog = useCallback(async () => {
     try {
       await testingAPI.clearActivityLog(sessionId)
       setActivityLog([])
+      setShowClearLogModal(false)
       console.log('Activity log cleared successfully')
     } catch (error) {
       console.error('Error clearing activity log:', error)
@@ -2206,7 +2208,7 @@ function SessionView({ user, onBack }) {
               </button>
               {getSessionRole() === 'Owner' && (
                 <button
-                  onClick={clearActivityLog}
+                  onClick={() => setShowClearLogModal(true)}
                   className="px-3 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200"
                   title="Clear activity log (Owner only)"
                 >
@@ -2321,6 +2323,39 @@ function SessionView({ user, onBack }) {
                   className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Mark Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Activity Log Confirmation Modal */}
+      {showClearLogModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Clear Activity Log</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to clear the activity log for this session?
+              </p>
+              <p className="text-sm text-gray-600">
+                This action cannot be undone. All activity history will be permanently removed.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => setShowClearLogModal(false)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClearActivityLog}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Clear Log
                 </button>
               </div>
             </div>
