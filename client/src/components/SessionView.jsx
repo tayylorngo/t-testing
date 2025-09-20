@@ -641,6 +641,24 @@ function SessionView({ user, onBack }) {
     }
   }, [sessionId, session?.rooms])
 
+  // Helper function to format supplies for logging
+  const formatSuppliesForLog = (supplies) => {
+    if (!supplies || supplies.length === 0) return []
+    
+    const supplyCounts = {}
+    supplies.forEach(supply => {
+      if (supply.startsWith('INITIAL_')) {
+        const cleanName = supply.replace('INITIAL_', '')
+        const key = `${cleanName} (initial)`
+        supplyCounts[key] = (supplyCounts[key] || 0) + 1
+      } else {
+        supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
+      }
+    })
+    
+    return Object.entries(supplyCounts).map(([name, count]) => `${name} (${count})`)
+  }
+
   const handleAddSupply = useCallback(async () => {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
     
@@ -654,7 +672,7 @@ function SessionView({ user, onBack }) {
       const newSupplyName = selectedPresetSupply
       const newQuantity = newSupplyQuantity
       
-      console.log('🔍 currentSupplies:', currentSupplies);
+      console.log('🔍 currentSupplies:', formatSuppliesForLog(currentSupplies));
       
       // Check if the supply already exists
       const existingSupplyIndex = currentSupplies.findIndex(supply => supply === newSupplyName)
@@ -678,8 +696,8 @@ function SessionView({ user, onBack }) {
         }
       }
       
-      console.log('🔍 updatedSupplies:', updatedSupplies);
-      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: updatedSupplies });
+      console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
+      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
       
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
       
@@ -716,8 +734,8 @@ function SessionView({ user, onBack }) {
       const updatedSupplies = room.supplies.filter(s => s !== supply)
       
       console.log('🔍 room:', room);
-      console.log('🔍 updatedSupplies:', updatedSupplies);
-      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: updatedSupplies });
+      console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
+      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
       
       await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
       
@@ -1660,49 +1678,88 @@ function SessionView({ user, onBack }) {
                                   <div>
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
                                     {room.supplies && room.supplies.length > 0 ? (
-                                      <div className="space-y-1 max-h-64 overflow-y-auto pr-2">
+                                      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                                        {/* Initial Supplies */}
                                         {(() => {
-                                          // Group supplies by name and count them
-                                          const supplyCounts = {}
-                                          room.supplies.forEach(supply => {
-                                            supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
-                                          })
-                                          
-                                          return Object.entries(supplyCounts).map(([supplyName, count], index) => (
-                                            <div key={index} className="flex justify-between items-center bg-white dark:bg-gray-600 px-3 py-2 rounded-lg">
-                                              <span className="text-sm text-gray-700 dark:text-gray-300">
-                                                {supplyName} ({count})
-                                              </span>
-                                              <div className="flex items-center space-x-2">
-                                                {canEditSession() && (
-                                                  <>
-                                                    <button
-                                                      onClick={() => {
-                                                        setEditingSupply({
-                                                          original: supplyName,
-                                                          name: supplyName
-                                                        })
-                                                        setEditSupplyQuantity(count)
-                                                        setSelectedRoom(room)
-                                                        setShowEditSupplyModal(true)
-                                                      }}
-                                                      className="text-blue-500 hover:text-blue-700 text-sm"
-                                                      title="Edit Supply"
-                                                    >
-                                                      ✎
-                                                    </button>
-                                                    <button
-                                                      onClick={() => handleRemoveSupply(room._id, supplyName)}
-                                                      className="text-red-500 hover:text-red-700 text-sm"
-                                                      title="Remove Supply"
-                                                    >
-                                                      ×
-                                                    </button>
-                                                  </>
-                                                )}
+                                          const initialSupplies = room.supplies.filter(supply => supply.startsWith('INITIAL_'))
+                                          if (initialSupplies.length > 0) {
+                                            const initialSupplyCounts = {}
+                                            initialSupplies.forEach(supply => {
+                                              const cleanName = supply.replace('INITIAL_', '')
+                                              initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
+                                            })
+                                            
+                                            return (
+                                              <div>
+                                                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
+                                                <div className="space-y-1 mt-1">
+                                                  {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
+                                                    <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
+                                                      <span className="text-sm text-green-700 dark:text-green-300">
+                                                        {supplyName} ({count})
+                                                      </span>
+                                                    </div>
+                                                  ))}
+                                                </div>
                                               </div>
-                                            </div>
-                                          ))
+                                            )
+                                          }
+                                          return null
+                                        })()}
+                                        
+                                        {/* Added Supplies */}
+                                        {(() => {
+                                          const addedSupplies = room.supplies.filter(supply => !supply.startsWith('INITIAL_'))
+                                          if (addedSupplies.length > 0) {
+                                            const addedSupplyCounts = {}
+                                            addedSupplies.forEach(supply => {
+                                              addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
+                                            })
+                                            
+                                            return (
+                                              <div>
+                                                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
+                                                <div className="space-y-1 mt-1">
+                                                  {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
+                                                    <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
+                                                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                                                        {supplyName} ({count})
+                                                      </span>
+                                                      <div className="flex items-center space-x-2">
+                                                        {canEditSession() && (
+                                                          <>
+                                                            <button
+                                                              onClick={() => {
+                                                                setEditingSupply({
+                                                                  original: supplyName,
+                                                                  name: supplyName
+                                                                })
+                                                                setEditSupplyQuantity(count)
+                                                                setSelectedRoom(room)
+                                                                setShowEditSupplyModal(true)
+                                                              }}
+                                                              className="text-blue-500 hover:text-blue-700 text-sm"
+                                                              title="Edit Supply"
+                                                            >
+                                                              ✎
+                                                            </button>
+                                                            <button
+                                                              onClick={() => handleRemoveSupply(room._id, supplyName)}
+                                                              className="text-red-500 hover:text-red-700 text-sm"
+                                                              title="Remove Supply"
+                                                            >
+                                                              ×
+                                                            </button>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )
+                                          }
+                                          return null
                                         })()}
                                       </div>
                                     ) : (
@@ -1870,53 +1927,92 @@ function SessionView({ user, onBack }) {
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
                       {room.supplies && room.supplies.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
+                          {/* Initial Supplies */}
                           {(() => {
-                            // Group supplies by name and count them
-                            const supplyCounts = {}
-                            room.supplies.forEach(supply => {
-                              supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
-                            })
-                            
-                            return Object.entries(supplyCounts).map(([supplyName, count], index) => (
-                              <div key={index} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {supplyName} ({count})
-                                </span>
-                                <div className="flex items-center space-x-2">
-                                  {canEditSession() && (
-                                    <>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          setEditingSupply({
-                                            original: supplyName,
-                                            name: supplyName
-                                          })
-                                          setEditSupplyQuantity(count)
-                                          setSelectedRoom(room)
-                                          setShowEditSupplyModal(true)
-                                        }}
-                                        className="text-blue-500 hover:text-blue-700 text-sm"
-                                        title="Edit Supply"
-                                      >
-                                        ✎
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleRemoveSupply(room._id, supplyName)
-                                        }}
-                                        className="text-red-500 hover:text-red-700 text-sm"
-                                        title="Remove Supply"
-                                      >
-                                        ×
-                                      </button>
-                                    </>
-                                  )}
+                            const initialSupplies = room.supplies.filter(supply => supply.startsWith('INITIAL_'))
+                            if (initialSupplies.length > 0) {
+                              const initialSupplyCounts = {}
+                              initialSupplies.forEach(supply => {
+                                const cleanName = supply.replace('INITIAL_', '')
+                                initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
+                              })
+                              
+                              return (
+                                <div>
+                                  <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
+                                      <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
+                                        <span className="text-sm text-green-700 dark:text-green-300">
+                                          {supplyName} ({count})
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              )
+                            }
+                            return null
+                          })()}
+                          
+                          {/* Added Supplies */}
+                          {(() => {
+                            const addedSupplies = room.supplies.filter(supply => !supply.startsWith('INITIAL_'))
+                            if (addedSupplies.length > 0) {
+                              const addedSupplyCounts = {}
+                              addedSupplies.forEach(supply => {
+                                addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
+                              })
+                              
+                              return (
+                                <div>
+                                  <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
+                                  <div className="space-y-1 mt-1">
+                                    {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
+                                      <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
+                                        <span className="text-sm text-blue-700 dark:text-blue-300">
+                                          {supplyName} ({count})
+                                        </span>
+                                        <div className="flex items-center space-x-2">
+                                          {canEditSession() && (
+                                            <>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setEditingSupply({
+                                                    original: supplyName,
+                                                    name: supplyName
+                                                  })
+                                                  setEditSupplyQuantity(count)
+                                                  setSelectedRoom(room)
+                                                  setShowEditSupplyModal(true)
+                                                }}
+                                                className="text-blue-500 hover:text-blue-700 text-sm"
+                                                title="Edit Supply"
+                                              >
+                                                ✎
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleRemoveSupply(room._id, supplyName)
+                                                }}
+                                                className="text-red-500 hover:text-red-700 text-sm"
+                                                title="Remove Supply"
+                                              >
+                                                ×
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
                           })()}
                         </div>
                       ) : (

@@ -12,12 +12,14 @@ function SessionDetail({ onBack }) {
   const [showAddSectionModal, setShowAddSectionModal] = useState(false)
   const [showAddSectionToRoomModal, setShowAddSectionToRoomModal] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
+  const [newRoomSupplies, setNewRoomSupplies] = useState({})
   const [newSectionNumber, setNewSectionNumber] = useState('')
   const [newSectionStudentCount, setNewSectionStudentCount] = useState('1')
   const [selectedRoomForSection, setSelectedRoomForSection] = useState(null)
   const [availableSections, setAvailableSections] = useState([])
   const [selectedSectionsForRoom, setSelectedSectionsForRoom] = useState([])
   const [editRoomName, setEditRoomName] = useState('')
+  const [editRoomSupplies, setEditRoomSupplies] = useState({})
   const [editSectionNumber, setEditSectionNumber] = useState('')
   const [editSectionStudentCount, setEditSectionStudentCount] = useState('')
   const [sessionUpdates, setSessionUpdates] = useState({
@@ -55,10 +57,16 @@ function SessionDetail({ onBack }) {
     'Answer in Native Language (Short/Essay Responses)'
   ];
   const [selectedAccommodations, setSelectedAccommodations] = useState([])
+  // Add state for custom accommodations
+  const [customAccommodation, setCustomAccommodation] = useState('')
+  
+  // Preset supplies options (matching SessionView)
+  const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass'];
   // Add state for notes
   const [newSectionNotes, setNewSectionNotes] = useState('')
   // Add state for editing accommodations and notes
   const [editSectionAccommodations, setEditSectionAccommodations] = useState([])
+  const [editCustomAccommodation, setEditCustomAccommodation] = useState('')
   const [editSectionNotes, setEditSectionNotes] = useState('')
   
   // Custom confirm delete modals
@@ -175,18 +183,30 @@ function SessionDetail({ onBack }) {
     if (!newRoomName.trim()) return
     
     try {
-      // Create a new room with selected sections
+      // Parse supplies from input
+      const supplies = parseSupplies(newRoomSupplies)
+      
+      // Create a new room with selected sections and initial supplies
       const roomResponse = await testingAPI.createRoomWithSections({
         name: newRoomName.trim(),
-        supplies: [],
+        supplies: supplies,
         sectionIds: selectedSectionsForRoom
       })
       
       // Add the new room to the session
       await testingAPI.addRoomToSession(sessionId, roomResponse.room._id)
       
+      // Store initial supplies with special prefix for distinction
+      if (supplies.length > 0) {
+        const initialSupplies = supplies.map(supply => `INITIAL_${supply}`)
+        await testingAPI.updateRoom(roomResponse.room._id, { 
+          supplies: [...supplies, ...initialSupplies]
+        })
+      }
+      
       setShowAddRoomModal(false)
       setNewRoomName('')
+      setNewRoomSupplies({})
       setSelectedSectionsForRoom([])
       fetchSessionData() // Refresh data
     } catch (error) {
@@ -243,6 +263,7 @@ function SessionDetail({ onBack }) {
       setNewSectionNumber('')
       setNewSectionStudentCount('1')
       setSelectedAccommodations([])
+      setCustomAccommodation('')
       setNewSectionNotes('')
       fetchSessionData() // Refresh data
     } catch (error) {
@@ -326,6 +347,11 @@ function SessionDetail({ onBack }) {
   const handleStartEditRoom = (room) => {
     setItemToEdit({ type: 'room', id: room._id, name: room.name })
     setEditRoomName(room.name)
+    
+    // Only load initial supplies for editing
+    const initialSupplies = room.supplies?.filter(supply => supply.startsWith('INITIAL_')) || []
+    const cleanInitialSupplies = initialSupplies.map(supply => supply.replace('INITIAL_', ''))
+    setEditRoomSupplies(parseSuppliesFromRoom(cleanInitialSupplies))
     setShowEditRoomModal(true)
   }
 
@@ -333,10 +359,32 @@ function SessionDetail({ onBack }) {
     if (!editRoomName.trim() || !itemToEdit || itemToEdit.type !== 'room') return
     
     try {
-      await testingAPI.updateRoom(itemToEdit.id, { name: editRoomName.trim() })
+      // Get current room data to preserve added supplies
+      const currentRoom = session.rooms.find(r => r._id === itemToEdit.id)
+      if (!currentRoom) return
+      
+      // Separate added supplies (non-INITIAL_ prefixed)
+      const addedSupplies = currentRoom.supplies?.filter(supply => !supply.startsWith('INITIAL_')) || []
+      
+      // Convert new initial supplies to array format
+      const newInitialSupplies = []
+      Object.entries(editRoomSupplies).forEach(([supply, quantity]) => {
+        for (let i = 0; i < quantity; i++) {
+          newInitialSupplies.push(`INITIAL_${supply}`)
+        }
+      })
+      
+      // Combine added supplies with new initial supplies
+      const allSupplies = [...addedSupplies, ...newInitialSupplies]
+      
+      await testingAPI.updateRoom(itemToEdit.id, { 
+        name: editRoomName.trim(),
+        supplies: allSupplies
+      })
       setShowEditRoomModal(false)
       setItemToEdit(null)
       setEditRoomName('')
+      setEditRoomSupplies({})
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating room:', error)
@@ -347,6 +395,7 @@ function SessionDetail({ onBack }) {
     setShowEditRoomModal(false)
     setItemToEdit(null)
     setEditRoomName('')
+    setEditRoomSupplies({})
   }
 
   const handleStartEditSection = (section) => {
@@ -389,6 +438,7 @@ function SessionDetail({ onBack }) {
       setEditSectionNumber('')
       setEditSectionStudentCount('')
       setEditSectionAccommodations([])
+      setEditCustomAccommodation('')
       setEditSectionNotes('')
       fetchSessionData() // Refresh data
     } catch (error) {
@@ -402,6 +452,7 @@ function SessionDetail({ onBack }) {
     setEditSectionNumber('')
     setEditSectionStudentCount('')
     setEditSectionAccommodations([])
+    setEditCustomAccommodation('')
     setEditSectionNotes('')
   }
 
@@ -416,6 +467,73 @@ function SessionDetail({ onBack }) {
 
   const calculateTotalStudents = (sections) => {
     return sections?.reduce((total, section) => total + (section.studentCount || 0), 0) || 0
+  }
+
+  // Helper function to add custom accommodation
+  const addCustomAccommodation = (accommodation, isEdit = false) => {
+    if (!accommodation.trim()) return
+    
+    const trimmedAccommodation = accommodation.trim()
+    
+    if (isEdit) {
+      if (!editSectionAccommodations.includes(trimmedAccommodation)) {
+        setEditSectionAccommodations([...editSectionAccommodations, trimmedAccommodation])
+      }
+      setEditCustomAccommodation('')
+    } else {
+      if (!selectedAccommodations.includes(trimmedAccommodation)) {
+        setSelectedAccommodations([...selectedAccommodations, trimmedAccommodation])
+      }
+      setCustomAccommodation('')
+    }
+  }
+
+  // Helper function to remove accommodation
+  const removeAccommodation = (accommodation, isEdit = false) => {
+    if (isEdit) {
+      setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
+    } else {
+      setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
+    }
+  }
+
+  // Helper function to parse supplies with quantities
+  const parseSupplies = (suppliesObject) => {
+    const supplies = []
+    Object.entries(suppliesObject).forEach(([supply, quantity]) => {
+      if (quantity && quantity > 0) {
+        supplies.push(`${supply} (${quantity})`)
+      }
+    })
+    return supplies
+  }
+
+  // Helper function to update supply quantity
+  const updateSupplyQuantity = (supply, quantity) => {
+    setNewRoomSupplies(prev => ({
+      ...prev,
+      [supply]: quantity
+    }))
+  }
+
+  // Helper function to update edit room supply quantity
+  const updateEditRoomSupplyQuantity = (supply, quantity) => {
+    setEditRoomSupplies(prev => ({
+      ...prev,
+      [supply]: quantity
+    }))
+  }
+
+  // Helper function to parse supplies from room data
+  const parseSuppliesFromRoom = (supplies) => {
+    if (!supplies || !Array.isArray(supplies)) {
+      return {}
+    }
+    const supplyCounts = {}
+    supplies.forEach(supply => {
+      supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
+    })
+    return supplyCounts
   }
 
 
@@ -806,13 +924,57 @@ function SessionDetail({ onBack }) {
                         {room.supplies && room.supplies.length > 0 && (
                           <div>
                             <span className="font-medium">Supplies:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {room.supplies.map((supply, index) => (
-                                <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                  {supply}
-                                </span>
-                              ))}
-                            </div>
+                            
+                            {/* Initial Supplies */}
+                            {(() => {
+                              const initialSupplies = room.supplies.filter(supply => supply.startsWith('INITIAL_'))
+                              if (initialSupplies.length > 0) {
+                                const initialSupplyCounts = {}
+                                initialSupplies.forEach(supply => {
+                                  const cleanName = supply.replace('INITIAL_', '')
+                                  initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
+                                })
+                                
+                                return (
+                                  <div className="mt-1">
+                                    <span className="text-xs text-gray-600 font-medium">Initial:</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
+                                        <span key={`initial-${index}`} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                          {supplyName} ({count})
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
+                            
+                            {/* Added Supplies */}
+                            {(() => {
+                              const addedSupplies = room.supplies.filter(supply => !supply.startsWith('INITIAL_'))
+                              if (addedSupplies.length > 0) {
+                                const addedSupplyCounts = {}
+                                addedSupplies.forEach(supply => {
+                                  addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
+                                })
+                                
+                                return (
+                                  <div className="mt-2">
+                                    <span className="text-xs text-gray-600 font-medium">Added:</span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
+                                        <span key={`added-${index}`} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                          {supplyName} ({count})
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
                           </div>
                         )}
                       </div>
@@ -975,6 +1137,34 @@ function SessionDetail({ onBack }) {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Initial Supplies (Optional)
+                </label>
+                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    {PRESET_SUPPLIES.map((supply) => (
+                      <div key={supply} className="flex items-center space-x-2 py-1">
+                        <label className="flex-1 text-sm text-gray-700 min-w-0">
+                          <span className="truncate">{supply}</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newRoomSupplies[supply] || ''}
+                          onChange={(e) => updateSupplyQuantity(supply, parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter quantities for supplies needed. Leave as 0 for supplies not needed. Additional supplies can be added later in the room view.
+                </p>
+              </div>
+              
               {session.sections && session.sections.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1035,6 +1225,7 @@ function SessionDetail({ onBack }) {
                   onClick={() => {
                     setShowAddRoomModal(false)
                     setNewRoomName('')
+                    setNewRoomSupplies({})
                     setSelectedSectionsForRoom([])
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
@@ -1115,6 +1306,57 @@ function SessionDetail({ onBack }) {
                     </label>
                   ))}
                 </div>
+                
+                {/* Custom Accommodation Input */}
+                <div className="mt-3">
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={customAccommodation}
+                      onChange={(e) => setCustomAccommodation(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addCustomAccommodation(customAccommodation, false)
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      placeholder="Add custom accommodation..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addCustomAccommodation(customAccommodation, false)}
+                      disabled={!customAccommodation.trim()}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition duration-200"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Selected Accommodations Display */}
+                {selectedAccommodations.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-xs font-medium text-gray-700 mb-2">Selected Accommodations:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedAccommodations.map((accommodation) => (
+                        <span
+                          key={accommodation}
+                          className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                        >
+                          {accommodation}
+                          <button
+                            type="button"
+                            onClick={() => removeAccommodation(accommodation, false)}
+                            className="ml-1 text-purple-600 hover:text-purple-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1137,6 +1379,7 @@ function SessionDetail({ onBack }) {
                     setNewSectionNumber('')
                     setNewSectionStudentCount('1')
                     setSelectedAccommodations([])
+                    setCustomAccommodation('')
                     setNewSectionNotes('')
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
@@ -1375,6 +1618,34 @@ function SessionDetail({ onBack }) {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Initial Supplies
+                </label>
+                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    {PRESET_SUPPLIES.map((supply) => (
+                      <div key={supply} className="flex items-center space-x-2 py-1">
+                        <label className="flex-1 text-sm text-gray-700 min-w-0">
+                          <span className="truncate">{supply}</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editRoomSupplies[supply] || ''}
+                          onChange={(e) => updateEditRoomSupplyQuantity(supply, parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Edit initial supplies for this room. Additional supplies can be added later in the room view.
+                </p>
+              </div>
+              
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={handleCancelEdit}
@@ -1455,6 +1726,57 @@ function SessionDetail({ onBack }) {
                     </label>
                   ))}
                 </div>
+                
+                {/* Custom Accommodation Input */}
+                <div className="mt-3">
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={editCustomAccommodation}
+                      onChange={(e) => setEditCustomAccommodation(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addCustomAccommodation(editCustomAccommodation, true)
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      placeholder="Add custom accommodation..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addCustomAccommodation(editCustomAccommodation, true)}
+                      disabled={!editCustomAccommodation.trim()}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition duration-200"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Selected Accommodations Display */}
+                {editSectionAccommodations.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-xs font-medium text-gray-700 mb-2">Selected Accommodations:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {editSectionAccommodations.map((accommodation) => (
+                        <span
+                          key={accommodation}
+                          className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                        >
+                          {accommodation}
+                          <button
+                            type="button"
+                            onClick={() => removeAccommodation(accommodation, true)}
+                            className="ml-1 text-purple-600 hover:text-purple-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

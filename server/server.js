@@ -175,18 +175,31 @@ const getPluralForm = (supplyName) => {
 const getSupplySummary = (supplies) => {
   if (!supplies || supplies.length === 0) return { summary: '', count: 0 };
   
-  // Normalize all supply names and count them
-  const normalizedSupplies = supplies.map(normalizeSupplyName);
+  // Normalize all supply names and count them, preserving initial supply status
   const supplyCounts = {};
   
-  normalizedSupplies.forEach(supply => {
-    supplyCounts[supply] = (supplyCounts[supply] || 0) + 1;
+  supplies.forEach(supply => {
+    if (supply.startsWith('INITIAL_')) {
+      const cleanName = supply.replace('INITIAL_', '');
+      const normalizedName = normalizeSupplyName(cleanName);
+      const key = `${normalizedName} (initial)`;
+      supplyCounts[key] = (supplyCounts[key] || 0) + 1;
+    } else {
+      const normalizedName = normalizeSupplyName(supply);
+      supplyCounts[normalizedName] = (supplyCounts[normalizedName] || 0) + 1;
+    }
   });
   
   // Create summary string
   const summaryParts = Object.entries(supplyCounts).map(([supply, count]) => {
-    const pluralized = pluralize(count, supply, getPluralForm(supply));
-    return `${count} ${pluralized}`;
+    if (supply.includes('(initial)')) {
+      const baseSupply = supply.replace(' (initial)', '');
+      const pluralized = pluralize(count, baseSupply, getPluralForm(baseSupply));
+      return `${count} ${pluralized} (initial)`;
+    } else {
+      const pluralized = pluralize(count, supply, getPluralForm(supply));
+      return `${count} ${pluralized}`;
+    }
   });
   
   return {
