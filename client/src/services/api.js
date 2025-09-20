@@ -553,6 +553,50 @@ export const testingAPI = {
     });
     return handleResponse(response);
   },
+
+  // Get invalidated tests for a session
+  getInvalidations: async (sessionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/invalidations`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
+  // Add test invalidation
+  addInvalidation: async (sessionId, roomId, sectionNumber, notes) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/invalidations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        roomId,
+        sectionNumber,
+        notes
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  // Remove test invalidation
+  removeInvalidation: async (sessionId, invalidationId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/invalidations/${invalidationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
 };
 
 // Utility functions

@@ -47,6 +47,16 @@ function SessionView({ user, onBack }) {
   const [activityLog, setActivityLog] = useState([])
   const [showActivityLog, setShowActivityLog] = useState(true)
   const [showClearLogModal, setShowClearLogModal] = useState(false)
+  const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false)
+  const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
+  const [showDropdown, setShowDropdown] = useState(null) // roomId for which dropdown is open
+  const [showInvalidateModal, setShowInvalidateModal] = useState(false)
+  const [roomToInvalidate, setRoomToInvalidate] = useState(null)
+  const [invalidationNotes, setInvalidationNotes] = useState('')
+  const [selectedSection, setSelectedSection] = useState('')
+  const [invalidatedTests, setInvalidatedTests] = useState([]) // Array of {roomId, sectionNumber, notes, timestamp, invalidatedBy}
+  const [showRemoveInvalidationModal, setShowRemoveInvalidationModal] = useState(false)
+  const [invalidationToRemove, setInvalidationToRemove] = useState(null)
 
 
 
@@ -126,6 +136,17 @@ function SessionView({ user, onBack }) {
           console.error('Error fetching activity log:', error)
           // If we can't fetch the activity log, start with an empty array
           setActivityLog([])
+        }
+
+        // Fetch invalidations
+        try {
+          const invalidationsData = await testingAPI.getInvalidations(sessionId)
+          console.log('SessionView - Invalidations data received:', invalidationsData.invalidations)
+          setInvalidatedTests(invalidationsData.invalidations || [])
+        } catch (error) {
+          console.error('Error fetching invalidations:', error)
+          // If we can't fetch invalidations, start with an empty array
+          setInvalidatedTests([])
         }
       }
     } catch (error) {
@@ -606,10 +627,17 @@ function SessionView({ user, onBack }) {
     }
   }, [roomToComplete, presentStudentsCount, sessionId, calculateTotalStudents])
 
-  const handleMarkRoomIncomplete = useCallback(async (roomId) => {
+  const handleMarkRoomIncomplete = useCallback((roomId) => {
+    setRoomToMarkIncomplete(roomId)
+    setShowIncompleteConfirmModal(true)
+  }, [])
+
+  const confirmMarkRoomIncomplete = useCallback(async () => {
+    if (!roomToMarkIncomplete) return
+    
     try {
       // Update room status to active and clear present students
-      await testingAPI.updateRoom(roomId, { 
+      await testingAPI.updateRoom(roomToMarkIncomplete, { 
         status: 'active',
         presentStudents: undefined
       })
@@ -619,7 +647,7 @@ function SessionView({ user, onBack }) {
         const updatedSession = {
           ...prevSession,
           rooms: prevSession.rooms.map(room => 
-            room._id === roomId 
+            room._id === roomToMarkIncomplete 
               ? { ...room, status: 'active', presentStudents: undefined }
               : room
           )
@@ -636,10 +664,121 @@ function SessionView({ user, onBack }) {
       })
 
       // Activity log entry is now handled by the server
+      
+      // Close modal and reset state
+      setShowIncompleteConfirmModal(false)
+      setRoomToMarkIncomplete(null)
     } catch (error) {
       console.error('Error marking room incomplete:', error)
     }
-  }, [sessionId, session?.rooms])
+  }, [roomToMarkIncomplete, sessionId])
+
+  const cancelMarkRoomIncomplete = useCallback(() => {
+    setShowIncompleteConfirmModal(false)
+    setRoomToMarkIncomplete(null)
+  }, [])
+
+  const toggleDropdown = useCallback((roomId) => {
+    setShowDropdown(showDropdown === roomId ? null : roomId)
+  }, [showDropdown])
+
+  const handleAddSupplyClick = useCallback((room) => {
+    setSelectedRoom(room)
+    setShowAddSupplyModal(true)
+    setShowDropdown(null)
+  }, [])
+
+  const handleMoveStudentsClick = useCallback((room) => {
+    setMoveFromRoom(room)
+    setShowMoveStudentsModal(true)
+    setShowDropdown(null)
+  }, [])
+
+  const handleInvalidateTestClick = useCallback((room) => {
+    setRoomToInvalidate(room)
+    setInvalidationNotes('')
+    setSelectedSection('')
+    setShowInvalidateModal(true)
+    setShowDropdown(null)
+  }, [])
+
+  const handleInvalidateTest = useCallback(async () => {
+    if (!roomToInvalidate || !invalidationNotes.trim() || !selectedSection) return
+    
+    try {
+      // Send to server to persist
+      const response = await testingAPI.addInvalidation(
+        session._id,
+        roomToInvalidate._id,
+        selectedSection,
+        invalidationNotes.trim()
+      )
+      
+      // Add to local state
+      setInvalidatedTests(prev => [...prev, response.invalidation])
+      
+      // Close modal and reset state
+      setShowInvalidateModal(false)
+      setRoomToInvalidate(null)
+      setInvalidationNotes('')
+      setSelectedSection('')
+      
+      console.log('Test invalidated:', response.invalidation)
+    } catch (error) {
+      console.error('Error invalidating test:', error)
+    }
+  }, [roomToInvalidate, invalidationNotes, selectedSection, session?._id])
+
+  const handleRemoveInvalidatedTestClick = useCallback((invalidation) => {
+    setInvalidationToRemove(invalidation)
+    setShowRemoveInvalidationModal(true)
+  }, [])
+
+  const confirmRemoveInvalidatedTest = useCallback(async () => {
+    if (!invalidationToRemove) return
+    
+    try {
+      // Send to server to remove
+      await testingAPI.removeInvalidation(session._id, invalidationToRemove.id)
+      
+      // Remove from local state
+      setInvalidatedTests(prev => prev.filter(inv => inv.id !== invalidationToRemove.id))
+      
+      // Close modal and reset state
+      setShowRemoveInvalidationModal(false)
+      setInvalidationToRemove(null)
+      
+      console.log('Invalidated test removed:', invalidationToRemove.id)
+    } catch (error) {
+      console.error('Error removing invalidation:', error)
+    }
+  }, [invalidationToRemove, session?._id])
+
+  const cancelRemoveInvalidatedTest = useCallback(() => {
+    setShowRemoveInvalidationModal(false)
+    setInvalidationToRemove(null)
+  }, [])
+
+  const cancelInvalidateTest = useCallback(() => {
+    setShowInvalidateModal(false)
+    setRoomToInvalidate(null)
+    setInvalidationNotes('')
+    setSelectedSection('')
+  }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDropdown && !event.target.closest('.dropdown-container')) {
+        setShowDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDropdown])
 
   // Helper function to format supplies for logging
   const formatSuppliesForLog = (supplies) => {
@@ -874,6 +1013,14 @@ function SessionView({ user, onBack }) {
     // Helper function to get activity log colors based on action type
   const getActivityLogColors = useCallback((action) => {
     const lowerAction = action.toLowerCase();
+
+    // Test invalidation actions - check first for specificity
+    if (lowerAction.includes('invalidated test') || lowerAction.includes('removed test invalidation')) {
+      return {
+        border: 'border-red-500',
+        dot: 'bg-red-500'
+      };
+    }
 
     // Room status updates - check incomplete first to avoid substring conflicts
     if (lowerAction.includes('marked room') && lowerAction.includes('incomplete')) {
@@ -1503,9 +1650,6 @@ function SessionView({ user, onBack }) {
                       Sections
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Supplies
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Time Remaining
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -1554,11 +1698,6 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {room.supplies && room.supplies.length > 0 ? room.supplies.length : 0}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className={`text-sm font-medium ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
                             {(() => {
                               const timeData = calculateRoomTimeRemaining(room)
@@ -1598,30 +1737,55 @@ function SessionView({ user, onBack }) {
                               </>
                             )}
                             {canEditSession() && (
-                              <>
+                              <div className="relative dropdown-container">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    setSelectedRoom(room)
-                                    setShowAddSupplyModal(true)
+                                    toggleDropdown(room._id)
                                   }}
-                                  className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
-                                  title="Add Supply"
+                                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors duration-200"
+                                  title="More Actions"
                                 >
-                                  +
+                                  ⋯
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setMoveFromRoom(room)
-                                    setShowMoveStudentsModal(true)
-                                  }}
-                                  className="px-3 py-2 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg font-medium transition-colors duration-200"
-                                  title="Move Students"
-                                >
-                                  →
-                                </button>
-                              </>
+                                
+                                {showDropdown === room._id && (
+                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                                    <div className="py-1">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleAddSupplyClick(room)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                      >
+                                        <span className="mr-2">+</span>
+                                        Add Supply
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleMoveStudentsClick(room)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                      >
+                                        <span className="mr-2">→</span>
+                                        Move Students
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleInvalidateTestClick(room)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
+                                      >
+                                        <span className="mr-2">⚠</span>
+                                        Invalidate Test
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1767,6 +1931,53 @@ function SessionView({ user, onBack }) {
                                     )}
                                   </div>
 
+                                  {/* Invalidated Tests Section */}
+                                  {(() => {
+                                    const roomInvalidatedTests = invalidatedTests.filter(inv => inv.roomId === room._id)
+                                    if (roomInvalidatedTests.length > 0) {
+                                      return (
+                                        <div className="mt-4">
+                                          <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center">
+                                            <span className="mr-1">⚠</span>
+                                            Invalidated Tests ({roomInvalidatedTests.length})
+                                          </h4>
+                                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                                            {roomInvalidatedTests.map((invalidation) => (
+                                              <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-2">
+                                                <div className="flex justify-between items-start">
+                                                  <div className="flex-1">
+                                                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                                                      Section {invalidation.sectionNumber}
+                                                    </p>
+                                                    <p className="text-xs text-red-600 dark:text-red-400">
+                                                      {invalidation.notes}
+                                                    </p>
+                                                  </div>
+                                                  <div className="flex items-center space-x-2">
+                                                    <span className="text-xs text-red-500 dark:text-red-400">
+                                                      {new Date(invalidation.timestamp).toLocaleTimeString()}
+                                                    </span>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleRemoveInvalidatedTestClick(invalidation)
+                                                      }}
+                                                      className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs"
+                                                      title="Remove invalidation"
+                                                    >
+                                                      ✕
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )
+                                    }
+                                    return null
+                                  })()}
+
                                 </div>
                               </div>
                             </div>
@@ -1854,27 +2065,55 @@ function SessionView({ user, onBack }) {
                         </button>
                       )}
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedRoom(room)
-                          setShowAddSupplyModal(true)
-                        }}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                      >
-                        Add Supply
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setMoveFromRoom(room)
-                          setShowMoveStudentsModal(true)
-                        }}
-                        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                      >
-                        Move Students
-                      </button>
+                      <div className="relative dropdown-container">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleDropdown(room._id)
+                          }}
+                          className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                        >
+                          <span className="mr-2">⋯</span>
+                          More Actions
+                        </button>
+                        
+                        {showDropdown === room._id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                            <div className="py-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleAddSupplyClick(room)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                              >
+                                <span className="mr-2">+</span>
+                                Add Supply
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleMoveStudentsClick(room)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                              >
+                                <span className="mr-2">→</span>
+                                Move Students
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleInvalidateTestClick(room)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
+                              >
+                                <span className="mr-2">⚠</span>
+                                Invalidate Test
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -2369,6 +2608,60 @@ function SessionView({ user, onBack }) {
         </div>
       </div>
 
+      {/* Invalidated Tests Section */}
+      {invalidatedTests.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl shadow-lg border border-red-200 dark:border-red-800 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 flex items-center">
+                <span className="mr-2">⚠</span>
+                Invalidated Tests
+              </h2>
+              <span className="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 text-sm font-medium px-3 py-1 rounded-full">
+                {invalidatedTests.length}
+              </span>
+            </div>
+            
+            <div className="space-y-4 max-h-64 overflow-y-auto">
+              {invalidatedTests.map((invalidation) => {
+                const room = session?.rooms?.find(r => r._id === invalidation.roomId)
+                return (
+                  <div key={invalidation.id} className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700 p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 dark:text-white">
+                          Section {invalidation.sectionNumber} - {room?.name || 'Unknown Room'}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Invalidated by {invalidation.invalidatedBy}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(invalidation.timestamp).toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => handleRemoveInvalidatedTestClick(invalidation)}
+                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                          title="Remove invalidation"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/30 rounded p-3">
+                      <p className="text-sm text-red-800 dark:text-red-200">
+                        <strong>Notes:</strong> {invalidation.notes}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Present Students Modal */}
       {showPresentStudentsModal && roomToComplete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -2452,6 +2745,148 @@ function SessionView({ user, onBack }) {
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Clear Log
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Room Incomplete Confirmation Modal */}
+      {showIncompleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Mark Room Incomplete</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to mark this room as incomplete?
+              </p>
+              <p className="text-sm text-gray-600">
+                This will change the room status back to active and clear the present students count. The session status may also change back to active if all rooms become incomplete.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={cancelMarkRoomIncomplete}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmMarkRoomIncomplete}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Mark Incomplete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invalidate Test Modal */}
+      {showInvalidateModal && roomToInvalidate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Invalidate Test</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700 dark:text-gray-300">
+                Invalidate 1 test in <strong>{roomToInvalidate.name}</strong>
+              </p>
+              
+              {/* Section Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Section
+                </label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Choose a section...</option>
+                  {roomToInvalidate.sections?.map(section => (
+                    <option key={section._id} value={section.number}>
+                      Section {section.number} ({section.studentCount} students)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={invalidationNotes}
+                  onChange={(e) => setInvalidationNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                  rows={3}
+                  placeholder="Enter notes about the test invalidation..."
+                />
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={cancelInvalidateTest}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleInvalidateTest}
+                  disabled={!invalidationNotes.trim() || !selectedSection}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Invalidate Test
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Invalidation Confirmation Modal */}
+      {showRemoveInvalidationModal && invalidationToRemove && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Remove Invalidation</h2>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700 dark:text-gray-300">
+                Are you sure you want to remove this test invalidation?
+              </p>
+              
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Section {invalidationToRemove.sectionNumber}
+                </p>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {invalidationToRemove.notes}
+                </p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                  Invalidated by {invalidationToRemove.invalidatedBy} on {new Date(invalidationToRemove.timestamp).toLocaleString()}
+                </p>
+              </div>
+              
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                This action will be recorded in the activity log.
+              </p>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={cancelRemoveInvalidatedTest}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRemoveInvalidatedTest}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Remove Invalidation
                 </button>
               </div>
             </div>

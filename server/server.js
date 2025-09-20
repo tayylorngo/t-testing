@@ -476,6 +476,33 @@ const sessionSchema = new mongoose.Schema({
     details: {
       type: String
     }
+  }],
+  invalidations: [{
+    id: {
+      type: String,
+      required: true
+    },
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room',
+      required: true
+    },
+    sectionNumber: {
+      type: String,
+      required: true
+    },
+    notes: {
+      type: String,
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    invalidatedBy: {
+      type: String,
+      required: true
+    }
   }]
 });
 
@@ -963,8 +990,17 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         console.log(`🔍 Room completion log entry created:`, logEntry);
       } else if (status === 'active' && presentStudents === undefined) {
         // Room marked incomplete - clear present students
-        const action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete`;
-        const details = `Present students count cleared`;
+        const previousPresentStudents = room.presentStudents;
+        let action, details;
+        
+        if (previousPresentStudents !== undefined && previousPresentStudents > 0) {
+          action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete (${previousPresentStudents} students were present)`;
+          details = `Room status changed from completed to active. Present students count cleared.`;
+        } else {
+          action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete`;
+          details = `Room status changed from completed to active. Present students count cleared.`;
+        }
+        
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
         console.log(`🔍 Room incomplete log entry created:`, logEntry);
       } else {
@@ -1199,10 +1235,16 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
       return res.status(404).json({ message: 'Session not found' });
     }
 
-    // Add activity log entry for session update
+    // Add activity log entry for session update (only if not just a status change)
     const user = await User.findById(req.user.id);
-    const action = `${user.firstName} ${user.lastName} updated session details`;
-    const logEntry = await addActivityLogEntry(req.params.id, action, null, 'Session information was modified', `${user.firstName} ${user.lastName}`);
+    let logEntry = null;
+    
+    // Only create log entry if more than just status was updated
+    const hasNonStatusChanges = name || description !== undefined || date || startTime || endTime;
+    if (hasNonStatusChanges) {
+      const action = `${user.firstName} ${user.lastName} updated session details`;
+      logEntry = await addActivityLogEntry(req.params.id, action, null, 'Session information was modified', `${user.firstName} ${user.lastName}`);
+    }
 
     // Emit real-time update to all users in the session
     emitSessionUpdate(req.params.id, 'session-updated', { session }, user, logEntry);
@@ -1969,6 +2011,111 @@ app.delete('/api/sessions/:sessionId/activity-log', authenticateToken, async (re
     res.json({ message: 'Activity log cleared successfully' });
   } catch (error) {
     console.error('Clear activity log error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Test Invalidation Management
+
+// Get invalidated tests for a session
+app.get('/api/sessions/:sessionId/invalidations', authenticateToken, checkSessionPermission('view'), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    res.json({ invalidations: session.invalidations || [] });
+  } catch (error) {
+    console.error('Get invalidations error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Add test invalidation
+app.post('/api/sessions/:sessionId/invalidations', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { roomId, sectionNumber, notes } = req.body;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const user = await User.findById(req.user.id);
+    const room = await Room.findById(roomId);
+    
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    const invalidation = {
+      id: `${roomId}_${sectionNumber}_${Date.now()}`,
+      roomId,
+      sectionNumber,
+      notes,
+      timestamp: new Date().toISOString(),
+      invalidatedBy: `${user.firstName} ${user.lastName}`
+    };
+
+    // Add to session invalidations
+    if (!session.invalidations) {
+      session.invalidations = [];
+    }
+    session.invalidations.push(invalidation);
+    await session.save();
+
+    // Add to activity log
+    const action = `${user.firstName} ${user.lastName} invalidated test for Section ${sectionNumber}`;
+    const details = `Notes: ${notes}`;
+    const logEntry = await addActivityLogEntry(sessionId, action, room.name, details, `${user.firstName} ${user.lastName}`);
+
+    // Emit real-time update
+    emitSessionUpdate(sessionId, 'invalidation-added', { invalidation, session }, user, logEntry);
+
+    res.json({ invalidation });
+  } catch (error) {
+    console.error('Add invalidation error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Remove test invalidation
+app.delete('/api/sessions/:sessionId/invalidations/:invalidationId', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
+  try {
+    const { sessionId, invalidationId } = req.params;
+    
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const invalidationIndex = session.invalidations.findIndex(inv => inv.id === invalidationId);
+    if (invalidationIndex === -1) {
+      return res.status(404).json({ message: 'Invalidation not found' });
+    }
+
+    const invalidation = session.invalidations[invalidationIndex];
+    session.invalidations.splice(invalidationIndex, 1);
+    await session.save();
+
+    const user = await User.findById(req.user.id);
+    const room = await Room.findById(invalidation.roomId);
+
+    // Add to activity log
+    const action = `${user.firstName} ${user.lastName} removed test invalidation for Section ${invalidation.sectionNumber}`;
+    const details = `Removed invalidation: ${invalidation.notes}`;
+    const logEntry = await addActivityLogEntry(sessionId, action, room?.name || 'Unknown Room', details, `${user.firstName} ${user.lastName}`);
+
+    // Emit real-time update
+    emitSessionUpdate(sessionId, 'invalidation-removed', { invalidationId, session }, user, logEntry);
+
+    res.json({ message: 'Invalidation removed successfully' });
+  } catch (error) {
+    console.error('Remove invalidation error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
