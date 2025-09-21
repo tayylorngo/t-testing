@@ -453,6 +453,40 @@ const RoomDetail = ({ user }) => {
               </div>
             )}
 
+            {/* Proctors */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Proctors</h2>
+              {room.proctors && room.proctors.length > 0 ? (
+                <div className="space-y-3">
+                  {room.proctors.map((proctor, index) => (
+                    <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                          {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
+                        </h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Time:</span>
+                          <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+                            {proctor.startTime} - {proctor.endTime}
+                          </span>
+                        </div>
+                        {proctor.email && (
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Email:</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{proctor.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">No proctors assigned to this room.</p>
+              )}
+            </div>
+
             {/* Supplies */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Supplies</h2>

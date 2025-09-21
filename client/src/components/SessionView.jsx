@@ -1952,7 +1952,7 @@ function SessionView({ user, onBack }) {
                         <td colSpan="9" className="px-0 py-0">
                           <div className={`overflow-hidden room-expansion-transition ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="px-6 py-3">
-                              <div className="grid grid-cols-2 gap-4">
+                              <div className="grid grid-cols-3 gap-4">
                                 {/* Sections Column */}
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
@@ -1989,6 +1989,36 @@ function SessionView({ user, onBack }) {
                                     </div>
                                   ) : (
                                     <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+                                  )}
+                                </div>
+
+                                {/* Proctors Column */}
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
+                                  {room.proctors && room.proctors.length > 0 ? (
+                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                                      {room.proctors.map((proctor, index) => (
+                                        <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+                                          <div className="flex justify-between items-start mb-1">
+                                            <span className="text-sm font-medium text-gray-700 dark:text-white">
+                                              {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
+                                            </span>
+                                          </div>
+                                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            <div className="font-medium text-green-700 dark:text-green-300">
+                                              {proctor.startTime} - {proctor.endTime}
+                                            </div>
+                                            {proctor.email && (
+                                              <div className="mt-1">
+                                                <span className="font-medium">Email:</span> {proctor.email}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
                                   )}
                                 </div>
 
@@ -2351,6 +2381,36 @@ function SessionView({ user, onBack }) {
                         </div>
                       ) : (
                         <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+                      )}
+                    </div>
+
+                    {/* Proctors */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
+                      {room.proctors && room.proctors.length > 0 ? (
+                        <div className="space-y-2">
+                          {room.proctors.map((proctor, index) => (
+                            <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-3 rounded-lg">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-sm font-medium text-gray-700 dark:text-white">
+                                  {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400">
+                                <div className="font-medium text-green-700 dark:text-green-300">
+                                  {proctor.startTime} - {proctor.endTime}
+                                </div>
+                                {proctor.email && (
+                                  <div className="mt-1">
+                                    <span className="font-medium">Email:</span> {proctor.email}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
                       )}
                     </div>
 

@@ -69,6 +69,18 @@ function SessionDetail({ onBack }) {
   const [editCustomAccommodation, setEditCustomAccommodation] = useState('')
   const [editSectionNotes, setEditSectionNotes] = useState('')
   
+  // Proctor management state
+  const [showProctorModal, setShowProctorModal] = useState(false)
+  const [selectedRoomForProctors, setSelectedRoomForProctors] = useState(null)
+  const [proctors, setProctors] = useState([])
+  const [newProctor, setNewProctor] = useState({
+    firstName: '',
+    lastName: '',
+    startTime: '',
+    endTime: '',
+    email: ''
+  })
+  
   // Custom confirm delete modals
   const [showDeleteRoomModal, setShowDeleteRoomModal] = useState(false)
   const [showDeleteSectionModal, setShowDeleteSectionModal] = useState(false)
@@ -593,6 +605,89 @@ function SessionDetail({ onBack }) {
     }
   }
 
+  // Proctor management handlers
+  const handleManageProctors = (room) => {
+    setSelectedRoomForProctors(room)
+    // Ensure proctors have the correct structure
+    const normalizedProctors = (room.proctors || []).map(proctor => {
+      // If proctor has old 'name' field, split it into firstName and lastName
+      if (proctor.name && !proctor.firstName && !proctor.lastName) {
+        const nameParts = proctor.name.split(' ')
+        return {
+          ...proctor,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          name: proctor.name // Keep the original name for display
+        }
+      }
+      // If proctor has firstName/lastName, create name for display
+      if (proctor.firstName && proctor.lastName && !proctor.name) {
+        return {
+          ...proctor,
+          name: `${proctor.firstName} ${proctor.lastName}`
+        }
+      }
+      return proctor
+    })
+    setProctors(normalizedProctors)
+    setShowProctorModal(true)
+  }
+
+  const handleAddProctor = () => {
+    if (!newProctor.firstName.trim() || !newProctor.lastName.trim() || !newProctor.startTime || !newProctor.endTime) {
+      alert('Please fill in first name, last name, start time, and end time.')
+      return
+    }
+    
+    // Create full name for display
+    const proctorWithFullName = {
+      ...newProctor,
+      name: `${newProctor.firstName.trim()} ${newProctor.lastName.trim()}`
+    }
+    
+    setProctors([...proctors, proctorWithFullName])
+    setNewProctor({
+      firstName: '',
+      lastName: '',
+      startTime: '',
+      endTime: '',
+      email: ''
+    })
+  }
+
+  const handleRemoveProctor = (index) => {
+    setProctors(proctors.filter((_, i) => i !== index))
+  }
+
+  const handleSaveProctors = async () => {
+    if (!selectedRoomForProctors) return
+    
+    try {
+      await testingAPI.updateRoom(selectedRoomForProctors._id, {
+        proctors: proctors
+      })
+      setShowProctorModal(false)
+      setSelectedRoomForProctors(null)
+      setProctors([])
+      fetchSessionData()
+    } catch (error) {
+      console.error('Error saving proctors:', error)
+      alert('Error saving proctors.')
+    }
+  }
+
+  const handleCancelProctors = () => {
+    setShowProctorModal(false)
+    setSelectedRoomForProctors(null)
+    setProctors([])
+    setNewProctor({
+      firstName: '',
+      lastName: '',
+      startTime: '',
+      endTime: '',
+      email: ''
+    })
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -872,6 +967,15 @@ function SessionDetail({ onBack }) {
                             </svg>
                           </button>
                           <button
+                            onClick={() => handleManageProctors(room)}
+                            className="text-green-500 hover:text-green-700 transition duration-200"
+                            title="Manage Proctors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </button>
+                          <button
                             onClick={() => handleRemoveRoom(room._id)}
                             className="text-red-500 hover:text-red-700 transition duration-200"
                             title="Remove Room"
@@ -919,7 +1023,23 @@ function SessionDetail({ onBack }) {
                           </div>
                         )}
                         
-
+                        {/* Proctors */}
+                        {room.proctors && room.proctors.length > 0 && (
+                          <div>
+                            <span className="font-medium">Proctors:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {room.proctors.map((proctor, index) => (
+                                <div key={index} className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                  <span>{proctor.name || `${proctor.firstName} ${proctor.lastName}`}</span>
+                                  <span className="text-green-600">({proctor.startTime} - {proctor.endTime})</span>
+                                  {proctor.email && (
+                                    <span className="text-green-600 ml-1">• {proctor.email}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         
                         {room.supplies && room.supplies.length > 0 && (
                           <div>
@@ -1807,6 +1927,135 @@ function SessionDetail({ onBack }) {
                   Save Changes
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proctor Management Modal */}
+      {showProctorModal && selectedRoomForProctors && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Manage Proctors - Room {selectedRoomForProctors.name}
+            </h2>
+            
+            {/* Current Proctors */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Current Proctors</h3>
+              {proctors.length > 0 ? (
+                <div className="space-y-2">
+                  {proctors.map((proctor, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{proctor.name}</div>
+                        <div className="text-sm text-gray-600">
+                          {proctor.startTime} - {proctor.endTime}
+                          {proctor.email && ` • ${proctor.email}`}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveProctor(index)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                        title="Remove Proctor"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No proctors assigned yet.</p>
+              )}
+            </div>
+
+            {/* Add New Proctor */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Add New Proctor</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProctor.firstName}
+                    onChange={(e) => setNewProctor({...newProctor, firstName: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="First name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProctor.lastName}
+                    onChange={(e) => setNewProctor({...newProctor, lastName: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Last name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={newProctor.startTime}
+                    onChange={(e) => setNewProctor({...newProctor, startTime: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={newProctor.endTime}
+                    onChange={(e) => setNewProctor({...newProctor, endTime: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newProctor.email}
+                    onChange={(e) => setNewProctor({...newProctor, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="proctor@example.com"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleAddProctor}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 mb-4"
+              >
+                Add Proctor
+              </button>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex space-x-3 pt-6 border-t">
+              <button
+                onClick={handleCancelProctors}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProctors}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>

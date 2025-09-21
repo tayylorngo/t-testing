@@ -351,6 +351,30 @@ const roomSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  proctors: [{
+    firstName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    lastName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    startTime: {
+      type: String,
+      required: true
+    },
+    endTime: {
+      type: String,
+      required: true
+    },
+    email: {
+      type: String,
+      trim: true
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now
@@ -875,7 +899,7 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
 app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents, notes } = req.body;
+  const { name, supplies, status, presentStudents, notes, proctors } = req.body;
   const updateData = {};
 
   if (name !== undefined) updateData.name = name;
@@ -883,6 +907,7 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
   if (notes !== undefined) updateData.notes = notes;
+  if (proctors !== undefined) updateData.proctors = proctors;
 
     // Get the old room data BEFORE updating to compare supplies
     const oldRoom = await Room.findById(id);
@@ -1035,6 +1060,32 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
           console.log(`🔍 Room notes log entry created:`, logEntry);
         }
+      } else if (proctors !== undefined) {
+        console.log(`🔍 Proctors update detected for room ${id}`);
+        const oldProctors = oldRoom.proctors || [];
+        const newProctors = proctors || [];
+        
+        if (JSON.stringify(oldProctors) !== JSON.stringify(newProctors)) {
+          console.log(`🔍 Proctors changed, creating log entry`);
+          let action, details;
+          
+          const oldCount = oldProctors.length;
+          const newCount = newProctors.length;
+          
+          if (newCount > oldCount) {
+            action = `${user.firstName} ${user.lastName} added proctor(s) to Room ${room.name}`;
+            details = `Proctors updated: ${newCount} proctor(s) assigned`;
+          } else if (newCount < oldCount) {
+            action = `${user.firstName} ${user.lastName} removed proctor(s) from Room ${room.name}`;
+            details = `Proctors updated: ${newCount} proctor(s) assigned`;
+          } else {
+            action = `${user.firstName} ${user.lastName} updated proctor assignments for Room ${room.name}`;
+            details = `Proctors updated: ${newCount} proctor(s) assigned`;
+          }
+          
+          logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
+          console.log(`🔍 Room proctors log entry created:`, logEntry);
+        }
       } else {
         console.log(`🔍 No supplies in request body`);
       }
@@ -1097,7 +1148,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents notes',
+          select: 'name supplies status presentStudents notes proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
@@ -1152,7 +1203,7 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     const populatedSession = await Session.findById(newSession._id)
       .populate({
         path: 'rooms',
-        select: 'name supplies status presentStudents notes',
+        select: 'name supplies status presentStudents notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1182,7 +1233,7 @@ app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), 
     }).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents notes',
+        select: 'name supplies status presentStudents notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1243,7 +1294,7 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents notes',
+        select: 'name supplies status presentStudents notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
