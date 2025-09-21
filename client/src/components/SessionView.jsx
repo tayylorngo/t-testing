@@ -24,7 +24,7 @@ function SessionView({ user, onBack }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSession(session)
-    }, 50) // Reduced to 50ms for more responsive feel
+    }, 25) // Further reduced to 25ms for more responsive feel
     
     return () => clearTimeout(timer)
   }, [session])
@@ -40,7 +40,7 @@ function SessionView({ user, onBack }) {
   const [editSupplyQuantity, setEditSupplyQuantity] = useState(1)
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
-  const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
+  // const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
   const [presentStudentsCount, setPresentStudentsCount] = useState('')
   const [roomToComplete, setRoomToComplete] = useState(null)
 
@@ -106,6 +106,10 @@ function SessionView({ user, onBack }) {
   const [isTableView, setIsTableView] = useState(true)
   const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
   const [expandedCards, setExpandedCards] = useState(new Set())
+  
+  // Pagination for large room lists
+  const [currentPage, setCurrentPage] = useState(1)
+  const roomsPerPage = 20 // Show 20 rooms per page for better performance
 
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
@@ -236,12 +240,12 @@ function SessionView({ user, onBack }) {
 
   // Debug session state changes
   useEffect(() => {
-    console.log('🔍 SessionView - Session state changed:', {
-      sessionId,
-      sessionExists: !!session,
-      sessionObjectId: session?._id,
-      roomsCount: session?.rooms?.length || 0
-    })
+    // console.log('🔍 SessionView - Session state changed:', {
+    //   sessionId,
+    //   sessionExists: !!session,
+    //   sessionObjectId: session?._id,
+    //   roomsCount: session?.rooms?.length || 0
+    // })
   }, [session, sessionId])
 
   // Handle real-time updates from other users
@@ -824,42 +828,37 @@ function SessionView({ user, onBack }) {
   }, [showDropdown])
 
   // Helper function to format supplies for logging
-  const formatSuppliesForLog = (supplies) => {
-    if (!supplies || supplies.length === 0) return []
+  // const formatSuppliesForLog = (supplies) => {
+  //   if (!supplies || supplies.length === 0) return []
     
-    const supplyCounts = {}
-    supplies.forEach(supply => {
-      if (supply.startsWith('INITIAL_')) {
-        const cleanName = supply.replace('INITIAL_', '')
-        const key = `${cleanName} (initial)`
-        supplyCounts[key] = (supplyCounts[key] || 0) + 1
-      } else {
-        supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
-      }
-    })
+  //   const supplyCounts = {}
+  //   supplies.forEach(supply => {
+  //     if (supply.startsWith('INITIAL_')) {
+  //       const cleanName = supply.replace('INITIAL_', '')
+  //       const key = `${cleanName} (initial)`
+  //       supplyCounts[key] = (supplyCounts[key] || 0) + 1
+  //     } else {
+  //       supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
+  //     }
+  //   })
     
-    return Object.entries(supplyCounts).map(([name, count]) => `${name} (${count})`)
-  }
+  //   return Object.entries(supplyCounts).map(([name, count]) => `${name} (${count})`)
+  // }
 
   const handleAddSupply = useCallback(async () => {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
     
     try {
-      console.log('🔍 handleAddSupply called');
-      console.log('🔍 selectedPresetSupply:', selectedPresetSupply);
-      console.log('🔍 selectedRoom:', selectedRoom);
-      console.log('🔍 newSupplyQuantity:', newSupplyQuantity);
       
       const currentSupplies = selectedRoom.supplies || []
       const newSupplyName = selectedPresetSupply
       const newQuantity = newSupplyQuantity
       
-      console.log('🔍 currentSupplies:', formatSuppliesForLog(currentSupplies));
       
       // Check if the supply already exists
       const existingSupplyIndex = currentSupplies.findIndex(supply => supply === newSupplyName)
       
-      console.log('🔍 existingSupplyIndex:', existingSupplyIndex);
+      // console.log('🔍 existingSupplyIndex:', existingSupplyIndex);
       
       let updatedSupplies
       if (existingSupplyIndex !== -1) {
@@ -878,12 +877,12 @@ function SessionView({ user, onBack }) {
         }
       }
       
-      console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
-      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
+      // console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
+      // console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
       
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
       
-      console.log('🔍 testingAPI.updateRoom completed successfully');
+      // console.log('🔍 testingAPI.updateRoom completed successfully');
       
       // Update local state immediately
       setSession(prevSession => ({
@@ -906,38 +905,38 @@ function SessionView({ user, onBack }) {
     }
   }, [selectedPresetSupply, selectedRoom, newSupplyQuantity])
 
-  const handleRemoveSupply = useCallback(async (roomId, supply) => {
-    try {
-      console.log('🔍 handleRemoveSupply called');
-      console.log('🔍 roomId:', roomId);
-      console.log('🔍 supply to remove:', supply);
+  // const handleRemoveSupply = useCallback(async (roomId, supply) => {
+  //   try {
+  //     // console.log('🔍 handleRemoveSupply called');
+  //     // console.log('🔍 roomId:', roomId);
+  //     // console.log('🔍 supply to remove:', supply);
       
-      const room = session.rooms.find(r => r._id === roomId)
-      const updatedSupplies = room.supplies.filter(s => s !== supply)
+  //     const room = session.rooms.find(r => r._id === roomId)
+  //     const updatedSupplies = room.supplies.filter(s => s !== supply)
       
-      console.log('🔍 room:', room);
-      console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
-      console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
+  //     // console.log('🔍 room:', room);
+  //     // console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
+  //     // console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
       
-      await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
+  //     await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
       
-      console.log('🔍 testingAPI.updateRoom completed successfully');
+  //     // console.log('🔍 testingAPI.updateRoom completed successfully');
       
-      // Update local state immediately
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === roomId 
-            ? { ...room, supplies: updatedSupplies }
-            : room
-        )
-      }))
+  //     // Update local state immediately
+  //     setSession(prevSession => ({
+  //       ...prevSession,
+  //       rooms: prevSession.rooms.map(room => 
+  //         room._id === roomId 
+  //           ? { ...room, supplies: updatedSupplies }
+  //           : room
+  //       )
+  //     }))
 
-      // Activity log entry is now handled by the server
-    } catch (error) {
-      console.error('Error removing supply:', error)
-    }
-  }, [session?.rooms])
+  //     // Activity log entry is now handled by the server
+  //   } catch (error) {
+  //     console.error('Error removing supply:', error)
+  //   }
+  // }, [session?.rooms])
 
   const handleEditSupply = useCallback(async () => {
     if (!editingSupply || !selectedRoom || editSupplyQuantity < 1) return
@@ -1267,25 +1266,36 @@ function SessionView({ user, onBack }) {
     })
   }, [debouncedSession?.rooms, searchQuery, sortBy, sortDescending])
 
+  // Get paginated rooms for better performance with large lists
+  const getPaginatedRooms = useCallback(() => {
+    const sortedRooms = getSortedRooms()
+    const startIndex = (currentPage - 1) * roomsPerPage
+    const endIndex = startIndex + roomsPerPage
+    return sortedRooms.slice(startIndex, endIndex)
+  }, [getSortedRooms, currentPage, roomsPerPage])
 
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    const sortedRooms = getSortedRooms()
+    return Math.ceil(sortedRooms.length / roomsPerPage)
+  }, [getSortedRooms, roomsPerPage])
+
+  // Reset pagination when search or sort changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortBy, sortDescending])
 
   // Calculate time multiplier for a room based on section accommodations
   const calculateRoomTimeMultiplier = useCallback((room) => {
-    console.log('🔍 Calculating time multiplier for room:', room.name)
-    console.log('🔍 Room sections:', room.sections)
-    
     if (!room.sections || room.sections.length === 0) {
-      console.log('🔍 No sections found, returning 1x')
       return 1
     }
     
     // Check if any section has 1.5x or 2x time accommodation
     let hasTimeAccommodation = false
     room.sections.forEach(section => {
-      console.log('🔍 Checking section:', section.number, 'accommodations:', section.accommodations)
       if (section.accommodations) {
         section.accommodations.forEach(acc => {
-          console.log('🔍 Checking accommodation:', acc)
           // Check for various formats of time accommodations
           if (acc.includes('1.5x time') || acc.includes('2x time') || 
               acc.includes('1.5x') || acc.includes('2x') ||
@@ -1298,10 +1308,7 @@ function SessionView({ user, onBack }) {
       }
     })
     
-    console.log('🔍 Has time accommodation:', hasTimeAccommodation)
-    
     if (!hasTimeAccommodation) {
-      console.log('🔍 No time accommodations found, returning 1x')
       return 1
     }
     
@@ -1312,36 +1319,26 @@ function SessionView({ user, onBack }) {
         section.accommodations.forEach(acc => {
           // Check for 2x time accommodations (various formats)
           if (acc.includes('2x time') || acc.includes('2x') || acc.includes('2× Time') || acc.includes('2×') || acc.includes('double time')) {
-            console.log('🔍 Found 2x time accommodation:', acc)
             maxMultiplier = Math.max(maxMultiplier, 2)
           } 
           // Check for 1.5x time accommodations (various formats)
           else if (acc.includes('1.5x time') || acc.includes('1.5x') || acc.includes('1.5× Time') || acc.includes('1.5×') || acc.includes('extended time')) {
-            console.log('🔍 Found 1.5x time accommodation:', acc)
             maxMultiplier = Math.max(maxMultiplier, 1.5)
           }
         })
       }
     })
     
-    console.log('🔍 Final multiplier for room', room.name, ':', maxMultiplier)
     return maxMultiplier
   }, [])
 
   const calculateRoomTimeRemaining = useCallback((room) => {
-    console.log('🔍 calculateRoomTimeRemaining called for room:', room.name)
-    console.log('🔍 memoizedSession exists:', !!memoizedSession)
-    console.log('🔍 timeRemaining exists:', !!timeRemaining)
-    console.log('🔍 timeRemaining isOver:', timeRemaining?.isOver)
-    
     if (!memoizedSession || !timeRemaining || timeRemaining.isOver) {
-      console.log('🔍 Returning null - missing data or time is over')
       return null
     }
     
     // Calculate time multiplier based on section accommodations
     const timeMultiplier = calculateRoomTimeMultiplier(room)
-    console.log('🔍 Time multiplier for room', room.name, ':', timeMultiplier)
     
     // Calculate total session duration in minutes
     const [startHour, startMinute] = session.startTime.split(':')
@@ -1359,14 +1356,9 @@ function SessionView({ user, onBack }) {
     // Calculate room-specific end time based on multiplier
     const roomEndTime = new Date(startTime.getTime() + (totalSessionMinutes * timeMultiplier * 60 * 1000))
     
-    console.log('🔍 Session duration:', totalSessionMinutes, 'minutes')
-    console.log('🔍 Room end time:', roomEndTime)
-    console.log('🔍 Regular end time would be:', endTime)
-    
     // Calculate remaining time for this room
     const now = new Date()
     const roomTimeDiff = roomEndTime - now
-    console.log('🔍 Room time difference (ms):', roomTimeDiff)
     
     if (roomTimeDiff <= 0) {
       return { hours: 0, minutes: 0, seconds: 0, isOver: true }
@@ -1378,6 +1370,41 @@ function SessionView({ user, onBack }) {
     
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }, [session?.startTime, session?.endTime, session?.date, timeRemaining, calculateRoomTimeMultiplier])
+
+  // Only calculate time for visible/expanded rooms to improve performance with many rooms
+  const roomTimeCalculations = useMemo(() => {
+    if (!debouncedSession?.rooms) return {}
+    
+    const calculations = {}
+    // Only calculate time for expanded rooms or first 10 rooms (for initial display)
+    const roomsToCalculate = debouncedSession.rooms.filter((room, index) => 
+      expandedRooms.has(room._id) || expandedCards.has(room._id) || index < 10
+    )
+    
+    roomsToCalculate.forEach(room => {
+      calculations[room._id] = calculateRoomTimeRemaining(room)
+    })
+    return calculations
+  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeMultiplier, expandedRooms, expandedCards])
+
+  // Lazy time calculation function for rooms not in the main calculations
+  const getRoomTimeRemaining = useCallback((room) => {
+    // First check if we already have it calculated
+    if (roomTimeCalculations[room._id]) {
+      return roomTimeCalculations[room._id]
+    }
+    
+    // Only calculate if the room is expanded or we're in the first 10 rooms
+    const roomIndex = debouncedSession?.rooms?.findIndex(r => r._id === room._id) ?? -1
+    const shouldCalculate = expandedRooms.has(room._id) || expandedCards.has(room._id) || roomIndex < 10
+    
+    if (shouldCalculate) {
+      return calculateRoomTimeRemaining(room)
+    }
+    
+    // Return a placeholder for non-visible rooms
+    return null
+  }, [roomTimeCalculations, debouncedSession?.rooms, expandedRooms, expandedCards, calculateRoomTimeRemaining])
 
   const toggleRoomExpansion = useCallback((roomId) => {
     setExpandedRooms(prev => {
@@ -1404,6 +1431,152 @@ function SessionView({ user, onBack }) {
       return newSet
     })
   }, [])
+
+  // Memoized component for room sections to prevent unnecessary re-renders
+  const RoomSections = memo(({ sections }) => {
+    if (!sections || sections.length === 0) {
+      return <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+    }
+
+    return (
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+        {sections
+          .sort((a, b) => a.number - b.number)
+          .map((section) => (
+            <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+              <div className="flex justify-between items-start mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-white">
+                  Section {section.number} ({section.studentCount} students)
+                </span>
+              </div>
+              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {section.accommodations.map((acc, index) => (
+                      <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                        {acc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {section.notes && (
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  <span className="font-medium">Notes:</span> {section.notes}
+                </div>
+              )}
+            </div>
+          ))}
+      </div>
+    )
+  })
+
+  // Memoized component for room proctors
+  const RoomProctors = memo(({ proctors }) => {
+    if (!proctors || proctors.length === 0) {
+      return <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
+    }
+
+    return (
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+        {proctors.map((proctor, index) => (
+          <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-sm font-medium text-gray-700 dark:text-white">
+                {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
+              </span>
+            </div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <div className="font-medium text-green-700 dark:text-green-300">
+                {proctor.startTime} - {proctor.endTime}
+              </div>
+              {proctor.email && (
+                <div className="mt-1">
+                  <span className="font-medium">Email:</span> {proctor.email}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  })
+
+  // Memoized component for room supplies with optimized counting
+  const RoomSupplies = memo(({ supplies }) => {
+    const supplyData = useMemo(() => {
+      if (!supplies || supplies.length === 0) {
+        return { initialSupplies: [], addedSupplies: [], hasSupplies: false }
+      }
+
+      const initialSupplies = supplies.filter(supply => supply.startsWith('INITIAL_'))
+      const addedSupplies = supplies.filter(supply => !supply.startsWith('INITIAL_'))
+
+      const initialSupplyCounts = {}
+      initialSupplies.forEach(supply => {
+        const cleanName = supply.replace('INITIAL_', '')
+        initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
+      })
+
+      const addedSupplyCounts = {}
+      addedSupplies.forEach(supply => {
+        addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
+      })
+
+      return {
+        initialSupplies: Object.entries(initialSupplyCounts),
+        addedSupplies: Object.entries(addedSupplyCounts),
+        hasSupplies: true
+      }
+    }, [supplies])
+
+    if (!supplyData.hasSupplies) {
+      return <p className="text-sm text-gray-500 dark:text-gray-400">No supplies assigned</p>
+    }
+
+    return (
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+        {/* Initial Supplies */}
+        {supplyData.initialSupplies.length > 0 && (
+          <div>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
+            <div className="space-y-1 mt-1">
+              {supplyData.initialSupplies.map(([supplyName, count], index) => (
+                <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-green-700 dark:text-green-300">
+                    {supplyName}
+                  </span>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    {count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Added Supplies */}
+        {supplyData.addedSupplies.length > 0 && (
+          <div className={supplyData.initialSupplies.length > 0 ? 'mt-3' : ''}>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
+            <div className="space-y-1 mt-1">
+              {supplyData.addedSupplies.map(([supplyName, count], index) => (
+                <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    {supplyName}
+                  </span>
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    {count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  })
 
 
   if (isLoading) {
@@ -1782,7 +1955,7 @@ function SessionView({ user, onBack }) {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {getSortedRooms().map((room) => (
+                  {getPaginatedRooms().map((room) => (
                     <React.Fragment key={room._id}>
                       <tr 
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
@@ -1822,9 +1995,9 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm font-medium ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                          <div className={`text-sm font-medium ${getRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
                             {(() => {
-                              const timeData = calculateRoomTimeRemaining(room)
+                              const timeData = getRoomTimeRemaining(room)
                               if (!timeData) return '--:--:--'
                               if (timeData.isOver) return 'TIME UP'
                               const timeString = `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
@@ -1956,70 +2129,13 @@ function SessionView({ user, onBack }) {
                                 {/* Sections Column */}
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                                  {room.sections && room.sections.length > 0 ? (
-                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                                      {room.sections
-                                        .sort((a, b) => a.number - b.number)
-                                        .map((section) => (
-                                          <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-                                            <div className="flex justify-between items-start mb-1">
-                                              <span className="text-sm font-medium text-gray-700 dark:text-white">
-                                                Section {section.number} ({section.studentCount} students)
-                                              </span>
-                                            </div>
-                                            {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                              <div className="mt-1">
-                                                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                  {section.accommodations.map((acc, index) => (
-                                                    <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
-                                                      {acc}
-                                                    </span>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            )}
-                                            {section.notes && (
-                                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                                <span className="font-medium">Notes:</span> {section.notes}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
-                                  )}
+                                  <RoomSections sections={room.sections} />
                                 </div>
 
                                 {/* Proctors Column */}
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
-                                  {room.proctors && room.proctors.length > 0 ? (
-                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                                      {room.proctors.map((proctor, index) => (
-                                        <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
-                                          <div className="flex justify-between items-start mb-1">
-                                            <span className="text-sm font-medium text-gray-700 dark:text-white">
-                                              {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
-                                            </span>
-                                          </div>
-                                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                                            <div className="font-medium text-green-700 dark:text-green-300">
-                                              {proctor.startTime} - {proctor.endTime}
-                                            </div>
-                                            {proctor.email && (
-                                              <div className="mt-1">
-                                                <span className="font-medium">Email:</span> {proctor.email}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
-                                  )}
+                                  <RoomProctors proctors={room.proctors} />
                                 </div>
 
                                 {/* Supplies and Time Column */}
@@ -2027,94 +2143,7 @@ function SessionView({ user, onBack }) {
                                   {/* Supplies Section */}
                                   <div>
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
-                                    {room.supplies && room.supplies.length > 0 ? (
-                                      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
-                                        {/* Initial Supplies */}
-                                        {(() => {
-                                          const initialSupplies = room.supplies.filter(supply => supply.startsWith('INITIAL_'))
-                                          if (initialSupplies.length > 0) {
-                                            const initialSupplyCounts = {}
-                                            initialSupplies.forEach(supply => {
-                                              const cleanName = supply.replace('INITIAL_', '')
-                                              initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
-                                            })
-                                            
-                                            return (
-                                              <div>
-                                                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
-                                                <div className="space-y-1 mt-1">
-                                                  {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
-                                                    <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
-                                                      <span className="text-sm text-green-700 dark:text-green-300">
-                                                        {supplyName} ({count})
-                                                      </span>
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            )
-                                          }
-                                          return null
-                                        })()}
-                                        
-                                        {/* Added Supplies */}
-                                        {(() => {
-                                          const addedSupplies = room.supplies.filter(supply => !supply.startsWith('INITIAL_'))
-                                          if (addedSupplies.length > 0) {
-                                            const addedSupplyCounts = {}
-                                            addedSupplies.forEach(supply => {
-                                              addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
-                                            })
-                                            
-                                            return (
-                                              <div>
-                                                <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
-                                                <div className="space-y-1 mt-1">
-                                                  {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
-                                                    <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
-                                                      <span className="text-sm text-blue-700 dark:text-blue-300">
-                                                        {supplyName} ({count})
-                                                      </span>
-                                                      <div className="flex items-center space-x-2">
-                                                        {canEditSession() && (
-                                                          <>
-                                                            <button
-                                                              onClick={() => {
-                                                                setEditingSupply({
-                                                                  original: supplyName,
-                                                                  name: supplyName
-                                                                })
-                                                                setEditSupplyQuantity(count)
-                                                                setSelectedRoom(room)
-                                                                setShowEditSupplyModal(true)
-                                                              }}
-                                                              className="text-blue-500 hover:text-blue-700 text-sm"
-                                                              title="Edit Supply"
-                                                            >
-                                                              ✎
-                                                            </button>
-                                                            <button
-                                                              onClick={() => handleRemoveSupply(room._id, supplyName)}
-                                                              className="text-red-500 hover:text-red-700 text-sm"
-                                                              title="Remove Supply"
-                                                            >
-                                                              ×
-                                                            </button>
-                                                          </>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              </div>
-                                            )
-                                          }
-                                          return null
-                                        })()}
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
-                                    )}
+                                    <RoomSupplies supplies={room.supplies} />
                                   </div>
 
                                   {/* Invalidated Tests Section */}
@@ -2194,7 +2223,7 @@ function SessionView({ user, onBack }) {
         ) : (
           /* Card View */
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {getSortedRooms().map((room) => (
+            {getPaginatedRooms().map((room) => (
               <div 
                 key={room._id} 
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
@@ -2348,167 +2377,19 @@ function SessionView({ user, onBack }) {
                     {/* Sections */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                      {room.sections && room.sections.length > 0 ? (
-                        <div className="space-y-2">
-                          {room.sections
-                            .sort((a, b) => a.number - b.number)
-                            .map((section) => (
-                              <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-3 rounded-lg">
-                                <div className="flex justify-between items-start mb-1">
-                                  <span className="text-sm font-medium text-gray-700 dark:text-white">
-                                    Section {section.number} ({section.studentCount} students)
-                                  </span>
-                                </div>
-                                {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                  <div className="mt-2">
-                                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {section.accommodations.map((acc, index) => (
-                                        <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
-                                          {acc}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                {section.notes && (
-                                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                    <span className="font-medium">Notes:</span> {section.notes}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
-                      )}
+                      <RoomSections sections={room.sections} />
                     </div>
 
                     {/* Proctors */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
-                      {room.proctors && room.proctors.length > 0 ? (
-                        <div className="space-y-2">
-                          {room.proctors.map((proctor, index) => (
-                            <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-3 rounded-lg">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-sm font-medium text-gray-700 dark:text-white">
-                                  {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400">
-                                <div className="font-medium text-green-700 dark:text-green-300">
-                                  {proctor.startTime} - {proctor.endTime}
-                                </div>
-                                {proctor.email && (
-                                  <div className="mt-1">
-                                    <span className="font-medium">Email:</span> {proctor.email}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
-                      )}
+                      <RoomProctors proctors={room.proctors} />
                     </div>
 
                     {/* Supplies */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
-                      {room.supplies && room.supplies.length > 0 ? (
-                        <div className="space-y-2">
-                          {/* Initial Supplies */}
-                          {(() => {
-                            const initialSupplies = room.supplies.filter(supply => supply.startsWith('INITIAL_'))
-                            if (initialSupplies.length > 0) {
-                              const initialSupplyCounts = {}
-                              initialSupplies.forEach(supply => {
-                                const cleanName = supply.replace('INITIAL_', '')
-                                initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
-                              })
-                              
-                              return (
-                                <div>
-                                  <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
-                                  <div className="space-y-1 mt-1">
-                                    {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
-                                      <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
-                                        <span className="text-sm text-green-700 dark:text-green-300">
-                                          {supplyName} ({count})
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )
-                            }
-                            return null
-                          })()}
-                          
-                          {/* Added Supplies */}
-                          {(() => {
-                            const addedSupplies = room.supplies.filter(supply => !supply.startsWith('INITIAL_'))
-                            if (addedSupplies.length > 0) {
-                              const addedSupplyCounts = {}
-                              addedSupplies.forEach(supply => {
-                                addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
-                              })
-                              
-                              return (
-                                <div>
-                                  <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
-                                  <div className="space-y-1 mt-1">
-                                    {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
-                                      <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
-                                        <span className="text-sm text-blue-700 dark:text-blue-300">
-                                          {supplyName} ({count})
-                                        </span>
-                                        <div className="flex items-center space-x-2">
-                                          {canEditSession() && (
-                                            <>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  setEditingSupply({
-                                                    original: supplyName,
-                                                    name: supplyName
-                                                  })
-                                                  setEditSupplyQuantity(count)
-                                                  setSelectedRoom(room)
-                                                  setShowEditSupplyModal(true)
-                                                }}
-                                                className="text-blue-500 hover:text-blue-700 text-sm"
-                                                title="Edit Supply"
-                                              >
-                                                ✎
-                                              </button>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleRemoveSupply(room._id, supplyName)
-                                                }}
-                                                className="text-red-500 hover:text-red-700 text-sm"
-                                                title="Remove Supply"
-                                              >
-                                                ×
-                                              </button>
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )
-                            }
-                            return null
-                          })()}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">No supplies added</p>
-                      )}
+                      <RoomSupplies supplies={room.supplies} />
                     </div>
 
                     {/* Room Notes */}
@@ -2530,9 +2411,9 @@ function SessionView({ user, onBack }) {
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
-                        <div className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                        <div className={`text-lg font-bold ${getRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
                           {(() => {
-                            const timeData = calculateRoomTimeRemaining(room)
+                            const timeData = getRoomTimeRemaining(room)
                             if (!timeData) return '--:--:--'
                             if (timeData.isOver) return 'TIME UP'
                             const timeString = `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
@@ -2556,6 +2437,61 @@ function SessionView({ user, onBack }) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-between">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              Showing {((currentPage - 1) * roomsPerPage) + 1} to {Math.min(currentPage * roomsPerPage, getSortedRooms().length)} of {getSortedRooms().length} rooms
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
