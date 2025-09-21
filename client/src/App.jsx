@@ -7,6 +7,7 @@ import RegisterPage from './components/RegisterPage'
 import Dashboard from './components/Dashboard'
 import SessionDetail from './components/SessionDetail'
 import SessionView from './components/SessionView'
+import RoomDetail from './components/RoomDetail'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -104,6 +105,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard user={user} onLogout={handleLogout} onViewSession={handleViewSession} />} />
         <Route path="/session/:sessionId/manage" element={<SessionDetail onBack={handleBackToDashboard} />} />
         <Route path="/session/:sessionId/view" element={<SessionView user={user} onBack={handleBackToDashboard} />} />
+        <Route path="/sessions/:sessionId/rooms/:roomId" element={<RoomDetail user={user} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </RealTimeProvider>

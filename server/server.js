@@ -343,6 +343,14 @@ const roomSchema = new mongoose.Schema({
     enum: ['planned', 'active', 'completed'],
     default: 'active'
   },
+  presentStudents: {
+    type: Number,
+    min: 0
+  },
+  notes: {
+    type: String,
+    trim: true
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -867,13 +875,14 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
 app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents } = req.body;
+  const { name, supplies, status, presentStudents, notes } = req.body;
   const updateData = {};
 
   if (name !== undefined) updateData.name = name;
   if (supplies !== undefined) updateData.supplies = supplies;
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
+  if (notes !== undefined) updateData.notes = notes;
 
     // Get the old room data BEFORE updating to compare supplies
     const oldRoom = await Room.findById(id);
@@ -1003,6 +1012,29 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
         console.log(`🔍 Room incomplete log entry created:`, logEntry);
+      } else if (notes !== undefined) {
+        console.log(`🔍 Notes update detected for room ${id}`);
+        const oldNotes = oldRoom.notes || '';
+        const newNotes = notes || '';
+        
+        if (oldNotes !== newNotes) {
+          console.log(`🔍 Notes changed, creating log entry`);
+          let action, details;
+          
+          if (oldNotes && newNotes) {
+            action = `${user.firstName} ${user.lastName} updated notes for Room ${room.name}`;
+            details = `Notes updated: "${newNotes}"`;
+          } else if (newNotes && !oldNotes) {
+            action = `${user.firstName} ${user.lastName} added notes to Room ${room.name}`;
+            details = `Notes added: "${newNotes}"`;
+          } else if (!newNotes && oldNotes) {
+            action = `${user.firstName} ${user.lastName} removed notes from Room ${room.name}`;
+            details = `Notes removed`;
+          }
+          
+          logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
+          console.log(`🔍 Room notes log entry created:`, logEntry);
+        }
       } else {
         console.log(`🔍 No supplies in request body`);
       }
@@ -1065,7 +1097,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status',
+          select: 'name supplies status presentStudents notes',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
@@ -1120,7 +1152,7 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     const populatedSession = await Session.findById(newSession._id)
       .populate({
         path: 'rooms',
-        select: 'name supplies status',
+        select: 'name supplies status presentStudents notes',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1150,7 +1182,7 @@ app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), 
     }).populate([
       {
         path: 'rooms',
-        select: 'name supplies status',
+        select: 'name supplies status presentStudents notes',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1211,7 +1243,7 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status',
+        select: 'name supplies status presentStudents notes',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'

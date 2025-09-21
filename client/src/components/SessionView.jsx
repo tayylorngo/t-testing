@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
+  const navigate = useNavigate()
   const { joinSession, onSessionUpdate, isConnected, reconnect, connectionAttempts } = useRealTime()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -57,6 +58,9 @@ function SessionView({ user, onBack }) {
   const [invalidatedTests, setInvalidatedTests] = useState([]) // Array of {roomId, sectionNumber, notes, timestamp, invalidatedBy}
   const [showRemoveInvalidationModal, setShowRemoveInvalidationModal] = useState(false)
   const [invalidationToRemove, setInvalidationToRemove] = useState(null)
+  const [showRoomNotesModal, setShowRoomNotesModal] = useState(false)
+  const [selectedRoomForNotes, setSelectedRoomForNotes] = useState(null)
+  const [roomNotes, setRoomNotes] = useState('')
 
 
 
@@ -268,10 +272,11 @@ function SessionView({ user, onBack }) {
           if (roomIndex !== -1) {
             console.log('🔔 SessionView - Updating room at index:', roomIndex)
             console.log('🔔 SessionView - Old room:', updatedSession.rooms[roomIndex])
-            // Only update the status field to avoid overwriting other properties
+            // Update the status and presentStudents fields from the room data
             updatedSession.rooms[roomIndex] = { 
               ...updatedSession.rooms[roomIndex], 
               status: update.data.status,
+              presentStudents: update.data.room?.presentStudents,
               // Add a flag to trigger status-specific animations
               statusUpdatedAt: new Date().toISOString()
             }
@@ -759,6 +764,44 @@ function SessionView({ user, onBack }) {
     setInvalidationToRemove(null)
   }, [])
 
+  const handleRoomNotesClick = useCallback((room) => {
+    setSelectedRoomForNotes(room)
+    setRoomNotes(room.notes || '')
+    setShowRoomNotesModal(true)
+  }, [])
+
+  const handleSaveRoomNotes = useCallback(async () => {
+    if (!selectedRoomForNotes || !roomNotes.trim()) return
+
+    try {
+      await testingAPI.updateRoom(selectedRoomForNotes._id, {
+        notes: roomNotes.trim()
+      })
+      
+      // Update local state
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(room => 
+          room._id === selectedRoomForNotes._id 
+            ? { ...room, notes: roomNotes.trim() }
+            : room
+        )
+      }))
+
+      setShowRoomNotesModal(false)
+      setSelectedRoomForNotes(null)
+      setRoomNotes('')
+    } catch (error) {
+      console.error('Error saving room notes:', error)
+    }
+  }, [selectedRoomForNotes, roomNotes])
+
+  const cancelRoomNotes = useCallback(() => {
+    setShowRoomNotesModal(false)
+    setSelectedRoomForNotes(null)
+    setRoomNotes('')
+  }, [])
+
   const cancelInvalidateTest = useCallback(() => {
     setShowInvalidateModal(false)
     setRoomToInvalidate(null)
@@ -1058,6 +1101,14 @@ function SessionView({ user, onBack }) {
       };
     }
     
+    // Room notes actions
+    if (lowerAction.includes('notes') && (lowerAction.includes('added') || lowerAction.includes('updated') || lowerAction.includes('removed'))) {
+      return {
+        border: 'border-orange-500',
+        dot: 'bg-orange-500'
+      };
+    }
+    
     // Default color for other actions
     return {
       border: 'border-gray-500',
@@ -1218,11 +1269,79 @@ function SessionView({ user, onBack }) {
 
 
 
-  const calculateRoomTimeRemaining = useCallback((room) => {
-    if (!memoizedSession || !timeRemaining || timeRemaining.isOver) return null
+  // Calculate time multiplier for a room based on section accommodations
+  const calculateRoomTimeMultiplier = useCallback((room) => {
+    console.log('🔍 Calculating time multiplier for room:', room.name)
+    console.log('🔍 Room sections:', room.sections)
     
-    // Get time multiplier for this room (default 1x, future: 1.5x, 2x, etc.)
-    const timeMultiplier = roomTimeMultipliers[room._id] || 1
+    if (!room.sections || room.sections.length === 0) {
+      console.log('🔍 No sections found, returning 1x')
+      return 1
+    }
+    
+    // Check if any section has 1.5x or 2x time accommodation
+    let hasTimeAccommodation = false
+    room.sections.forEach(section => {
+      console.log('🔍 Checking section:', section.number, 'accommodations:', section.accommodations)
+      if (section.accommodations) {
+        section.accommodations.forEach(acc => {
+          console.log('🔍 Checking accommodation:', acc)
+          // Check for various formats of time accommodations
+          if (acc.includes('1.5x time') || acc.includes('2x time') || 
+              acc.includes('1.5x') || acc.includes('2x') ||
+              acc.includes('1.5× Time') || acc.includes('2× Time') ||
+              acc.includes('1.5×') || acc.includes('2×') ||
+              acc.includes('extended time') || acc.includes('double time')) {
+            hasTimeAccommodation = true
+          }
+        })
+      }
+    })
+    
+    console.log('🔍 Has time accommodation:', hasTimeAccommodation)
+    
+    if (!hasTimeAccommodation) {
+      console.log('🔍 No time accommodations found, returning 1x')
+      return 1
+    }
+    
+    // Find the highest time multiplier in the room
+    let maxMultiplier = 1
+    room.sections.forEach(section => {
+      if (section.accommodations) {
+        section.accommodations.forEach(acc => {
+          // Check for 2x time accommodations (various formats)
+          if (acc.includes('2x time') || acc.includes('2x') || acc.includes('2× Time') || acc.includes('2×') || acc.includes('double time')) {
+            console.log('🔍 Found 2x time accommodation:', acc)
+            maxMultiplier = Math.max(maxMultiplier, 2)
+          } 
+          // Check for 1.5x time accommodations (various formats)
+          else if (acc.includes('1.5x time') || acc.includes('1.5x') || acc.includes('1.5× Time') || acc.includes('1.5×') || acc.includes('extended time')) {
+            console.log('🔍 Found 1.5x time accommodation:', acc)
+            maxMultiplier = Math.max(maxMultiplier, 1.5)
+          }
+        })
+      }
+    })
+    
+    console.log('🔍 Final multiplier for room', room.name, ':', maxMultiplier)
+    return maxMultiplier
+  }, [])
+
+  const calculateRoomTimeRemaining = useCallback((room) => {
+    console.log('🔍 calculateRoomTimeRemaining called for room:', room.name)
+    console.log('🔍 memoizedSession exists:', !!memoizedSession)
+    console.log('🔍 timeRemaining exists:', !!timeRemaining)
+    console.log('🔍 timeRemaining isOver:', timeRemaining?.isOver)
+    
+    if (!memoizedSession || !timeRemaining || timeRemaining.isOver) {
+      console.log('🔍 Returning null - missing data or time is over')
+      return null
+    }
+    
+    // Calculate time multiplier based on section accommodations
+    const timeMultiplier = calculateRoomTimeMultiplier(room)
+    console.log('🔍 Time multiplier for room', room.name, ':', timeMultiplier)
     
     // Calculate total session duration in minutes
     const [startHour, startMinute] = session.startTime.split(':')
@@ -1240,9 +1359,14 @@ function SessionView({ user, onBack }) {
     // Calculate room-specific end time based on multiplier
     const roomEndTime = new Date(startTime.getTime() + (totalSessionMinutes * timeMultiplier * 60 * 1000))
     
+    console.log('🔍 Session duration:', totalSessionMinutes, 'minutes')
+    console.log('🔍 Room end time:', roomEndTime)
+    console.log('🔍 Regular end time would be:', endTime)
+    
     // Calculate remaining time for this room
     const now = new Date()
     const roomTimeDiff = roomEndTime - now
+    console.log('🔍 Room time difference (ms):', roomTimeDiff)
     
     if (roomTimeDiff <= 0) {
       return { hours: 0, minutes: 0, seconds: 0, isOver: true }
@@ -1253,7 +1377,7 @@ function SessionView({ user, onBack }) {
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
     
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
-  }, [session?.startTime, session?.endTime, session?.date, timeRemaining, roomTimeMultipliers])
+  }, [session?.startTime, session?.endTime, session?.date, timeRemaining, calculateRoomTimeMultiplier])
 
   const toggleRoomExpansion = useCallback((roomId) => {
     setExpandedRooms(prev => {
@@ -1703,7 +1827,19 @@ function SessionView({ user, onBack }) {
                               const timeData = calculateRoomTimeRemaining(room)
                               if (!timeData) return '--:--:--'
                               if (timeData.isOver) return 'TIME UP'
-                              return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                              const timeString = `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                              const multiplier = timeData.multiplier
+                              if (multiplier > 1) {
+                                return (
+                                  <div className="flex flex-col">
+                                    <span>{timeString}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      ({multiplier}x time)
+                                    </span>
+                                  </div>
+                                )
+                              }
+                              return timeString
                             })()}
                           </div>
                         </td>
@@ -1720,7 +1856,7 @@ function SessionView({ user, onBack }) {
                                     className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors duration-200"
                                     title="Mark Incomplete"
                                   >
-                                    ↺
+                                    ↩️
                                   </button>
                                 ) : (
                                   <button
@@ -1731,11 +1867,21 @@ function SessionView({ user, onBack }) {
                                     className="px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg font-medium transition-colors duration-200"
                                     title="Mark Complete"
                                   >
-                                    ✓
+                                    ✅
                                   </button>
                                 )}
                               </>
                             )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/sessions/${sessionId}/rooms/${room._id}`)
+                              }}
+                              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
+                              title="View Room Details"
+                            >
+                              ↗️
+                            </button>
                             {canEditSession() && (
                               <div className="relative dropdown-container">
                                 <button
@@ -1759,7 +1905,7 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
-                                        <span className="mr-2">+</span>
+                                        <span className="mr-2">📦</span>
                                         Add Supply
                                       </button>
                                       <button
@@ -1769,8 +1915,18 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
-                                        <span className="mr-2">→</span>
+                                        <span className="mr-2">🚶‍♂️</span>
                                         Move Students
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleRoomNotesClick(room)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                      >
+                                        <span className="mr-2">📝</span>
+                                        Add Notes
                                       </button>
                                       <button
                                         onClick={(e) => {
@@ -1978,6 +2134,21 @@ function SessionView({ user, onBack }) {
                                     return null
                                   })()}
 
+                                  {/* Room Notes Section */}
+                                  {room.notes && (
+                                    <div className="mt-4">
+                                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                                        <span className="mr-1">📝</span>
+                                        Room Notes
+                                      </h4>
+                                      <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+                                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                          {room.notes}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
+
                                 </div>
                               </div>
                             </div>
@@ -2051,7 +2222,7 @@ function SessionView({ user, onBack }) {
                           }}
                           className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
                         >
-                          Mark Incomplete
+                          ↩️ Mark Incomplete
                         </button>
                       ) : (
                         <button
@@ -2061,9 +2232,20 @@ function SessionView({ user, onBack }) {
                           }}
                           className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
                         >
-                          Mark Complete
+                          ✅ Mark Complete
                         </button>
                       )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/sessions/${sessionId}/rooms/${room._id}`)
+                        }}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                      >
+                        <span className="mr-2">↗️</span>
+                        View Details
+                      </button>
 
                       <div className="relative dropdown-container">
                         <button
@@ -2087,7 +2269,7 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
-                                <span className="mr-2">+</span>
+                                <span className="mr-2">📦</span>
                                 Add Supply
                               </button>
                               <button
@@ -2097,8 +2279,18 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
-                                <span className="mr-2">→</span>
+                                <span className="mr-2">🚶‍♂️</span>
                                 Move Students
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRoomNotesClick(room)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                              >
+                                <span className="mr-2">📝</span>
+                                Add Notes
                               </button>
                               <button
                                 onClick={(e) => {
@@ -2259,18 +2451,45 @@ function SessionView({ user, onBack }) {
                       )}
                     </div>
 
+                    {/* Room Notes */}
+                    {room.notes && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                          <span className="mr-1">📝</span>
+                          Room Notes
+                        </h4>
+                        <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {room.notes}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Estimated Time */}
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
-                        <span className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                        <div className={`text-lg font-bold ${calculateRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
                           {(() => {
                             const timeData = calculateRoomTimeRemaining(room)
                             if (!timeData) return '--:--:--'
                             if (timeData.isOver) return 'TIME UP'
-                            return `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                            const timeString = `${String(timeData.hours).padStart(2, '0')}:${String(timeData.minutes).padStart(2, '0')}:${String(timeData.seconds).padStart(2, '0')}`
+                            const multiplier = timeData.multiplier
+                            if (multiplier > 1) {
+                              return (
+                                <div className="flex flex-col items-end">
+                                  <span>{timeString}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                                    ({multiplier}x time)
+                                  </span>
+                                </div>
+                              )
+                            }
+                            return timeString
                           })()}
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2889,6 +3108,46 @@ function SessionView({ user, onBack }) {
                   Remove Invalidation
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Room Notes Modal */}
+      {showRoomNotesModal && selectedRoomForNotes && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Notes to {selectedRoomForNotes.name}</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Room Notes
+                </label>
+                <textarea
+                  value={roomNotes}
+                  onChange={(e) => setRoomNotes(e.target.value)}
+                  placeholder="Enter notes for this room..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-4 pt-6">
+              <button
+                onClick={cancelRoomNotes}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRoomNotes}
+                disabled={!roomNotes.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+              >
+                Save Notes
+              </button>
             </div>
           </div>
         </div>
