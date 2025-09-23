@@ -24,8 +24,13 @@ export const RealTimeProvider = ({ children }) => {
 
   // Initialize socket connection
   const initializeSocket = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    // Use relative URL in production, absolute URL in development
+    const apiUrl = import.meta.env.PROD 
+      ? window.location.origin 
+      : (import.meta.env.VITE_API_URL || 'http://localhost:3001');
     console.log('🔌 Initializing WebSocket connection to:', apiUrl);
+    console.log('🔌 Environment:', import.meta.env.MODE);
+    console.log('🔌 Production:', import.meta.env.PROD);
     
     // Clean up existing socket if any
     if (socket) {
