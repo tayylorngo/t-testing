@@ -30,7 +30,21 @@ try {
   const clientDistPath = path.join(process.cwd(), 'client', 'dist');
   const publicDirPath = path.join(process.cwd(), 'public');
   
+  console.log('🔍 Client dist path:', clientDistPath);
+  console.log('🔍 Public dir path:', publicDirPath);
+  console.log('🔍 Client dist exists:', fs.existsSync(clientDistPath));
+  
   if (fs.existsSync(clientDistPath)) {
+    // List files in client/dist
+    const distFiles = fs.readdirSync(clientDistPath, { recursive: true });
+    console.log('📁 Files in client/dist:', distFiles);
+    
+    // Clear public directory first
+    if (fs.existsSync(publicDirPath)) {
+      fs.rmSync(publicDirPath, { recursive: true, force: true });
+    }
+    fs.mkdirSync(publicDirPath, { recursive: true });
+    
     // Copy all files from client/dist to public
     const files = fs.readdirSync(clientDistPath);
     files.forEach(file => {
@@ -45,6 +59,10 @@ try {
         fs.copyFileSync(srcPath, destPath);
       }
     });
+    
+    // Verify files were copied
+    const publicFiles = fs.readdirSync(publicDirPath, { recursive: true });
+    console.log('📁 Files in public after copy:', publicFiles);
     console.log('✅ Build files copied to public directory');
   } else {
     console.log('⚠️  Client dist directory not found, creating fallback index.html');
