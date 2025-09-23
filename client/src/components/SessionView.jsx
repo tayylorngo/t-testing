@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -55,6 +56,7 @@ function SessionView({ user, onBack }) {
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
   const [showDropdown, setShowDropdown] = useState(null)
   const [preventClickOutside, setPreventClickOutside] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   // const buttonRef = useRef(null) // Not currently used // roomId for which dropdown is open
   const [showInvalidateModal, setShowInvalidateModal] = useState(false)
   const [roomToInvalidate, setRoomToInvalidate] = useState(null)
@@ -764,6 +766,35 @@ function SessionView({ user, onBack }) {
     if (showDropdown === roomId) {
       setShowDropdown(null)
     } else {
+      // Calculate position for dropdown
+      if (event && event.currentTarget) {
+        const rect = event.currentTarget.getBoundingClientRect()
+        const dropdownWidth = 192
+        const dropdownHeight = 200 // Approximate height for all options
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+        
+        // Calculate position with viewport bounds checking
+        let left = rect.right - dropdownWidth
+        let top = rect.bottom + 8
+        
+        // Ensure dropdown stays within viewport bounds
+        if (left < 8) {
+          left = rect.left
+        }
+        if (left + dropdownWidth > viewportWidth - 8) {
+          left = viewportWidth - dropdownWidth - 8
+        }
+        if (top + dropdownHeight > viewportHeight - 8) {
+          top = rect.top - dropdownHeight - 8
+        }
+        if (top < 8) {
+          top = 8
+        }
+        
+        const position = { top, left }
+        setDropdownPosition(position)
+      }
       setShowDropdown(roomId)
     }
   }, [showDropdown])
@@ -941,9 +972,73 @@ function SessionView({ user, onBack }) {
         )
       }))
       
+      // Update the selectedRoom in the modal to reflect the changes
+      setSelectedRoom(prevSelectedRoom => {
+        if (prevSelectedRoom && prevSelectedRoom._id === roomId) {
+          return { ...prevSelectedRoom, supplies: updatedSupplies }
+        }
+        return prevSelectedRoom
+      })
+      
       console.log(`Removed all instances of ${supplyName} from room ${room.name}`)
     } catch (error) {
       console.error('Error removing supply:', error)
+    }
+  }, [session?.rooms])
+
+  const handleAdjustSupplyQuantity = useCallback(async (roomId, supplyName, adjustment) => {
+    try {
+      const room = session.rooms.find(r => r._id === roomId)
+      if (!room) return
+      
+      const currentSupplies = room.supplies || []
+      const currentCount = currentSupplies.filter(s => s === supplyName).length
+      
+      if (adjustment < 0 && currentCount <= 0) return // Can't go below 0
+      
+      let updatedSupplies
+      if (adjustment > 0) {
+        // Add more supplies
+        updatedSupplies = [...currentSupplies]
+        for (let i = 0; i < adjustment; i++) {
+          updatedSupplies.push(supplyName)
+        }
+      } else {
+        // Remove supplies
+        const removeCount = Math.abs(adjustment)
+        let removed = 0
+        updatedSupplies = currentSupplies.filter(supply => {
+          if (supply === supplyName && removed < removeCount) {
+            removed++
+            return false
+          }
+          return true
+        })
+      }
+      
+      await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
+      
+      // Update the room in the session state
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(r => 
+          r._id === roomId 
+            ? { ...r, supplies: updatedSupplies }
+            : r
+        )
+      }))
+      
+      // Update the selectedRoom in the modal to reflect the changes
+      setSelectedRoom(prevSelectedRoom => {
+        if (prevSelectedRoom && prevSelectedRoom._id === roomId) {
+          return { ...prevSelectedRoom, supplies: updatedSupplies }
+        }
+        return prevSelectedRoom
+      })
+      
+      console.log(`Adjusted ${supplyName} quantity by ${adjustment} in room ${room.name}`)
+    } catch (error) {
+      console.error('Error adjusting supply quantity:', error)
     }
   }, [session?.rooms])
 
@@ -2264,14 +2359,14 @@ function SessionView({ user, onBack }) {
                                   ⋯
                                 </button>
                                 
-                                {showDropdown === room._id && (
+                                {showDropdown === room._id && createPortal(
                                   <div 
                                     data-dropdown-menu
-                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                                     style={{ 
-                                      position: 'absolute',
-                                      top: '100%',
-                                      right: '0',
+                                      position: 'fixed',
+                                      top: `${dropdownPosition.top}px`,
+                                      left: `${dropdownPosition.left}px`,
                                       zIndex: 99999,
                                       minHeight: 'auto',
                                       maxHeight: 'none',
@@ -2365,7 +2460,8 @@ function SessionView({ user, onBack }) {
                                         Invalidate Test
                                       </button>
                                     </div>
-                                  </div>
+                                  </div>,
+                                  document.body
                                 )}
                               </div>
                             )}
@@ -3129,11 +3225,32 @@ function SessionView({ user, onBack }) {
                                 <span className="text-blue-700 dark:text-blue-300 font-medium">{supplyName}</span>
                               </div>
                               <div className="flex items-center space-x-3">
-                                <span className="text-blue-800 dark:text-blue-200 font-semibold">{count}</span>
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, -1)}
+                                    disabled={count <= 0}
+                                    className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white flex items-center justify-center transition duration-200"
+                                    title="Remove 1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                    </svg>
+                                  </button>
+                                  <span className="text-blue-800 dark:text-blue-200 font-semibold min-w-[2rem] text-center">{count}</span>
+                                  <button
+                                    onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, 1)}
+                                    className="w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition duration-200"
+                                    title="Add 1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
                                 <button
                                   onClick={() => handleRemoveSupply(selectedRoom._id, supplyName)}
-                                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
-                                  title="Remove this supply"
+                                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 ml-2"
+                                  title="Remove all"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
