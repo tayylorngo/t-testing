@@ -32,6 +32,7 @@ function SessionView({ user, onBack }) {
   
   const [showAddSupplyModal, setShowAddSupplyModal] = useState(false)
   const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
+  const [showEditSuppliesModal, setShowEditSuppliesModal] = useState(false)
   const [showMoveStudentsModal, setShowMoveStudentsModal] = useState(false)
   const [showPresentStudentsModal, setShowPresentStudentsModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
@@ -909,6 +910,42 @@ function SessionView({ user, onBack }) {
     console.log('Room Notes modal should now be open')
     // Don't close dropdown immediately, let the modal handle it
   }, [])
+
+  const handleEditSuppliesClick = useCallback((room) => {
+    console.log('Edit Supplies clicked for room:', room.name)
+    console.log('Setting selectedRoom to:', room)
+    console.log('Setting showEditSuppliesModal to true')
+    setSelectedRoom(room)
+    setShowEditSuppliesModal(true)
+    console.log('Edit Supplies modal should now be open')
+    // Don't close dropdown immediately, let the modal handle it
+  }, [])
+
+  const handleRemoveSupply = useCallback(async (roomId, supplyName) => {
+    try {
+      const room = session.rooms.find(r => r._id === roomId)
+      if (!room) return
+      
+      // Remove all instances of this supply
+      const updatedSupplies = room.supplies.filter(s => s !== supplyName)
+      
+      await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
+      
+      // Update the room in the session state
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(r => 
+          r._id === roomId 
+            ? { ...r, supplies: updatedSupplies }
+            : r
+        )
+      }))
+      
+      console.log(`Removed all instances of ${supplyName} from room ${room.name}`)
+    } catch (error) {
+      console.error('Error removing supply:', error)
+    }
+  }, [session?.rooms])
 
   const handleSaveRoomNotes = useCallback(async () => {
     if (!selectedRoomForNotes || !roomNotes.trim()) return
@@ -2297,6 +2334,25 @@ function SessionView({ user, onBack }) {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
+                                          console.log('Edit Supplies button clicked')
+                                          handleEditSuppliesClick(room)
+                                          setShowDropdown(null)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        style={{ 
+                                          pointerEvents: 'auto',
+                                          zIndex: 99999,
+                                          position: 'relative'
+                                        }}
+                                      >
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Edit Supplies
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
                                           console.log('Invalidate Test button clicked')
                                           handleInvalidateTestClick(room)
                                           setShowDropdown(null)
@@ -2586,6 +2642,20 @@ function SessionView({ user, onBack }) {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                                 Add Notes
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  console.log('Edit Supplies button clicked (card view)')
+                                  handleEditSuppliesClick(room)
+                                  setShowDropdown(null)
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit Supplies
                               </button>
                               <button
                                 onClick={(e) => {
@@ -2995,6 +3065,110 @@ function SessionView({ user, onBack }) {
                   Move Students
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Supplies Modal */}
+      {showEditSuppliesModal && selectedRoom && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supplies for {selectedRoom.name}</h2>
+            
+            <div className="space-y-4">
+              {(() => {
+                const supplies = selectedRoom.supplies || []
+                const initialSupplies = supplies.filter(supply => supply.startsWith('INITIAL_'))
+                const addedSupplies = supplies.filter(supply => !supply.startsWith('INITIAL_'))
+                
+                const initialSupplyCounts = {}
+                initialSupplies.forEach(supply => {
+                  const cleanName = supply.replace('INITIAL_', '')
+                  initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
+                })
+                
+                const addedSupplyCounts = {}
+                addedSupplies.forEach(supply => {
+                  addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
+                })
+                
+                return (
+                  <div className="space-y-4">
+                    {/* Initial Supplies */}
+                    {Object.keys(initialSupplyCounts).length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Initial Supplies</h3>
+                        <div className="space-y-2">
+                          {Object.entries(initialSupplyCounts).map(([supplyName, count]) => (
+                            <div key={supplyName} className="flex items-center justify-between bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-3">
+                              <div className="flex items-center">
+                                <svg className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                <span className="text-green-700 dark:text-green-300 font-medium">{supplyName}</span>
+                              </div>
+                              <span className="text-green-800 dark:text-green-200 font-semibold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Added Supplies */}
+                    {Object.keys(addedSupplyCounts).length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Added Supplies</h3>
+                        <div className="space-y-2">
+                          {Object.entries(addedSupplyCounts).map(([supplyName, count]) => (
+                            <div key={supplyName} className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                              <div className="flex items-center">
+                                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                <span className="text-blue-700 dark:text-blue-300 font-medium">{supplyName}</span>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <span className="text-blue-800 dark:text-blue-200 font-semibold">{count}</span>
+                                <button
+                                  onClick={() => handleRemoveSupply(selectedRoom._id, supplyName)}
+                                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
+                                  title="Remove this supply"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {Object.keys(initialSupplyCounts).length === 0 && Object.keys(addedSupplyCounts).length === 0 && (
+                      <div className="text-center py-8">
+                        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <p className="text-gray-500 dark:text-gray-400">No supplies assigned to this room</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+            
+            <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setShowEditSuppliesModal(false)
+                  setSelectedRoom(null)
+                }}
+                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition duration-200"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
