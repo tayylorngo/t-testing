@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -1690,7 +1691,7 @@ function SessionView({ user, onBack }) {
   const progress = calculateProgress()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container" style={{ overflow: 'visible' }}>
       
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -1751,8 +1752,8 @@ function SessionView({ user, onBack }) {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ overflow: 'visible' }}>
         {/* Permission Info Message */}
         {!canEditSession() && (
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -2016,8 +2017,8 @@ function SessionView({ user, onBack }) {
         {/* Rooms Display */}
         {isTableView ? (
           /* Table View */
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto overflow-y-visible" style={{ touchAction: 'pan-x' }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+            <div className="overflow-x-auto" style={{ touchAction: 'pan-x', overflowY: 'visible' }}>
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -2197,7 +2198,9 @@ function SessionView({ user, onBack }) {
                                       top: '100%',
                                       right: '0',
                                       marginTop: '8px',
-                                      zIndex: 9999
+                                      zIndex: 9999,
+                                      minHeight: 'auto',
+                                      maxHeight: 'none'
                                     }}
                                   >
                                     <div className="py-1">
