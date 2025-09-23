@@ -783,7 +783,7 @@ function SessionView({ user, onBack }) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showDropdown && !event.target.closest('.dropdown-container')) {
+      if (showDropdown && !event.target.closest('.dropdown-container') && !event.target.closest('[data-dropdown-menu]')) {
         setShowDropdown(null)
       }
     }
@@ -2211,6 +2211,7 @@ function SessionView({ user, onBack }) {
                                 
                                 {showDropdown === room._id && createPortal(
                                   <div 
+                                    data-dropdown-menu
                                     className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
                                     style={{ 
                                       position: 'fixed',
@@ -2225,7 +2226,9 @@ function SessionView({ user, onBack }) {
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => {
+                                          e.preventDefault()
                                           e.stopPropagation()
+                                          e.stopImmediatePropagation()
                                           handleAddSupplyClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2237,7 +2240,9 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
+                                          e.preventDefault()
                                           e.stopPropagation()
+                                          e.stopImmediatePropagation()
                                           handleMoveStudentsClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2249,7 +2254,9 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
+                                          e.preventDefault()
                                           e.stopPropagation()
+                                          e.stopImmediatePropagation()
                                           handleRoomNotesClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2261,7 +2268,9 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
+                                          e.preventDefault()
                                           e.stopPropagation()
+                                          e.stopImmediatePropagation()
                                           handleInvalidateTestClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
@@ -2507,11 +2516,13 @@ function SessionView({ user, onBack }) {
                         </button>
                         
                         {showDropdown === room._id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                          <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                             <div className="py-1">
                               <button
                                 onClick={(e) => {
+                                  e.preventDefault()
                                   e.stopPropagation()
+                                  e.stopImmediatePropagation()
                                   handleAddSupplyClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2523,7 +2534,9 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
+                                  e.preventDefault()
                                   e.stopPropagation()
+                                  e.stopImmediatePropagation()
                                   handleMoveStudentsClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2535,7 +2548,9 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
+                                  e.preventDefault()
                                   e.stopPropagation()
+                                  e.stopImmediatePropagation()
                                   handleRoomNotesClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2547,7 +2562,9 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
+                                  e.preventDefault()
                                   e.stopPropagation()
+                                  e.stopImmediatePropagation()
                                   handleInvalidateTestClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
