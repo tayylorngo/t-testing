@@ -896,15 +896,25 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const room = await Room.findByIdAndUpdate(
-      id,
-      { status, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
-
-    if (!room) {
+    // Get the old room data to check previous presentStudents
+    const oldRoom = await Room.findById(id);
+    if (!oldRoom) {
       return res.status(404).json({ message: 'Room not found' });
     }
+
+    // Prepare update data
+    const updateData = { status, updatedAt: new Date() };
+    
+    // If marking room incomplete, clear presentStudents
+    if (status === 'active') {
+      updateData.presentStudents = undefined;
+    }
+
+    const room = await Room.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
 
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
@@ -915,8 +925,16 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       const user = await User.findById(req.user.id);
       
       // Add activity log entry with room name
-      const action = `${user.firstName} ${user.lastName} marked Room ${room.name} ${status === 'completed' ? 'complete' : 'incomplete'}`;
-      const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
+      let action, details;
+      if (status === 'active' && oldRoom.presentStudents !== undefined && oldRoom.presentStudents > 0) {
+        action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete (${oldRoom.presentStudents} students were present)`;
+        details = `Room status changed from completed to active. Present students count cleared.`;
+      } else {
+        action = `${user.firstName} ${user.lastName} marked Room ${room.name} ${status === 'completed' ? 'complete' : 'incomplete'}`;
+        details = status === 'active' ? 'Present students count cleared.' : null;
+      }
+      
+      const logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
       
       emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status }, user, logEntry);
     } else {
@@ -1101,7 +1119,7 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         console.log(`🔍 Room completion log entry created:`, logEntry);
       } else if (status === 'active' && presentStudents === undefined) {
         // Room marked incomplete - clear present students
-        const previousPresentStudents = room.presentStudents;
+        const previousPresentStudents = oldRoom.presentStudents;
         let action, details;
         
         if (previousPresentStudents !== undefined && previousPresentStudents > 0) {
@@ -1111,6 +1129,10 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           action = `${user.firstName} ${user.lastName} marked Room ${room.name} incomplete`;
           details = `Room status changed from completed to active. Present students count cleared.`;
         }
+        
+        // Clear presentStudents when marking room incomplete
+        await Room.findByIdAndUpdate(id, { presentStudents: undefined });
+        room.presentStudents = undefined;
         
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
         console.log(`🔍 Room incomplete log entry created:`, logEntry);
