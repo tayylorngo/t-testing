@@ -768,11 +768,29 @@ function SessionView({ user, onBack }) {
       const button = event?.target?.closest('button')
       if (button) {
         const rect = button.getBoundingClientRect()
-        const position = {
-          top: rect.bottom + 8, // Use viewport coordinates for fixed positioning
-          left: rect.right - 192 // Align right edge of dropdown with right edge of button
+        const dropdownWidth = 192
+        const dropdownHeight = 120 // Approximate height
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+        
+        // Calculate position with viewport bounds checking
+        let left = rect.right - dropdownWidth
+        let top = rect.bottom + 8
+        
+        // Ensure dropdown stays within viewport bounds
+        if (left < 8) {
+          left = rect.left
         }
+        if (left + dropdownWidth > viewportWidth - 8) {
+          left = viewportWidth - dropdownWidth - 8
+        }
+        if (top + dropdownHeight > viewportHeight - 8) {
+          top = rect.top - dropdownHeight - 8
+        }
+        
+        const position = { top, left }
         console.log('Button rect:', rect)
+        console.log('Viewport:', { width: viewportWidth, height: viewportHeight })
         console.log('Calculated position:', position)
         setDropdownPosition(position)
       }
@@ -788,25 +806,29 @@ function SessionView({ user, onBack }) {
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
+    // Use a slight delay to ensure button clicks are processed first
+    document.addEventListener('click', handleClickOutside)
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('click', handleClickOutside)
     }
   }, [showDropdown])
 
   const handleAddSupplyClick = useCallback((room) => {
+    console.log('Add Supply clicked for room:', room.name)
     setSelectedRoom(room)
     setShowAddSupplyModal(true)
     setShowDropdown(null)
   }, [])
 
   const handleMoveStudentsClick = useCallback((room) => {
+    console.log('Move Students clicked for room:', room.name)
     setMoveFromRoom(room)
     setShowMoveStudentsModal(true)
     setShowDropdown(null)
   }, [])
 
   const handleInvalidateTestClick = useCallback((room) => {
+    console.log('Invalidate Test clicked for room:', room.name)
     setRoomToInvalidate(room)
     setInvalidationNotes('')
     setSelectedSection('')
@@ -872,9 +894,11 @@ function SessionView({ user, onBack }) {
   }, [])
 
   const handleRoomNotesClick = useCallback((room) => {
+    console.log('Room Notes clicked for room:', room.name)
     setSelectedRoomForNotes(room)
     setRoomNotes(room.notes || '')
     setShowRoomNotesModal(true)
+    setShowDropdown(null)
   }, [])
 
   const handleSaveRoomNotes = useCallback(async () => {
@@ -2225,10 +2249,11 @@ function SessionView({ user, onBack }) {
                                   >
                                     <div className="py-1">
                                       <button
-                                        onClick={(e) => {
+                                        onMouseDown={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
+                                          console.log('Add Supply button clicked')
                                           handleAddSupplyClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2239,10 +2264,11 @@ function SessionView({ user, onBack }) {
                                         Add Supply
                                       </button>
                                       <button
-                                        onClick={(e) => {
+                                        onMouseDown={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
+                                          console.log('Move Students button clicked')
                                           handleMoveStudentsClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2253,10 +2279,11 @@ function SessionView({ user, onBack }) {
                                         Move Students
                                       </button>
                                       <button
-                                        onClick={(e) => {
+                                        onMouseDown={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
+                                          console.log('Add Notes button clicked')
                                           handleRoomNotesClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2267,10 +2294,11 @@ function SessionView({ user, onBack }) {
                                         Add Notes
                                       </button>
                                       <button
-                                        onClick={(e) => {
+                                        onMouseDown={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
+                                          console.log('Invalidate Test button clicked')
                                           handleInvalidateTestClick(room)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
@@ -2519,10 +2547,11 @@ function SessionView({ user, onBack }) {
                           <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                             <div className="py-1">
                               <button
-                                onClick={(e) => {
+                                onMouseDown={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
+                                  console.log('Add Supply button clicked (card view)')
                                   handleAddSupplyClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2533,10 +2562,11 @@ function SessionView({ user, onBack }) {
                                 Add Supply
                               </button>
                               <button
-                                onClick={(e) => {
+                                onMouseDown={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
+                                  console.log('Move Students button clicked (card view)')
                                   handleMoveStudentsClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2547,10 +2577,11 @@ function SessionView({ user, onBack }) {
                                 Move Students
                               </button>
                               <button
-                                onClick={(e) => {
+                                onMouseDown={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
+                                  console.log('Add Notes button clicked (card view)')
                                   handleRoomNotesClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
@@ -2561,10 +2592,11 @@ function SessionView({ user, onBack }) {
                                 Add Notes
                               </button>
                               <button
-                                onClick={(e) => {
+                                onMouseDown={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
+                                  console.log('Invalidate Test button clicked (card view)')
                                   handleInvalidateTestClick(room)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
