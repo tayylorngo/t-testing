@@ -1,0 +1,16 @@
+{
+  "name": "t-testing",
+  "version": "1.0.0",
+  "description": "T-Testing School Management System",
+  "private": true,
+  "scripts": {
+    "build": "cd client && npm ci && npm run build",
+    "start": "cd server && npm start",
+    "install:client": "cd client && npm ci",
+    "install:server": "cd server && npm ci --production"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
