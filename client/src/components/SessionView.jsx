@@ -806,10 +806,10 @@ function SessionView({ user, onBack }) {
       }
     }
 
-    // Use a slight delay to ensure button clicks are processed first
-    document.addEventListener('click', handleClickOutside)
+    // Use mousedown to ensure it doesn't interfere with button clicks
+    document.addEventListener('mousedown', handleClickOutside)
     return () => {
-      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showDropdown])
 
@@ -817,14 +817,14 @@ function SessionView({ user, onBack }) {
     console.log('Add Supply clicked for room:', room.name)
     setSelectedRoom(room)
     setShowAddSupplyModal(true)
-    setShowDropdown(null)
+    // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleMoveStudentsClick = useCallback((room) => {
     console.log('Move Students clicked for room:', room.name)
     setMoveFromRoom(room)
     setShowMoveStudentsModal(true)
-    setShowDropdown(null)
+    // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleInvalidateTestClick = useCallback((room) => {
@@ -833,7 +833,7 @@ function SessionView({ user, onBack }) {
     setInvalidationNotes('')
     setSelectedSection('')
     setShowInvalidateModal(true)
-    setShowDropdown(null)
+    // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleInvalidateTest = useCallback(async () => {
@@ -898,7 +898,7 @@ function SessionView({ user, onBack }) {
     setSelectedRoomForNotes(room)
     setRoomNotes(room.notes || '')
     setShowRoomNotesModal(true)
-    setShowDropdown(null)
+    // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleSaveRoomNotes = useCallback(async () => {
@@ -2249,12 +2249,13 @@ function SessionView({ user, onBack }) {
                                   >
                                     <div className="py-1">
                                       <button
-                                        onMouseDown={(e) => {
+                                        onClick={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
                                           console.log('Add Supply button clicked')
                                           handleAddSupplyClick(room)
+                                          setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
@@ -2264,12 +2265,13 @@ function SessionView({ user, onBack }) {
                                         Add Supply
                                       </button>
                                       <button
-                                        onMouseDown={(e) => {
+                                        onClick={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
                                           console.log('Move Students button clicked')
                                           handleMoveStudentsClick(room)
+                                          setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
@@ -2279,12 +2281,13 @@ function SessionView({ user, onBack }) {
                                         Move Students
                                       </button>
                                       <button
-                                        onMouseDown={(e) => {
+                                        onClick={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
                                           console.log('Add Notes button clicked')
                                           handleRoomNotesClick(room)
+                                          setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
@@ -2294,12 +2297,13 @@ function SessionView({ user, onBack }) {
                                         Add Notes
                                       </button>
                                       <button
-                                        onMouseDown={(e) => {
+                                        onClick={(e) => {
                                           e.preventDefault()
                                           e.stopPropagation()
                                           e.stopImmediatePropagation()
                                           console.log('Invalidate Test button clicked')
                                           handleInvalidateTestClick(room)
+                                          setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                                       >
@@ -2547,12 +2551,13 @@ function SessionView({ user, onBack }) {
                           <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                             <div className="py-1">
                               <button
-                                onMouseDown={(e) => {
+                                onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
                                   console.log('Add Supply button clicked (card view)')
                                   handleAddSupplyClick(room)
+                                  setShowDropdown(null)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
@@ -2562,12 +2567,13 @@ function SessionView({ user, onBack }) {
                                 Add Supply
                               </button>
                               <button
-                                onMouseDown={(e) => {
+                                onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
                                   console.log('Move Students button clicked (card view)')
                                   handleMoveStudentsClick(room)
+                                  setShowDropdown(null)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
@@ -2577,12 +2583,13 @@ function SessionView({ user, onBack }) {
                                 Move Students
                               </button>
                               <button
-                                onMouseDown={(e) => {
+                                onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
                                   console.log('Add Notes button clicked (card view)')
                                   handleRoomNotesClick(room)
+                                  setShowDropdown(null)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
@@ -2592,12 +2599,13 @@ function SessionView({ user, onBack }) {
                                 Add Notes
                               </button>
                               <button
-                                onMouseDown={(e) => {
+                                onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   e.stopImmediatePropagation()
                                   console.log('Invalidate Test button clicked (card view)')
                                   handleInvalidateTestClick(room)
+                                  setShowDropdown(null)
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                               >
