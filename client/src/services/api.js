@@ -1,6 +1,14 @@
 // API service for T-Testing application
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Use relative URL in production, absolute URL in development
+const API_BASE_URL = import.meta.env.PROD 
+  ? '/api' 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
+
+// Debug logging
+console.log('🔍 Environment:', import.meta.env.MODE);
+console.log('🔍 Production:', import.meta.env.PROD);
+console.log('🔍 API Base URL:', API_BASE_URL);
 
 // Helper function to handle API responses
 const handleResponse = async (response) => {
