@@ -618,7 +618,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the React app build
-app.use(express.static(path.join(process.cwd(), 'public')));
+const publicPath = path.join(process.cwd(), 'public');
+console.log('🔍 Public path:', publicPath);
+console.log('🔍 Public directory exists:', require('fs').existsSync(publicPath));
+
+// Create public directory if it doesn't exist
+if (!require('fs').existsSync(publicPath)) {
+  console.log('🔨 Creating public directory...');
+  require('fs').mkdirSync(publicPath, { recursive: true });
+}
+
+app.use(express.static(publicPath));
 
 // Validation middleware
 const validateRegistration = [

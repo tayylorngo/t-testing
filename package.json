@@ -5,11 +5,12 @@
   "private": true,
   "main": "server/server.js",
   "scripts": {
-    "build": "cd client && npm ci && npm run build && mkdir -p ../server/public && cp -r dist/* ../server/public/",
+    "build": "cd client && npm ci && npm run build && cd .. && mkdir -p server/public && cp -r client/dist/* server/public/",
     "start": "node server/server.js",
     "install:client": "cd client && npm ci",
     "install:server": "cd server && npm ci --production",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "prestart": "npm run build"
   },
   "engines": {
     "node": ">=18.0.0",
