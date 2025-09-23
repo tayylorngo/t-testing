@@ -768,10 +768,13 @@ function SessionView({ user, onBack }) {
       const button = event?.target?.closest('button')
       if (button) {
         const rect = button.getBoundingClientRect()
-        setDropdownPosition({
-          top: rect.bottom + window.scrollY + 8,
-          left: rect.right - 192 + window.scrollX // 192px is the width of the dropdown
-        })
+        const position = {
+          top: rect.bottom + 8, // Use viewport coordinates for fixed positioning
+          left: rect.right - 192 // Align right edge of dropdown with right edge of button
+        }
+        console.log('Button rect:', rect)
+        console.log('Calculated position:', position)
+        setDropdownPosition(position)
       }
       setShowDropdown(roomId)
     }
