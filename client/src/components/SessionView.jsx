@@ -2017,7 +2017,7 @@ function SessionView({ user, onBack }) {
         {isTableView ? (
           /* Table View */
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto overflow-y-visible">
+            <div className="overflow-x-auto overflow-y-visible" style={{ touchAction: 'pan-x' }}>
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -2162,22 +2162,44 @@ function SessionView({ user, onBack }) {
                             {canEditSession() && (
                               <div className="relative dropdown-container">
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
+                                    e.nativeEvent.stopImmediatePropagation()
                                     toggleDropdown(room._id, e)
                                   }}
                                   onMouseDown={(e) => {
                                     e.preventDefault()
+                                    e.stopPropagation()
+                                  }}
+                                  onTouchStart={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
                                   }}
                                   className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors duration-200"
                                   title="More Actions"
+                                  style={{ 
+                                    touchAction: 'none',
+                                    pointerEvents: 'auto',
+                                    position: 'relative',
+                                    zIndex: 1000
+                                  }}
                                 >
                                   ⋯
                                 </button>
                                 
                                 {showDropdown === room._id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]">
+                                  <div 
+                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]"
+                                    style={{ 
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: '0',
+                                      marginTop: '8px',
+                                      zIndex: 9999
+                                    }}
+                                  >
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => {
