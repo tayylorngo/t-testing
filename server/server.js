@@ -653,7 +653,38 @@ if (!fs.existsSync(indexPath)) {
   console.log('✅ index.html created');
 }
 
-app.use(express.static(publicPath));
+// Debug: List files in public directory
+console.log('🔍 Files in public directory:');
+try {
+  const files = fs.readdirSync(publicPath, { recursive: true });
+  console.log('📁 Public directory contents:', files);
+} catch (error) {
+  console.log('❌ Error reading public directory:', error.message);
+}
+
+// Serve static files with proper MIME types
+app.use(express.static(publicPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
+
+// Specific route for assets directory
+app.use('/assets', express.static(path.join(publicPath, 'assets'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
 
 // Validation middleware
 const validateRegistration = [
