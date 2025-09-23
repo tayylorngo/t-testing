@@ -277,9 +277,7 @@ const RoomDetail = ({ user }) => {
         if (section.accommodations) {
           section.accommodations.forEach(acc => {
             // Check for various formats of time accommodations
-            if (acc.includes('1.5x time') || acc.includes('2x time') || 
-                acc.includes('1.5x') || acc.includes('2x') ||
-                acc.includes('1.5× Time') || acc.includes('2× Time') ||
+            if (acc.includes('1.5x') || acc.includes('2x') ||
                 acc.includes('1.5×') || acc.includes('2×') ||
                 acc.includes('extended time') || acc.includes('double time')) {
               hasTimeAccommodation = true
@@ -295,11 +293,11 @@ const RoomDetail = ({ user }) => {
           if (section.accommodations) {
             section.accommodations.forEach(acc => {
               // Check for 2x time accommodations (various formats)
-              if (acc.includes('2x time') || acc.includes('2x') || acc.includes('2× Time') || acc.includes('2×') || acc.includes('double time')) {
+              if (acc.includes('2x') || acc.includes('2×') || acc.includes('double time')) {
                 maxMultiplier = Math.max(maxMultiplier, 2)
               } 
               // Check for 1.5x time accommodations (various formats)
-              else if (acc.includes('1.5x time') || acc.includes('1.5x') || acc.includes('1.5× Time') || acc.includes('1.5×') || acc.includes('extended time')) {
+              else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time')) {
                 maxMultiplier = Math.max(maxMultiplier, 1.5)
               }
             })

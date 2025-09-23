@@ -15,6 +15,12 @@ function SessionDetail({ onBack }) {
   const [newRoomSupplies, setNewRoomSupplies] = useState({})
   const [newSectionNumber, setNewSectionNumber] = useState('')
   const [newSectionStudentCount, setNewSectionStudentCount] = useState('1')
+  // State for creating sections within room modal
+  const [roomSectionsToCreate, setRoomSectionsToCreate] = useState([])
+  const [newRoomSectionNumber, setNewRoomSectionNumber] = useState('')
+  const [newRoomSectionStudentCount, setNewRoomSectionStudentCount] = useState('1')
+  const [newRoomSectionDescription, setNewRoomSectionDescription] = useState('')
+  const [newRoomSectionAccommodations, setNewRoomSectionAccommodations] = useState([])
   const [selectedRoomForSection, setSelectedRoomForSection] = useState(null)
   const [availableSections, setAvailableSections] = useState([])
   const [selectedSectionsForRoom, setSelectedSectionsForRoom] = useState([])
@@ -37,25 +43,43 @@ function SessionDetail({ onBack }) {
   const [sectionSortDescending, setSectionSortDescending] = useState(false)
   // Add state for accommodations
   const ACCOMMODATIONS = [
-    '1.5× Time',
-    '2× Time',
-    'Unlimited Time',
-    'Next-Day Completion (if two exams same day)',
-    'Separate Location',
-    'Test Read Aloud (Full Exam)',
-    'Large Print / Braille',
-    'Scribe / Speech-to-Text',
-    'Use of Computer / Assistive Technology',
-    'Breaks Not Counted Against Time',
-    'Translated Exam (Written Version): Chinese',
-    'Translated Exam (Written Version): Haitian Creole',
-    'Translated Exam (Written Version): Korean',
-    'Translated Exam (Written Version): Russian',
-    'Translated Exam (Written Version): Spanish',
-    'Oral Translation (e.g., Ukrainian, other languages)',
-    'Bilingual Glossary (Word-to-Word Translation)',
-    'Answer in Native Language (Short/Essay Responses)'
+    // Time Accommodations
+    '1.5x',
+    '2x',
+    
+    // Bilingual Accommodations
+    'Bilingual – Chinese',
+    'Bilingual – Bengali',
+    'Bilingual – French',
+    'Bilingual – Georgian',
+    'Bilingual – Russian',
+    'Bilingual – Spanish',
+    'Bilingual – Tadzhik',
+    'Bilingual – Arabic',
+    'Bilingual – Armenian',
+    'Bilingual – Haitian',
+    'Bilingual – Ukrainian',
+    'Bilingual – Urdu',
+    'Bilingual – Uzbek',
+    
+    // Other Testing Supports
+    '504\'s',
+    '2-tech',
+    'Reader',
+    'Vision',
+    'Scribe'
   ];
+
+  // Helper function to group accommodations by category
+  const getAccommodationGroups = () => {
+    return {
+      'Time Accommodations': ACCOMMODATIONS.filter(acc => acc === '1.5x' || acc === '2x'),
+      'Bilingual Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('Bilingual –')),
+      'Other Testing Supports': ACCOMMODATIONS.filter(acc => 
+        acc === '504\'s' || acc === '2-tech' || acc === 'Reader' || acc === 'Vision' || acc === 'Scribe'
+      )
+    }
+  };
   const [selectedAccommodations, setSelectedAccommodations] = useState([])
   // Add state for custom accommodations
   const [customAccommodation, setCustomAccommodation] = useState('')
@@ -193,6 +217,80 @@ function SessionDetail({ onBack }) {
     }
   }
 
+  // Helper functions for room section management
+  const addRoomSection = () => {
+    if (!newRoomSectionNumber.trim() || !newRoomSectionStudentCount.trim()) return
+    
+    const input = newRoomSectionNumber.trim()
+    let numbers = []
+    if (/^\d+$/.test(input)) {
+      // Single number
+      numbers = [parseInt(input)]
+    } else if (/^(\d+)-(\d+)$/.test(input)) {
+      // Range
+      const [, start, end] = input.match(/(\d+)-(\d+)/)
+      const s = parseInt(start)
+      const e = parseInt(end)
+      if (s > e) {
+        alert('Start of range must be less than or equal to end.')
+        return
+      }
+      numbers = Array.from({ length: e - s + 1 }, (_, i) => s + i)
+    } else {
+      alert('Please enter a valid section number or range (e.g., 25 or 20-30).')
+      return
+    }
+    
+    const studentCount = parseInt(newRoomSectionStudentCount)
+    if (studentCount < 1) {
+      alert('Student count must be at least 1.')
+      return
+    }
+    
+    // Check for duplicate section numbers
+    const existingNumbers = roomSectionsToCreate.map(s => s.number)
+    const duplicates = numbers.filter(num => existingNumbers.includes(num))
+    if (duplicates.length > 0) {
+      alert(`Section number(s) ${duplicates.join(', ')} already added.`)
+      return
+    }
+    
+    // Check against existing sections in session
+    const sessionSectionNumbers = session.sections?.map(s => s.number) || []
+    const sessionDuplicates = numbers.filter(num => sessionSectionNumbers.includes(num))
+    if (sessionDuplicates.length > 0) {
+      alert(`Section number(s) ${sessionDuplicates.join(', ')} already exist in the session.`)
+      return
+    }
+    
+    // Create section objects
+    const newSections = numbers.map(number => ({
+      number,
+      studentCount,
+      description: newRoomSectionDescription.trim() || '',
+      accommodations: [...newRoomSectionAccommodations],
+      notes: ''
+    }))
+    
+    setRoomSectionsToCreate([...roomSectionsToCreate, ...newSections])
+    setNewRoomSectionNumber('')
+    setNewRoomSectionStudentCount('1')
+    setNewRoomSectionDescription('')
+    setNewRoomSectionAccommodations([])
+  }
+  
+  const removeRoomSection = (index) => {
+    setRoomSectionsToCreate(roomSectionsToCreate.filter((_, i) => i !== index))
+  }
+  
+  const toggleRoomSectionAccommodation = (accommodation) => {
+    setNewRoomSectionAccommodations(prev => 
+      prev.includes(accommodation) 
+        ? prev.filter(acc => acc !== accommodation)
+        : [...prev, accommodation]
+    )
+  }
+
   const handleAddRoom = async () => {
     if (!newRoomName.trim()) return
     
@@ -200,11 +298,26 @@ function SessionDetail({ onBack }) {
       // Parse supplies from input
       const supplies = parseSupplies(newRoomSupplies)
       
+      // Create sections first if any are being created
+      let createdSectionIds = [...selectedSectionsForRoom]
+      if (roomSectionsToCreate.length > 0) {
+        for (const sectionData of roomSectionsToCreate) {
+          const sectionResponse = await testingAPI.createSection({
+            number: sectionData.number,
+            studentCount: sectionData.studentCount,
+            description: sectionData.description,
+            accommodations: sectionData.accommodations,
+            notes: sectionData.notes
+          })
+          createdSectionIds.push(sectionResponse.section._id)
+        }
+      }
+      
       // Create a new room with selected sections and initial supplies
       const roomResponse = await testingAPI.createRoomWithSections({
         name: newRoomName.trim(),
         supplies: supplies,
-        sectionIds: selectedSectionsForRoom
+        sectionIds: createdSectionIds
       })
       
       // Add the new room to the session
@@ -222,6 +335,11 @@ function SessionDetail({ onBack }) {
       setNewRoomName('')
       setNewRoomSupplies({})
       setSelectedSectionsForRoom([])
+      setRoomSectionsToCreate([])
+      setNewRoomSectionNumber('')
+      setNewRoomSectionStudentCount('1')
+      setNewRoomSectionDescription('')
+      setNewRoomSectionAccommodations([])
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding room to session:', error)
@@ -1282,57 +1400,174 @@ function SessionDetail({ onBack }) {
       {/* Add Room Modal */}
       {showAddRoomModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Room</h2>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Room Name
-                </label>
-                <input
-                  type="text"
-                  value={newRoomName}
-                  onChange={(e) => setNewRoomName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter room name"
-                  autoFocus
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Initial Supplies (Optional)
-                </label>
-                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  <div className="grid grid-cols-1 gap-2">
-                    {PRESET_SUPPLIES.map((supply) => (
-                      <div key={supply} className="flex items-center space-x-2 py-1">
-                        <label className="flex-1 text-sm text-gray-700 min-w-0">
-                          <span className="truncate">{supply}</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={newRoomSupplies[supply] || ''}
-                          onChange={(e) => updateSupplyQuantity(supply, parseInt(e.target.value) || 0)}
-                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Enter quantities for supplies needed. Leave as 0 for supplies not needed. Additional supplies can be added later in the room view.
-                </p>
-              </div>
-              
-              {session.sections && session.sections.length > 0 && (
+            <div className="space-y-6">
+              {/* Room Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Sections (Optional)
+                    Room Name *
                   </label>
+                  <input
+                    type="text"
+                    value={newRoomName}
+                    onChange={(e) => setNewRoomName(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter room name"
+                    autoFocus
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Initial Supplies (Optional)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                    <div className="grid grid-cols-1 gap-2">
+                      {PRESET_SUPPLIES.slice(0, 8).map((supply) => (
+                        <div key={supply} className="flex items-center space-x-2 py-1">
+                          <label className="flex-1 text-sm text-gray-700 min-w-0">
+                            <span className="truncate">{supply}</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={newRoomSupplies[supply] || ''}
+                            onChange={(e) => updateSupplyQuantity(supply, parseInt(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="0"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Create New Sections */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Sections for This Room</h3>
+                
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Section Number(s) *
+                      </label>
+                      <input
+                        type="text"
+                        value={newRoomSectionNumber}
+                        onChange={(e) => setNewRoomSectionNumber(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="e.g. 25 or 20-30"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Single number or range</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Student Count *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newRoomSectionStudentCount}
+                        onChange={(e) => setNewRoomSectionStudentCount(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="Number of students"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newRoomSectionDescription}
+                        onChange={(e) => setNewRoomSectionDescription(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        placeholder="Section description"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Accommodations */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Accommodations (Optional)
+                    </label>
+                    <div className="space-y-4">
+                      {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
+                        <div key={category}>
+                          <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {accommodations.map((accommodation) => (
+                              <label key={accommodation} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={newRoomSectionAccommodations.includes(accommodation)}
+                                  onChange={() => toggleRoomSectionAccommodation(accommodation)}
+                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                />
+                                <span className="text-sm text-gray-700">{accommodation}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={addRoomSection}
+                    disabled={!newRoomSectionNumber.trim() || !newRoomSectionStudentCount.trim()}
+                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                  >
+                    Add Section to Room
+                  </button>
+                </div>
+                
+                {/* List of sections to be created */}
+                {roomSectionsToCreate.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-md font-medium text-gray-900 mb-3">Sections to be created:</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {roomSectionsToCreate.map((section, index) => (
+                        <div key={index} className="flex items-center justify-between bg-purple-50 p-3 rounded-lg">
+                          <div>
+                            <span className="font-medium text-purple-900">Section {section.number}</span>
+                            <span className="text-sm text-purple-700 ml-2">({section.studentCount} students)</span>
+                            {section.description && (
+                              <div className="text-xs text-purple-600 mt-1">{section.description}</div>
+                            )}
+                            {section.accommodations.length > 0 && (
+                              <div className="text-xs text-purple-600 mt-1">
+                                Accommodations: {section.accommodations.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeRoomSection(index)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Select Existing Sections */}
+              {session.sections && session.sections.length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Existing Sections (Optional)</h3>
                   <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
                     {session.sections
                       .filter(section => {
@@ -1367,7 +1602,7 @@ function SessionDetail({ onBack }) {
                   </div>
                   {selectedSectionsForRoom.length > 0 && (
                     <p className="text-sm text-gray-600 mt-2">
-                      Selected: {selectedSectionsForRoom.length} section(s)
+                      Selected: {selectedSectionsForRoom.length} existing section(s)
                     </p>
                   )}
                   {session.sections.filter(section => {
@@ -1383,13 +1618,18 @@ function SessionDetail({ onBack }) {
                 </div>
               )}
               
-              <div className="flex space-x-4 pt-4">
+              <div className="flex space-x-4 pt-4 border-t">
                 <button
                   onClick={() => {
                     setShowAddRoomModal(false)
                     setNewRoomName('')
                     setNewRoomSupplies({})
                     setSelectedSectionsForRoom([])
+                    setRoomSectionsToCreate([])
+                    setNewRoomSectionNumber('')
+                    setNewRoomSectionStudentCount('1')
+                    setNewRoomSectionDescription('')
+                    setNewRoomSectionAccommodations([])
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
@@ -1450,24 +1690,33 @@ function SessionDetail({ onBack }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Accommodations
                 </label>
-                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  {ACCOMMODATIONS.map((accommodation) => (
-                    <label key={accommodation} className="flex items-center space-x-2 py-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedAccommodations.includes(accommodation)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAccommodations([...selectedAccommodations, accommodation])
-                          } else {
-                            setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
-                          }
-                        }}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-gray-700">{accommodation}</span>
-                    </label>
-                  ))}
+                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="space-y-4">
+                    {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
+                      <div key={category}>
+                        <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
+                        <div className="space-y-1">
+                          {accommodations.map((accommodation) => (
+                            <label key={accommodation} className="flex items-center space-x-2 py-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedAccommodations.includes(accommodation)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedAccommodations([...selectedAccommodations, accommodation])
+                                  } else {
+                                    setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              />
+                              <span className="text-sm text-gray-700">{accommodation}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 {/* Custom Accommodation Input */}
@@ -1870,24 +2119,33 @@ function SessionDetail({ onBack }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Accommodations
                 </label>
-                <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  {ACCOMMODATIONS.map((accommodation) => (
-                    <label key={accommodation} className="flex items-center space-x-2 py-1">
-                      <input
-                        type="checkbox"
-                        checked={editSectionAccommodations.includes(accommodation)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setEditSectionAccommodations([...editSectionAccommodations, accommodation])
-                          } else {
-                            setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
-                          }
-                        }}
-                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-gray-700">{accommodation}</span>
-                    </label>
-                  ))}
+                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="space-y-4">
+                    {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
+                      <div key={category}>
+                        <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
+                        <div className="space-y-1">
+                          {accommodations.map((accommodation) => (
+                            <label key={accommodation} className="flex items-center space-x-2 py-1">
+                              <input
+                                type="checkbox"
+                                checked={editSectionAccommodations.includes(accommodation)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditSectionAccommodations([...editSectionAccommodations, accommodation])
+                                  } else {
+                                    setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              />
+                              <span className="text-sm text-gray-700">{accommodation}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 {/* Custom Accommodation Input */}

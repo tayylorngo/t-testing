@@ -86,6 +86,14 @@ function SessionView({ user, onBack }) {
            )
   }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
+
+  const isViewerOnly = useCallback(() => {
+    if (!memoizedSession || !user) return false
+    if (memoizedSession.createdBy._id === user._id) return false // Owner has full access
+    const collaborator = memoizedSession.collaborators?.find(collab => collab.userId._id === user._id)
+    return collaborator && collaborator.permissions.view && !collaborator.permissions.edit && !collaborator.permissions.manage
+  }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
+
   const getSessionRole = useCallback(() => {
     if (!memoizedSession || !user) return 'Unknown'
     if (memoizedSession.createdBy._id === user._id) return 'Owner'
@@ -1354,9 +1362,7 @@ function SessionView({ user, onBack }) {
       if (section.accommodations) {
         section.accommodations.forEach(acc => {
           // Check for various formats of time accommodations
-          if (acc.includes('1.5x time') || acc.includes('2x time') || 
-              acc.includes('1.5x') || acc.includes('2x') ||
-              acc.includes('1.5× Time') || acc.includes('2× Time') ||
+          if (acc.includes('1.5x') || acc.includes('2x') ||
               acc.includes('1.5×') || acc.includes('2×') ||
               acc.includes('extended time') || acc.includes('double time')) {
             hasTimeAccommodation = true
@@ -1375,11 +1381,11 @@ function SessionView({ user, onBack }) {
       if (section.accommodations) {
         section.accommodations.forEach(acc => {
           // Check for 2x time accommodations (various formats)
-          if (acc.includes('2x time') || acc.includes('2x') || acc.includes('2× Time') || acc.includes('2×') || acc.includes('double time')) {
+          if (acc.includes('2x') || acc.includes('2×') || acc.includes('double time')) {
             maxMultiplier = Math.max(maxMultiplier, 2)
           } 
           // Check for 1.5x time accommodations (various formats)
-          else if (acc.includes('1.5x time') || acc.includes('1.5x') || acc.includes('1.5× Time') || acc.includes('1.5×') || acc.includes('extended time')) {
+          else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time')) {
             maxMultiplier = Math.max(maxMultiplier, 1.5)
           }
         })
@@ -2346,7 +2352,22 @@ function SessionView({ user, onBack }) {
 
                 {/* Room Actions */}
                 <div className="space-y-3 mb-4">
-                  {canEditSession() && (
+                  {isViewerOnly() ? (
+                    /* Viewer Only - Show only View Details button */
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/sessions/${sessionId}/rooms/${room._id}`)
+                      }}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      View Details
+                    </button>
+                  ) : canEditSession() ? (
+                    /* Editor/Manager - Show all management buttons */
                     <>
                       {room.status === 'completed' ? (
                         <button
@@ -2457,6 +2478,20 @@ function SessionView({ user, onBack }) {
                         )}
                       </div>
                     </>
+                  ) : (
+                    /* No permissions - Show only View Details button */
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/sessions/${sessionId}/rooms/${room._id}`)
+                      }}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      View Details
+                    </button>
                   )}
                 </div>
 
