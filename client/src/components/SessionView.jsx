@@ -53,7 +53,9 @@ function SessionView({ user, onBack }) {
   const [showClearLogModal, setShowClearLogModal] = useState(false)
   const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false)
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
-  const [showDropdown, setShowDropdown] = useState(null) // roomId for which dropdown is open
+  const [showDropdown, setShowDropdown] = useState(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef(null) // roomId for which dropdown is open
   const [showInvalidateModal, setShowInvalidateModal] = useState(false)
   const [roomToInvalidate, setRoomToInvalidate] = useState(null)
   const [invalidationNotes, setInvalidationNotes] = useState('')
@@ -758,7 +760,21 @@ function SessionView({ user, onBack }) {
       event.preventDefault()
       event.stopPropagation()
     }
-    setShowDropdown(showDropdown === roomId ? null : roomId)
+    
+    if (showDropdown === roomId) {
+      setShowDropdown(null)
+    } else {
+      // Calculate position relative to the button
+      const button = event?.target?.closest('button')
+      if (button) {
+        const rect = button.getBoundingClientRect()
+        setDropdownPosition({
+          top: rect.bottom + window.scrollY + 8,
+          left: rect.right - 192 + window.scrollX // 192px is the width of the dropdown
+        })
+      }
+      setShowDropdown(roomId)
+    }
   }, [showDropdown])
 
   // Close dropdown when clicking outside
@@ -2190,17 +2206,17 @@ function SessionView({ user, onBack }) {
                                   ⋯
                                 </button>
                                 
-                                {showDropdown === room._id && (
+                                {showDropdown === room._id && createPortal(
                                   <div 
-                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]"
+                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
                                     style={{ 
-                                      position: 'absolute',
-                                      top: '100%',
-                                      right: '0',
-                                      marginTop: '8px',
-                                      zIndex: 9999,
+                                      position: 'fixed',
+                                      top: `${dropdownPosition.top}px`,
+                                      left: `${dropdownPosition.left}px`,
+                                      zIndex: 99999,
                                       minHeight: 'auto',
-                                      maxHeight: 'none'
+                                      maxHeight: 'none',
+                                      width: '192px'
                                     }}
                                   >
                                     <div className="py-1">
@@ -2253,7 +2269,8 @@ function SessionView({ user, onBack }) {
                                         Invalidate Test
                                       </button>
                                     </div>
-                                  </div>
+                                  </div>,
+                                  document.body
                                 )}
                               </div>
                             )}
