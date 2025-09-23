@@ -11,6 +11,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
@@ -620,12 +621,12 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files from the React app build
 const publicPath = path.join(process.cwd(), 'public');
 console.log('🔍 Public path:', publicPath);
-console.log('🔍 Public directory exists:', require('fs').existsSync(publicPath));
+console.log('🔍 Public directory exists:', fs.existsSync(publicPath));
 
 // Create public directory if it doesn't exist
-if (!require('fs').existsSync(publicPath)) {
+if (!fs.existsSync(publicPath)) {
   console.log('🔨 Creating public directory...');
-  require('fs').mkdirSync(publicPath, { recursive: true });
+  fs.mkdirSync(publicPath, { recursive: true });
 }
 
 app.use(express.static(publicPath));
