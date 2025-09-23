@@ -924,6 +924,22 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
     if (session) {
+      // Check if room completion should trigger session completion
+      if (status === 'completed') {
+        // Get all rooms in the session to check if all are completed
+        const allRooms = await Room.find({ _id: { $in: session.rooms } });
+        const allRoomsCompleted = allRooms.every(r => r.status === 'completed');
+        
+        if (allRoomsCompleted && session.status !== 'completed') {
+          console.log('All rooms completed, updating session status to completed');
+          await Session.findByIdAndUpdate(
+            session._id,
+            { status: 'completed', updatedAt: new Date() },
+            { new: true, runValidators: true }
+          );
+          console.log('Session status updated to completed');
+        }
+      }
       console.log(`Room update - Emitting real-time update for session: ${session._id}`);
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
@@ -2325,58 +2341,72 @@ app.delete('/api/sessions/:sessionId/invalidations/:invalidationId', authenticat
 
 // Add section to room
 app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
+  const session = await mongoose.startSession();
+  
   try {
-    const { roomId } = req.params;
-    const { sectionId } = req.body;
+    await session.withTransaction(async () => {
+      const { roomId } = req.params;
+      const { sectionId } = req.body;
 
-    if (!sectionId) {
-      return res.status(400).json({ message: 'Section ID is required' });
-    }
+      if (!sectionId) {
+        throw new Error('Section ID is required');
+      }
 
-    // Check if room exists
-    const room = await Room.findById(roomId);
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
+      // Check if room exists
+      const room = await Room.findById(roomId).session(session);
+      if (!room) {
+        throw new Error('Room not found');
+      }
 
-    // Check if section exists
-    const section = await Section.findById(sectionId);
-    if (!section) {
-      return res.status(404).json({ message: 'Section not found' });
-    }
+      // Check if section exists
+      const section = await Section.findById(sectionId).session(session);
+      if (!section) {
+        throw new Error('Section not found');
+      }
 
-    // Check if section is already in room
-    if (room.sections.includes(sectionId)) {
-      return res.status(400).json({ message: 'Section is already in this room' });
-    }
+      // Check if section is already in room (atomic check)
+      if (room.sections.includes(sectionId)) {
+        throw new Error('Section is already in this room');
+      }
 
-    // Add section to room
-    room.sections.push(sectionId);
-    await room.save();
+      // Add section to room atomically
+      await Room.findByIdAndUpdate(
+        roomId,
+        { $addToSet: { sections: sectionId } },
+        { session }
+      );
 
-    // Return updated room with populated sections
-    const updatedRoom = await Room.findById(roomId)
-      .populate('sections', 'number studentCount accommodations notes');
+      // Return updated room with populated sections
+      const updatedRoom = await Room.findById(roomId)
+        .populate('sections', 'number studentCount accommodations notes')
+        .session(session);
 
-    // Find the session that contains this room to emit real-time update
-    const session = await Session.findOne({ rooms: roomId });
-    if (session) {
-      console.log(`Section added to room - Emitting real-time update for session: ${session._id}`);
-      // Get user information for the real-time update
-      const user = await User.findById(req.user.id);
-      
-             emitSessionUpdate(session._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, null);
-    } else {
-      console.log(`Section added to room - No session found containing room: ${roomId}`);
-    }
+      // Find the session that contains this room to emit real-time update
+      const sessionDoc = await Session.findOne({ rooms: roomId }).session(session);
+      if (sessionDoc) {
+        console.log(`Section added to room - Emitting real-time update for session: ${sessionDoc._id}`);
+        // Get user information for the real-time update
+        const user = await User.findById(req.user.id);
+        
+        emitSessionUpdate(sessionDoc._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, null);
+      } else {
+        console.log(`Section added to room - No session found containing room: ${roomId}`);
+      }
 
-    res.json({ 
-      message: 'Section added to room successfully', 
-      room: updatedRoom 
+      res.json({ 
+        message: 'Section added to room successfully', 
+        room: updatedRoom 
+      });
     });
   } catch (error) {
     console.error('Add section to room error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    if (error.message) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  } finally {
+    await session.endSession();
   }
 });
 
@@ -2494,125 +2524,138 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
 
 // Move students between rooms
 app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req, res) => {
+  const session = await mongoose.startSession();
+  
   try {
-    const { sessionId } = req.params;
-    const { sourceRoomId, destinationRoomId, sectionId, studentsToMove } = req.body;
+    await session.withTransaction(async () => {
+      const { sessionId } = req.params;
+      const { sourceRoomId, destinationRoomId, sectionId, studentsToMove } = req.body;
 
-    if (!sourceRoomId || !destinationRoomId || !sectionId || !studentsToMove) {
-      return res.status(400).json({ message: 'All fields are required: sourceRoomId, destinationRoomId, sectionId, studentsToMove' });
-    }
+      if (!sourceRoomId || !destinationRoomId || !sectionId || !studentsToMove) {
+        throw new Error('All fields are required: sourceRoomId, destinationRoomId, sectionId, studentsToMove');
+      }
 
-    // Check if session exists and user has permission
-    const session = await Session.findOne({ 
-      _id: sessionId,
-      $or: [
-        { createdBy: req.user.id },
-        { 'collaborators.userId': req.user.id }
-      ]
-    });
+      // Check if session exists and user has permission
+      const sessionDoc = await Session.findOne({ 
+        _id: sessionId,
+        $or: [
+          { createdBy: req.user.id },
+          { 'collaborators.userId': req.user.id }
+        ]
+      }).session(session);
 
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
-    }
+      if (!sessionDoc) {
+        throw new Error('Session not found');
+      }
 
-    // Check if source and destination rooms exist and are in the session
-    const sourceRoom = await Room.findById(sourceRoomId);
-    const destinationRoom = await Room.findById(destinationRoomId);
-    
-    if (!sourceRoom || !destinationRoom) {
-      return res.status(404).json({ message: 'Source or destination room not found' });
-    }
-
-    if (!session.rooms.includes(sourceRoomId) || !session.rooms.includes(destinationRoomId)) {
-      return res.status(400).json({ message: 'Both rooms must be in the session' });
-    }
-
-    // Check if section exists in source room
-    const sourceSection = sourceRoom.sections.find(s => s.toString() === sectionId);
-    if (!sourceSection) {
-      return res.status(400).json({ message: 'Section not found in source room' });
-    }
-
-    // Get user information for logging
-    const user = await User.findById(req.user.id);
-
-    // Get the section details
-    const section = await Section.findById(sectionId);
-    if (!section) {
-      return res.status(404).json({ message: 'Section not found' });
-    }
-
-    // Check if destination room already has a section with the same number
-    const destinationRoomSections = await Room.findById(destinationRoomId)
-      .populate('sections', 'number studentCount accommodations notes');
-    
-    const existingSection = destinationRoomSections.sections.find(s => s.number === section.number);
-    
-    if (existingSection) {
-      // Combine sections - add students to existing section
-      const newStudentCount = existingSection.studentCount + studentsToMove;
-      await Section.findByIdAndUpdate(existingSection._id, { 
-        studentCount: newStudentCount 
-      });
+      // Check if source and destination rooms exist and are in the session
+      const sourceRoom = await Room.findById(sourceRoomId).session(session);
+      const destinationRoom = await Room.findById(destinationRoomId).session(session);
       
-      // Remove the source section from source room
-      await Room.findByIdAndUpdate(sourceRoomId, {
-        $pull: { sections: sectionId }
-      });
+      if (!sourceRoom || !destinationRoom) {
+        throw new Error('Source or destination room not found');
+      }
+
+      if (!sessionDoc.rooms.includes(sourceRoomId) || !sessionDoc.rooms.includes(destinationRoomId)) {
+        throw new Error('Both rooms must be in the session');
+      }
+
+      // Check if section exists in source room
+      const sourceSection = sourceRoom.sections.find(s => s.toString() === sectionId);
+      if (!sourceSection) {
+        throw new Error('Section not found in source room');
+      }
+
+      // Get user information for logging
+      const user = await User.findById(req.user.id);
+
+      // Get the section details
+      const section = await Section.findById(sectionId).session(session);
+      if (!section) {
+        throw new Error('Section not found');
+      }
+
+      // Check if destination room already has a section with the same number
+      const destinationRoomSections = await Room.findById(destinationRoomId)
+        .populate('sections', 'number studentCount accommodations notes')
+        .session(session);
       
-      // Delete the source section since we combined it
-      await Section.findByIdAndDelete(sectionId);
+      const existingSection = destinationRoomSections.sections.find(s => s.number === section.number);
       
-      console.log(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
-    } else {
-      // No existing section with same number - move the entire section
-      // Remove section from source room
-      await Room.findByIdAndUpdate(sourceRoomId, {
-        $pull: { sections: sectionId }
+      if (existingSection) {
+        // Combine sections - add students to existing section
+        const newStudentCount = existingSection.studentCount + studentsToMove;
+        await Section.findByIdAndUpdate(existingSection._id, { 
+          studentCount: newStudentCount 
+        }, { session });
+        
+        // Remove the source section from source room
+        await Room.findByIdAndUpdate(sourceRoomId, {
+          $pull: { sections: sectionId }
+        }, { session });
+        
+        // Delete the source section since we combined it
+        await Section.findByIdAndDelete(sectionId, { session });
+        
+        console.log(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
+      } else {
+        // No existing section with same number - move the entire section
+        // Remove section from source room
+        await Room.findByIdAndUpdate(sourceRoomId, {
+          $pull: { sections: sectionId }
+        }, { session });
+
+        // Add section to destination room
+        await Room.findByIdAndUpdate(destinationRoomId, {
+          $push: { sections: sectionId }
+        }, { session });
+        
+        console.log(`Moved entire section ${section.number} with ${studentsToMove} students`);
+      }
+
+      // Get updated rooms with populated sections
+      const updatedSourceRoom = await Room.findById(sourceRoomId)
+        .populate('sections', 'number studentCount accommodations notes')
+        .session(session);
+      const updatedDestinationRoom = await Room.findById(destinationRoomId)
+        .populate('sections', 'number studentCount accommodations notes')
+        .session(session);
+
+      // Add comprehensive activity log entry for student movement
+      let action;
+      if (existingSection) {
+        action = `${user.firstName} ${user.lastName} combined ${studentsToMove} students from Room ${sourceRoom.name} into existing Section ${section.number} in Room ${destinationRoom.name}`;
+      } else {
+        action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name}`;
+      }
+      const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
+
+      // Emit real-time update with the log entry and updated room data
+      emitSessionUpdate(sessionId, 'students-moved', { 
+        sourceRoomId, 
+        destinationRoomId, 
+        sectionId, 
+        studentsToMove,
+        sourceRoom: updatedSourceRoom,
+        destinationRoom: updatedDestinationRoom
+      }, user, logEntry);
+
+      res.json({ 
+        message: 'Students moved successfully',
+        logEntry,
+        sourceRoom: updatedSourceRoom,
+        destinationRoom: updatedDestinationRoom
       });
-
-      // Add section to destination room
-      await Room.findByIdAndUpdate(destinationRoomId, {
-        $push: { sections: sectionId }
-      });
-      
-      console.log(`Moved entire section ${section.number} with ${studentsToMove} students`);
-    }
-
-    // Get updated rooms with populated sections
-    const updatedSourceRoom = await Room.findById(sourceRoomId)
-      .populate('sections', 'number studentCount accommodations notes');
-    const updatedDestinationRoom = await Room.findById(destinationRoomId)
-      .populate('sections', 'number studentCount accommodations notes');
-
-    // Add comprehensive activity log entry for student movement
-    let action;
-    if (existingSection) {
-      action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name} (combined with existing Section ${section.number})`;
-    } else {
-      action = `${user.firstName} ${user.lastName} moved ${studentsToMove} students from Room ${sourceRoom.name} to Room ${destinationRoom.name}`;
-    }
-    const logEntry = await addActivityLogEntry(sessionId, action, null, null, `${user.firstName} ${user.lastName}`);
-
-    // Emit real-time update with the log entry and updated room data
-    emitSessionUpdate(sessionId, 'students-moved', { 
-      sourceRoomId, 
-      destinationRoomId, 
-      sectionId, 
-      studentsToMove,
-      sourceRoom: updatedSourceRoom,
-      destinationRoom: updatedDestinationRoom
-    }, user, logEntry);
-
-    res.json({ 
-      message: 'Students moved successfully',
-      logEntry,
-      sourceRoom: updatedSourceRoom,
-      destinationRoom: updatedDestinationRoom
     });
   } catch (error) {
     console.error('Move students error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    if (error.message) {
+      res.status(400).json({ message: error.message });
+    } else {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  } finally {
+    await session.endSession();
   }
 });
 

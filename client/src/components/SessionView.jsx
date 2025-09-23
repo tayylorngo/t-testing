@@ -672,12 +672,11 @@ function SessionView({ user, onBack }) {
           )
         }
         
-        // Check if all rooms are completed and update session status
+        // Note: Session completion is now handled server-side to prevent race conditions
+        // Check if all rooms are completed for confetti animation
         const allRoomsCompleted = updatedSession.rooms.every(room => room.status === 'completed')
         if (allRoomsCompleted && updatedSession.status !== 'completed') {
-          console.log('All rooms completed, updating session status to completed')
-          testingAPI.updateSession(sessionId, { status: 'completed' })
-          updatedSession.status = 'completed'
+          console.log('All rooms completed, session completion will be handled by server')
           
           // Trigger confetti animation when all rooms are completed
           confetti({
