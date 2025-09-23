@@ -248,7 +248,7 @@ const addActivityLogEntry = async (sessionId, action, roomName = null, details =
 };
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/t-testing';
+const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://localhost:27017/t-testing';
 console.log('🔍 MongoDB URI:', MONGODB_URI ? 'Set' : 'Not set');
 console.log('🔍 Environment variables:', {
   MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
