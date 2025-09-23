@@ -752,8 +752,26 @@ function SessionView({ user, onBack }) {
     setRoomToMarkIncomplete(null)
   }, [])
 
-  const toggleDropdown = useCallback((roomId) => {
+  const toggleDropdown = useCallback((roomId, event) => {
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
     setShowDropdown(showDropdown === roomId ? null : roomId)
+  }, [showDropdown])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDropdown && !event.target.closest('.dropdown-container')) {
+        setShowDropdown(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [showDropdown])
 
   const handleAddSupplyClick = useCallback((room) => {
@@ -2034,7 +2052,12 @@ function SessionView({ user, onBack }) {
                     <React.Fragment key={room._id}>
                       <tr 
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                        onClick={() => toggleRoomExpansion(room._id)}
+                        onClick={(e) => {
+                          // Don't expand if clicking on action buttons
+                          if (!e.target.closest('.dropdown-container') && !e.target.closest('button')) {
+                            toggleRoomExpansion(room._id)
+                          }
+                        }}
                         data-room-id={room._id}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2140,8 +2163,12 @@ function SessionView({ user, onBack }) {
                               <div className="relative dropdown-container">
                                 <button
                                   onClick={(e) => {
+                                    e.preventDefault()
                                     e.stopPropagation()
-                                    toggleDropdown(room._id)
+                                    toggleDropdown(room._id, e)
+                                  }}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
                                   }}
                                   className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors duration-200"
                                   title="More Actions"
