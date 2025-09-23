@@ -24,6 +24,7 @@ function SessionDetail({ onBack }) {
   const [selectedRoomForSection, setSelectedRoomForSection] = useState(null)
   const [availableSections, setAvailableSections] = useState([])
   const [selectedSectionsForRoom, setSelectedSectionsForRoom] = useState([])
+  const [selectedSectionsToAdd, setSelectedSectionsToAdd] = useState([])
   const [editRoomName, setEditRoomName] = useState('')
   const [editRoomSupplies, setEditRoomSupplies] = useState({})
   const [editSectionNumber, setEditSectionNumber] = useState('')
@@ -405,16 +406,20 @@ function SessionDetail({ onBack }) {
   }
 
   const handleAddSectionToRoom = async () => {
-    if (!selectedRoomForSection || !availableSections.length) return
+    if (!selectedRoomForSection || selectedSectionsToAdd.length === 0) return
     
     try {
-      await testingAPI.addSectionToRoom(selectedRoomForSection._id, availableSections[0]._id)
+      // Add all selected sections to the room
+      for (const sectionId of selectedSectionsToAdd) {
+        await testingAPI.addSectionToRoom(selectedRoomForSection._id, sectionId)
+      }
       setShowAddSectionToRoomModal(false)
       setSelectedRoomForSection(null)
       setAvailableSections([])
+      setSelectedSectionsToAdd([])
       fetchSessionData() // Refresh data
     } catch (error) {
-      console.error('Error adding section to room:', error)
+      console.error('Error adding sections to room:', error)
     }
   }
 
@@ -594,6 +599,7 @@ function SessionDetail({ onBack }) {
     const allAssignedSectionIds = session.rooms?.flatMap(r => r.sections?.map(s => s._id) || []) || []
     const availableSections = session.sections?.filter(s => !allAssignedSectionIds.includes(s._id)) || []
     setAvailableSections(availableSections)
+    setSelectedSectionsToAdd([]) // Reset selected sections
     setShowAddSectionToRoomModal(true)
   }
 
@@ -1814,8 +1820,8 @@ function SessionDetail({ onBack }) {
       {/* Add Section to Room Modal */}
       {showAddSectionToRoomModal && selectedRoomForSection && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Section to Room</h2>
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Sections to Room</h2>
             
             <div className="space-y-4">
               <div>
@@ -1824,18 +1830,43 @@ function SessionDetail({ onBack }) {
                 </label>
                 {availableSections.length > 0 ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select Section
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Select Sections (Multiple Selection)
                     </label>
-                    <select
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    >
-                                             {availableSections.map(section => (
-                         <option key={section._id} value={section._id}>
-                           Section {section.number} ({section.studentCount} students) {section.description ? `- ${section.description}` : ''}
-                         </option>
-                       ))}
-                    </select>
+                    <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
+                      {availableSections.map(section => (
+                        <label key={section._id} className="flex items-center space-x-3 py-2 hover:bg-gray-50 rounded px-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedSectionsToAdd.includes(section._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSectionsToAdd([...selectedSectionsToAdd, section._id])
+                              } else {
+                                setSelectedSectionsToAdd(selectedSectionsToAdd.filter(id => id !== section._id))
+                              }
+                            }}
+                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                          />
+                          <div className="text-sm text-gray-900">
+                            <div>Section {section.number} ({section.studentCount} students)</div>
+                            {section.description && (
+                              <div className="text-xs text-gray-500 mt-1">{section.description}</div>
+                            )}
+                            {section.accommodations && section.accommodations.length > 0 && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                Accommodations: {section.accommodations.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedSectionsToAdd.length > 0 && (
+                      <p className="text-sm text-gray-600 mt-2">
+                        Selected: {selectedSectionsToAdd.length} section(s)
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-gray-600">No available sections to add to this room.</p>
@@ -1848,6 +1879,7 @@ function SessionDetail({ onBack }) {
                     setShowAddSectionToRoomModal(false)
                     setSelectedRoomForSection(null)
                     setAvailableSections([])
+                    setSelectedSectionsToAdd([])
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
@@ -1855,10 +1887,10 @@ function SessionDetail({ onBack }) {
                 </button>
                 <button
                   onClick={handleAddSectionToRoom}
-                  disabled={availableSections.length === 0}
+                  disabled={selectedSectionsToAdd.length === 0}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Section
+                  Add {selectedSectionsToAdd.length > 0 ? `${selectedSectionsToAdd.length} ` : ''}Section{selectedSectionsToAdd.length !== 1 ? 's' : ''}
                 </button>
               </div>
             </div>

@@ -12,6 +12,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showPendingInvitationsModal, setShowPendingInvitationsModal] = useState(false)
@@ -24,6 +25,13 @@ function Dashboard({ user, onLogout, onViewSession }) {
     endTime: ''
   })
   const [editSession, setEditSession] = useState({
+    name: '',
+    description: '',
+    date: '',
+    startTime: '',
+    endTime: ''
+  })
+  const [duplicateSession, setDuplicateSession] = useState({
     name: '',
     description: '',
     date: '',
@@ -104,6 +112,19 @@ function Dashboard({ user, onLogout, onViewSession }) {
     }
   }
 
+  const handleDuplicateSession = async (e) => {
+    e.preventDefault()
+    try {
+      await testingAPI.duplicateSession(selectedSession._id, duplicateSession)
+      setShowDuplicateModal(false)
+      setSelectedSession(null)
+      setDuplicateSession({ name: '', description: '', date: '', startTime: '', endTime: '' })
+      fetchSessions() // Refresh the list
+    } catch (error) {
+      console.error('Error duplicating session:', error)
+    }
+  }
+
   const openEditModal = (session) => {
     setSelectedSession(session)
     setEditSession({
@@ -119,6 +140,18 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const openDeleteModal = (session) => {
     setSelectedSession(session)
     setShowDeleteModal(true)
+  }
+
+  const openDuplicateModal = (session) => {
+    setSelectedSession(session)
+    setDuplicateSession({
+      name: `${session.name} (Copy)`,
+      description: session.description || '',
+      date: session.date.split('T')[0], // Convert to YYYY-MM-DD format
+      startTime: session.startTime,
+      endTime: session.endTime
+    })
+    setShowDuplicateModal(true)
   }
 
   const handleLeaveSession = async (sessionId) => {
@@ -406,6 +439,15 @@ function Dashboard({ user, onLogout, onViewSession }) {
                           </svg>
                         </button>
                       )}
+                      <button
+                        onClick={() => openDuplicateModal(session)}
+                        className="text-indigo-500 hover:text-indigo-700 transition duration-200"
+                        title="Duplicate Session"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
                       {canManageSession(session) && (
                         <>
                           <button
@@ -752,6 +794,104 @@ function Dashboard({ user, onLogout, onViewSession }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Session Modal */}
+      {showDuplicateModal && selectedSession && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Duplicate Testing Session</h2>
+            
+            <form onSubmit={handleDuplicateSession} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Session Name
+                </label>
+                <input
+                  type="text"
+                  value={duplicateSession.name}
+                  onChange={(e) => setDuplicateSession({...duplicateSession, name: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter session name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={duplicateSession.description}
+                  onChange={(e) => setDuplicateSession({...duplicateSession, description: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter session description"
+                  rows="3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={duplicateSession.date}
+                  onChange={(e) => setDuplicateSession({...duplicateSession, date: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={duplicateSession.startTime}
+                    onChange={(e) => setDuplicateSession({...duplicateSession, startTime: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={duplicateSession.endTime}
+                    onChange={(e) => setDuplicateSession({...duplicateSession, endTime: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDuplicateModal(false)
+                    setSelectedSession(null)
+                    setDuplicateSession({ name: '', description: '', date: '', startTime: '', endTime: '' })
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Duplicate Session
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

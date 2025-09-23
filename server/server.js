@@ -1358,6 +1358,124 @@ app.delete('/api/sessions/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Duplicate session
+app.post('/api/sessions/:id/duplicate', authenticateToken, checkSessionPermission('view'), async (req, res) => {
+  try {
+    const { name, description, date, startTime, endTime } = req.body;
+    
+    // Get the original session with all populated data
+    const originalSession = await Session.findById(req.params.id)
+      .populate([
+        {
+          path: 'rooms',
+          populate: {
+            path: 'sections',
+            select: 'number studentCount accommodations notes'
+          }
+        },
+        {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        }
+      ]);
+
+    if (!originalSession) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Create new sections based on original sections
+    const newSections = [];
+    for (const section of originalSession.sections) {
+      const newSection = new Section({
+        number: section.number,
+        studentCount: section.studentCount,
+        accommodations: [...section.accommodations],
+        notes: section.notes || ''
+      });
+      await newSection.save();
+      newSections.push(newSection._id);
+    }
+
+    // Create new rooms based on original rooms
+    const newRooms = [];
+    for (const room of originalSession.rooms) {
+      // Find sections for this room
+      const roomSectionIds = room.sections.map(section => section._id);
+      const roomSections = originalSession.sections.filter(section => 
+        roomSectionIds.includes(section._id)
+      );
+      
+      // Create new sections for this room
+      const newRoomSections = [];
+      for (const section of roomSections) {
+        const newRoomSection = new Section({
+          number: section.number,
+          studentCount: section.studentCount,
+          accommodations: [...section.accommodations],
+          notes: section.notes || ''
+        });
+        await newRoomSection.save();
+        newRoomSections.push(newRoomSection._id);
+      }
+
+      // Create new room
+      const newRoom = new Room({
+        name: room.name,
+        supplies: [...room.supplies],
+        sections: newRoomSections,
+        status: 'planned', // Reset status for new session
+        notes: room.notes || ''
+      });
+      await newRoom.save();
+      newRooms.push(newRoom._id);
+    }
+
+    // Create the new session
+    const newSession = new Session({
+      name: name || `${originalSession.name} (Copy)`,
+      description: description || originalSession.description || '',
+      date: date ? new Date(date) : originalSession.date,
+      startTime: startTime || originalSession.startTime,
+      endTime: endTime || originalSession.endTime,
+      createdBy: req.user.id,
+      rooms: newRooms,
+      sections: newSections,
+      status: 'planned' // Reset status for new session
+    });
+
+    await newSession.save();
+
+    // Return populated session
+    const populatedSession = await Session.findById(newSession._id)
+      .populate([
+        {
+          path: 'rooms',
+          select: 'name supplies status presentStudents notes proctors',
+          populate: {
+            path: 'sections',
+            select: 'number studentCount accommodations notes'
+          }
+        },
+        {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        },
+        {
+          path: 'createdBy',
+          select: 'username firstName lastName'
+        }
+      ]);
+
+    res.status(201).json({ 
+      message: 'Session duplicated successfully', 
+      session: populatedSession 
+    });
+  } catch (error) {
+    console.error('Duplicate session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Session Collaboration and Invitation Routes
 
 // Get all users for invitation (excluding current user and existing session members)

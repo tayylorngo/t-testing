@@ -305,6 +305,20 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Duplicate session
+  duplicateSession: async (sessionId, sessionData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/duplicate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sessionData),
+    });
+    return handleResponse(response);
+  },
+
   // Add room to session
   addRoomToSession: async (sessionId, roomId) => {
     const token = localStorage.getItem('authToken');
