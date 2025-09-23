@@ -9,6 +9,9 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const { isConnected, reconnect } = useRealTime()
   const [sessions, setSessions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [sortBy, setSortBy] = useState('date') // date, name, createdAt, status, roomCount
+  const [sortDescending, setSortDescending] = useState(true) // true for newest first by default
+  const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -74,6 +77,74 @@ function Dashboard({ user, onLogout, onViewSession }) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Get sorted and filtered sessions based on current sort criteria and search
+  const getSortedSessions = () => {
+    if (!sessions || sessions.length === 0) return []
+    
+    let filteredSessions = [...sessions]
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      filteredSessions = filteredSessions.filter(session => 
+        session.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (session.description && session.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    }
+    
+    return filteredSessions.sort((a, b) => {
+      let aValue, bValue
+      let comparison = 0
+      
+      switch (sortBy) {
+        case 'date':
+          // Sort by test date (newest first by default)
+          aValue = new Date(a.date)
+          bValue = new Date(b.date)
+          comparison = aValue.getTime() - bValue.getTime()
+          break
+          
+        case 'name':
+          // Sort alphabetically by session name
+          aValue = a.name.toLowerCase()
+          bValue = b.name.toLowerCase()
+          comparison = aValue.localeCompare(bValue)
+          break
+          
+        case 'createdAt':
+          // Sort by creation date (newest first by default)
+          aValue = new Date(a.createdAt)
+          bValue = new Date(b.createdAt)
+          comparison = aValue.getTime() - bValue.getTime()
+          break
+          
+        case 'status':
+          // Sort by status (planned, active, completed, cancelled)
+          const statusOrder = { 'planned': 1, 'active': 2, 'completed': 3, 'cancelled': 4 }
+          aValue = statusOrder[a.status] || 5
+          bValue = statusOrder[b.status] || 5
+          comparison = aValue - bValue
+          break
+          
+        case 'roomCount':
+          // Sort by number of rooms
+          aValue = a.rooms?.length || 0
+          bValue = b.rooms?.length || 0
+          comparison = aValue - bValue
+          break
+          
+        default:
+          // Default to date sorting
+          aValue = new Date(a.date)
+          bValue = new Date(b.date)
+          comparison = aValue.getTime() - bValue.getTime()
+          break
+      }
+      
+      // Apply sort direction
+      return sortDescending ? -comparison : comparison
+    })
   }
 
   const handleCreateSession = async (e) => {
@@ -392,9 +463,77 @@ function Dashboard({ user, onLogout, onViewSession }) {
           </button>
         </div>
 
+        {/* Sort Controls */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Sort By
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="date">Test Date</option>
+                  <option value="name">Session Name</option>
+                  <option value="createdAt">Created Date</option>
+                  <option value="status">Status</option>
+                  <option value="roomCount">Room Count</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Order
+                </label>
+                <button
+                  onClick={() => setSortDescending(!sortDescending)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:text-blue-300 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                  {sortDescending ? 'Newest First' : 'Oldest First'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 max-w-md">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Sessions
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or description..."
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {getSortedSessions().length} of {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+
         {/* Sessions List */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sessions.length === 0 ? (
+          {getSortedSessions().length === 0 ? (
             <div className="col-span-full text-center py-12">
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +550,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
               </div>
             </div>
           ) : (
-            sessions.map((session) => (
+            getSortedSessions().map((session) => (
               <div key={session._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition duration-200">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
