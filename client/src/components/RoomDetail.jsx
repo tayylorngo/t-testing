@@ -417,7 +417,7 @@ const RoomDetail = ({ user }) => {
                   </svg>
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {room.presentStudents || 0}
+                  {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Present</div>
               </div>

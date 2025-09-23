@@ -55,7 +55,7 @@ function SessionView({ user, onBack }) {
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
   const [showDropdown, setShowDropdown] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
-  const buttonRef = useRef(null) // roomId for which dropdown is open
+  // const buttonRef = useRef(null) // Not currently used // roomId for which dropdown is open
   const [showInvalidateModal, setShowInvalidateModal] = useState(false)
   const [roomToInvalidate, setRoomToInvalidate] = useState(null)
   const [invalidationNotes, setInvalidationNotes] = useState('')
@@ -1252,7 +1252,7 @@ function SessionView({ user, onBack }) {
   const calculateTotalPresentStudents = useCallback(() => {
     if (!session?.rooms) return 0
     return session.rooms.reduce((total, room) => {
-      return total + (room.presentStudents || 0)
+      return total + (room.status === 'completed' ? (room.presentStudents || 0) : 0)
     }, 0)
   }, [session?.rooms])
 
@@ -2097,7 +2097,7 @@ function SessionView({ user, onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-white">
-                            {room.presentStudents !== undefined ? room.presentStudents : '-'}
+                            {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2417,7 +2417,7 @@ function SessionView({ user, onBack }) {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Present Students:</span>
                     <span className="text-2xl font-bold text-green-600">
-                      {room.presentStudents !== undefined ? room.presentStudents : '-'}
+                      {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
                     </span>
                   </div>
                 </div>
