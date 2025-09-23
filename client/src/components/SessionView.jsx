@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -54,7 +53,7 @@ function SessionView({ user, onBack }) {
   const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false)
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
   const [showDropdown, setShowDropdown] = useState(null)
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [preventClickOutside, setPreventClickOutside] = useState(false)
   // const buttonRef = useRef(null) // Not currently used // roomId for which dropdown is open
   const [showInvalidateModal, setShowInvalidateModal] = useState(false)
   const [roomToInvalidate, setRoomToInvalidate] = useState(null)
@@ -764,75 +763,82 @@ function SessionView({ user, onBack }) {
     if (showDropdown === roomId) {
       setShowDropdown(null)
     } else {
-      // Calculate position relative to the button
-      const button = event?.target?.closest('button')
-      if (button) {
-        const rect = button.getBoundingClientRect()
-        const dropdownWidth = 192
-        const dropdownHeight = 120 // Approximate height
-        const viewportWidth = window.innerWidth
-        const viewportHeight = window.innerHeight
-        
-        // Calculate position with viewport bounds checking
-        let left = rect.right - dropdownWidth
-        let top = rect.bottom + 8
-        
-        // Ensure dropdown stays within viewport bounds
-        if (left < 8) {
-          left = rect.left
-        }
-        if (left + dropdownWidth > viewportWidth - 8) {
-          left = viewportWidth - dropdownWidth - 8
-        }
-        if (top + dropdownHeight > viewportHeight - 8) {
-          top = rect.top - dropdownHeight - 8
-        }
-        
-        const position = { top, left }
-        console.log('Button rect:', rect)
-        console.log('Viewport:', { width: viewportWidth, height: viewportHeight })
-        console.log('Calculated position:', position)
-        setDropdownPosition(position)
-      }
       setShowDropdown(roomId)
     }
   }, [showDropdown])
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showDropdown && !event.target.closest('.dropdown-container') && !event.target.closest('[data-dropdown-menu]')) {
-        setShowDropdown(null)
-      }
-    }
+  // Close dropdown when clicking outside - DISABLED FOR DEBUGGING
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     if (preventClickOutside) {
+  //       return // Don't close dropdown if we're preventing click outside
+  //     }
+      
+  //     // Add a delay to ensure button clicks are processed first
+  //     setTimeout(() => {
+  //       if (showDropdown && !event.target.closest('.dropdown-container') && !event.target.closest('[data-dropdown-menu]')) {
+  //         setShowDropdown(null)
+  //       }
+  //     }, 100)
+  //   }
 
-    // Use mousedown to ensure it doesn't interfere with button clicks
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+  //   // Use click event with delay to ensure button clicks are processed first
+  //   document.addEventListener('click', handleClickOutside)
+  //   return () => {
+  //     document.removeEventListener('click', handleClickOutside)
+  //   }
+  // }, [showDropdown, preventClickOutside])
+
+  // Debug modal states
+  useEffect(() => {
+    console.log('Modal states changed:', {
+      showAddSupplyModal,
+      showMoveStudentsModal,
+      showRoomNotesModal,
+      showInvalidateModal,
+      selectedRoom: selectedRoom?.name,
+      moveFromRoom: moveFromRoom?.name,
+      selectedRoomForNotes: selectedRoomForNotes?.name,
+      roomToInvalidate: roomToInvalidate?.name
+    })
+  }, [showAddSupplyModal, showMoveStudentsModal, showRoomNotesModal, showInvalidateModal, selectedRoom, moveFromRoom, selectedRoomForNotes, roomToInvalidate])
+
+  // Debug Add Supply Modal rendering
+  useEffect(() => {
+    if (showAddSupplyModal && selectedRoom) {
+      console.log('Add Supply Modal should be rendering for room:', selectedRoom.name)
     }
-  }, [showDropdown])
+  }, [showAddSupplyModal, selectedRoom])
 
   const handleAddSupplyClick = useCallback((room) => {
     console.log('Add Supply clicked for room:', room.name)
+    console.log('Setting selectedRoom to:', room)
+    console.log('Setting showAddSupplyModal to true')
     setSelectedRoom(room)
     setShowAddSupplyModal(true)
+    console.log('Add Supply modal should now be open')
     // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleMoveStudentsClick = useCallback((room) => {
     console.log('Move Students clicked for room:', room.name)
+    console.log('Setting moveFromRoom to:', room)
+    console.log('Setting showMoveStudentsModal to true')
     setMoveFromRoom(room)
     setShowMoveStudentsModal(true)
+    console.log('Move Students modal should now be open')
     // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleInvalidateTestClick = useCallback((room) => {
     console.log('Invalidate Test clicked for room:', room.name)
+    console.log('Setting roomToInvalidate to:', room)
+    console.log('Setting showInvalidateModal to true')
     setRoomToInvalidate(room)
     setInvalidationNotes('')
     setSelectedSection('')
     setShowInvalidateModal(true)
+    console.log('Invalidate Test modal should now be open')
     // Don't close dropdown immediately, let the modal handle it
   }, [])
 
@@ -895,9 +901,12 @@ function SessionView({ user, onBack }) {
 
   const handleRoomNotesClick = useCallback((room) => {
     console.log('Room Notes clicked for room:', room.name)
+    console.log('Setting selectedRoomForNotes to:', room)
+    console.log('Setting showRoomNotesModal to true')
     setSelectedRoomForNotes(room)
     setRoomNotes(room.notes || '')
     setShowRoomNotesModal(true)
+    console.log('Room Notes modal should now be open')
     // Don't close dropdown immediately, let the modal handle it
   }, [])
 
@@ -2210,37 +2219,22 @@ function SessionView({ user, onBack }) {
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    e.nativeEvent.stopImmediatePropagation()
                                     toggleDropdown(room._id, e)
-                                  }}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                  }}
-                                  onTouchStart={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
                                   }}
                                   className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors duration-200"
                                   title="More Actions"
-                                  style={{ 
-                                    touchAction: 'none',
-                                    pointerEvents: 'auto',
-                                    position: 'relative',
-                                    zIndex: 1000
-                                  }}
                                 >
                                   ⋯
                                 </button>
                                 
-                                {showDropdown === room._id && createPortal(
+                                {showDropdown === room._id && (
                                   <div 
                                     data-dropdown-menu
-                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                                     style={{ 
-                                      position: 'fixed',
-                                      top: `${dropdownPosition.top}px`,
-                                      left: `${dropdownPosition.left}px`,
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: '0',
                                       zIndex: 99999,
                                       minHeight: 'auto',
                                       maxHeight: 'none',
@@ -2250,14 +2244,17 @@ function SessionView({ user, onBack }) {
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => {
-                                          e.preventDefault()
                                           e.stopPropagation()
-                                          e.stopImmediatePropagation()
                                           console.log('Add Supply button clicked')
                                           handleAddSupplyClick(room)
                                           setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        style={{ 
+                                          pointerEvents: 'auto',
+                                          zIndex: 99999,
+                                          position: 'relative'
+                                        }}
                                       >
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -2266,14 +2263,17 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
-                                          e.preventDefault()
                                           e.stopPropagation()
-                                          e.stopImmediatePropagation()
                                           console.log('Move Students button clicked')
                                           handleMoveStudentsClick(room)
                                           setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        style={{ 
+                                          pointerEvents: 'auto',
+                                          zIndex: 99999,
+                                          position: 'relative'
+                                        }}
                                       >
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -2282,9 +2282,7 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
-                                          e.preventDefault()
                                           e.stopPropagation()
-                                          e.stopImmediatePropagation()
                                           console.log('Add Notes button clicked')
                                           handleRoomNotesClick(room)
                                           setShowDropdown(null)
@@ -2298,9 +2296,7 @@ function SessionView({ user, onBack }) {
                                       </button>
                                       <button
                                         onClick={(e) => {
-                                          e.preventDefault()
                                           e.stopPropagation()
-                                          e.stopImmediatePropagation()
                                           console.log('Invalidate Test button clicked')
                                           handleInvalidateTestClick(room)
                                           setShowDropdown(null)
@@ -2313,8 +2309,7 @@ function SessionView({ user, onBack }) {
                                         Invalidate Test
                                       </button>
                                     </div>
-                                  </div>,
-                                  document.body
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -2552,9 +2547,7 @@ function SessionView({ user, onBack }) {
                             <div className="py-1">
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault()
                                   e.stopPropagation()
-                                  e.stopImmediatePropagation()
                                   console.log('Add Supply button clicked (card view)')
                                   handleAddSupplyClick(room)
                                   setShowDropdown(null)
@@ -2568,9 +2561,7 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault()
                                   e.stopPropagation()
-                                  e.stopImmediatePropagation()
                                   console.log('Move Students button clicked (card view)')
                                   handleMoveStudentsClick(room)
                                   setShowDropdown(null)
@@ -2584,9 +2575,7 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault()
                                   e.stopPropagation()
-                                  e.stopImmediatePropagation()
                                   console.log('Add Notes button clicked (card view)')
                                   handleRoomNotesClick(room)
                                   setShowDropdown(null)
@@ -2600,9 +2589,7 @@ function SessionView({ user, onBack }) {
                               </button>
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault()
                                   e.stopPropagation()
-                                  e.stopImmediatePropagation()
                                   console.log('Invalidate Test button clicked (card view)')
                                   handleInvalidateTestClick(room)
                                   setShowDropdown(null)
