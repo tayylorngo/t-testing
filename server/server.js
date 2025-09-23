@@ -629,6 +629,30 @@ if (!fs.existsSync(publicPath)) {
   fs.mkdirSync(publicPath, { recursive: true });
 }
 
+// Check if index.html exists, if not, create a simple one
+const indexPath = path.join(publicPath, 'index.html');
+if (!fs.existsSync(indexPath)) {
+  console.log('🔨 Creating index.html...');
+  const simpleHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T-Testing</title>
+</head>
+<body>
+    <div id="root">
+        <h1>T-Testing App</h1>
+        <p>React app is building...</p>
+        <p>If you see this message, the build process needs to be completed.</p>
+    </div>
+</body>
+</html>`;
+  fs.writeFileSync(indexPath, simpleHtml);
+  console.log('✅ index.html created');
+}
+
 app.use(express.static(publicPath));
 
 // Validation middleware
