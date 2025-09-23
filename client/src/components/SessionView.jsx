@@ -2150,7 +2150,7 @@ function SessionView({ user, onBack }) {
                                 </button>
                                 
                                 {showDropdown === room._id && (
-                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                                  <div className="fixed right-4 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]" style={{ top: '50%', transform: 'translateY(-50%)' }}>
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => {

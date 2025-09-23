@@ -318,7 +318,8 @@ function SessionDetail({ onBack }) {
       const roomResponse = await testingAPI.createRoomWithSections({
         name: newRoomName.trim(),
         supplies: supplies,
-        sectionIds: createdSectionIds
+        sectionIds: createdSectionIds,
+        sessionId: sessionId
       })
       
       // Add the new room to the session

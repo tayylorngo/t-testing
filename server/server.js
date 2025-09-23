@@ -2474,7 +2474,7 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
 // Create room with sections
 app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
   try {
-    const { name, supplies = [], sectionIds = [] } = req.body;
+    const { name, supplies = [], sectionIds = [], sessionId } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ message: 'Room name is required' });
@@ -2497,6 +2497,19 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
     }
 
     await newRoom.save();
+    
+    // If sessionId is provided, add sections to the session
+    if (sessionId && sectionIds.length > 0) {
+      const session = await Session.findById(sessionId);
+      if (session) {
+        // Add sections to session if they're not already there
+        const newSectionIds = sectionIds.filter(id => !session.sections.includes(id));
+        if (newSectionIds.length > 0) {
+          session.sections.push(...newSectionIds);
+          await session.save();
+        }
+      }
+    }
     
     // Return populated room
     const populatedRoom = await Room.findById(newRoom._id)
