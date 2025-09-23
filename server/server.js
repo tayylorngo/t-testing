@@ -248,7 +248,13 @@ const addActivityLogEntry = async (sessionId, action, roomName = null, details =
 };
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/t-testing';
+console.log('🔍 MongoDB URI:', MONGODB_URI ? 'Set' : 'Not set');
+console.log('🔍 Environment variables:', {
+  MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
+  MONGO_URL: process.env.MONGO_URL ? 'Set' : 'Not set',
+  NODE_ENV: process.env.NODE_ENV || 'Not set'
+});
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
