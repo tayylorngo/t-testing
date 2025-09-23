@@ -11,9 +11,10 @@ echo "🔨 Building React app..."
 npm run build
 echo "✅ React app built"
 
-echo "🔨 Copying build files to server..."
-cp -r dist ../server/public
-echo "✅ Build files copied"
+echo "🔨 Creating public directory and copying build files..."
+mkdir -p ../server/public
+cp -r dist/* ../server/public/
+echo "✅ Build files copied to server/public"
 
 echo "🔨 Installing server dependencies..."
 cd ../server
