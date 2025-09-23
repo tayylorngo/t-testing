@@ -43,6 +43,7 @@ function SessionView({ user, onBack }) {
   // const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
   const [presentStudentsCount, setPresentStudentsCount] = useState('')
   const [roomToComplete, setRoomToComplete] = useState(null)
+  const [sectionPresentCounts, setSectionPresentCounts] = useState({})
 
   // Activity log state
   const [activityLog, setActivityLog] = useState([])
@@ -567,6 +568,18 @@ function SessionView({ user, onBack }) {
     
     setRoomToComplete(room)
     setPresentStudentsCount('')
+    
+    // Initialize per-section counts if room has multiple sections
+    if (room.sections && room.sections.length > 1) {
+      const initialCounts = {}
+      room.sections.forEach(section => {
+        initialCounts[section._id] = ''
+      })
+      setSectionPresentCounts(initialCounts)
+    } else {
+      setSectionPresentCounts({})
+    }
+    
     setShowPresentStudentsModal(true)
   }, [session?.rooms])
 
@@ -576,24 +589,62 @@ function SessionView({ user, onBack }) {
   }, [])
 
   const handleConfirmRoomComplete = useCallback(async () => {
-    if (!roomToComplete || !presentStudentsCount || isNaN(parseInt(presentStudentsCount))) return
+    if (!roomToComplete) return
     
-    const presentCount = parseInt(presentStudentsCount)
-    const totalStudents = calculateTotalStudents(roomToComplete.sections)
+    let presentCount = 0
+    let sectionPresentData = {}
     
-    if (presentCount < 0 || presentCount > totalStudents) {
-      alert(`Present students must be between 0 and ${totalStudents}`)
-      return
+    // Handle per-section data for multiple sections
+    if (roomToComplete.sections && roomToComplete.sections.length > 1) {
+      // Validate all section counts are provided and valid
+      
+      for (const section of roomToComplete.sections) {
+        const sectionCount = sectionPresentCounts[section._id]
+        if (!sectionCount || isNaN(parseInt(sectionCount))) {
+          alert(`Please enter a valid number for Section ${section.number}`)
+          return
+        }
+        
+        const count = parseInt(sectionCount)
+        if (count < 0 || count > section.studentCount) {
+          alert(`Section ${section.number} present count must be between 0 and ${section.studentCount}`)
+          return
+        }
+        
+        sectionPresentData[section._id] = count
+        presentCount += count
+      }
+    } else {
+      // Handle single section or no sections
+      if (!presentStudentsCount || isNaN(parseInt(presentStudentsCount))) return
+      
+      presentCount = parseInt(presentStudentsCount)
+      const totalStudents = calculateTotalStudents(roomToComplete.sections)
+      
+      if (presentCount < 0 || presentCount > totalStudents) {
+        alert(`Present students must be between 0 and ${totalStudents}`)
+        return
+      }
     }
     
     try {
       console.log('Marking room complete with present students:', presentCount)
+      if (Object.keys(sectionPresentData).length > 0) {
+        console.log('Per-section data:', sectionPresentData)
+      }
       
-      // Update room with present students count
-      const response = await testingAPI.updateRoom(roomToComplete._id, { 
+      // Update room with present students count and per-section data
+      const updateData = { 
         status: 'completed',
         presentStudents: presentCount
-      })
+      }
+      
+      // Add per-section data if available
+      if (Object.keys(sectionPresentData).length > 0) {
+        updateData.sectionPresentStudents = sectionPresentData
+      }
+      
+      const response = await testingAPI.updateRoom(roomToComplete._id, updateData)
       console.log('Room status update response:', response)
       
       // Update local state immediately
@@ -602,7 +653,12 @@ function SessionView({ user, onBack }) {
           ...prevSession,
           rooms: prevSession.rooms.map(room => 
             room._id === roomToComplete._id 
-              ? { ...room, status: 'completed', presentStudents: presentCount }
+              ? { 
+                  ...room, 
+                  status: 'completed', 
+                  presentStudents: presentCount,
+                  sectionPresentStudents: sectionPresentData
+                }
               : room
           )
         }
@@ -629,12 +685,13 @@ function SessionView({ user, onBack }) {
       setShowPresentStudentsModal(false)
       setRoomToComplete(null)
       setPresentStudentsCount('')
+      setSectionPresentCounts({})
 
       // Activity log entry is now handled by the server
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
-  }, [roomToComplete, presentStudentsCount, sessionId, calculateTotalStudents])
+  }, [roomToComplete, presentStudentsCount, sectionPresentCounts, sessionId, calculateTotalStudents])
 
   const handleMarkRoomIncomplete = useCallback((roomId) => {
     setRoomToMarkIncomplete(roomId)
@@ -2026,10 +2083,12 @@ function SessionView({ user, onBack }) {
                                       e.stopPropagation()
                                       handleMarkRoomIncomplete(room._id)
                                     }}
-                                    className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors duration-200"
+                                    className="px-3 py-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg font-medium transition-colors duration-200 border border-amber-200 dark:border-amber-800"
                                     title="Mark Incomplete"
                                   >
-                                    ↩️
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
                                   </button>
                                 ) : (
                                   <button
@@ -2037,10 +2096,12 @@ function SessionView({ user, onBack }) {
                                       e.stopPropagation()
                                       handleMarkRoomComplete(room._id)
                                     }}
-                                    className="px-3 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg font-medium transition-colors duration-200"
+                                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg font-medium transition-colors duration-200 border border-emerald-200 dark:border-emerald-800"
                                     title="Mark Complete"
                                   >
-                                    ✅
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
                                   </button>
                                 )}
                               </>
@@ -2050,10 +2111,12 @@ function SessionView({ user, onBack }) {
                                 e.stopPropagation()
                                 navigate(`/sessions/${sessionId}/rooms/${room._id}`)
                               }}
-                              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200"
+                              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200 border border-blue-200 dark:border-blue-800"
                               title="View Room Details"
                             >
-                              ↗️
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
                             </button>
                             {canEditSession() && (
                               <div className="relative dropdown-container">
@@ -2078,7 +2141,9 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
-                                        <span className="mr-2">📦</span>
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                        </svg>
                                         Add Supply
                                       </button>
                                       <button
@@ -2088,7 +2153,9 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
-                                        <span className="mr-2">🚶‍♂️</span>
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
                                         Move Students
                                       </button>
                                       <button
@@ -2098,7 +2165,9 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                                       >
-                                        <span className="mr-2">📝</span>
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
                                         Add Notes
                                       </button>
                                       <button
@@ -2108,7 +2177,9 @@ function SessionView({ user, onBack }) {
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                                       >
-                                        <span className="mr-2">⚠</span>
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
                                         Invalidate Test
                                       </button>
                                     </div>
@@ -2153,7 +2224,9 @@ function SessionView({ user, onBack }) {
                                       return (
                                         <div className="mt-4">
                                           <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center">
-                                            <span className="mr-1">⚠</span>
+                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                            </svg>
                                             Invalidated Tests ({roomInvalidatedTests.length})
                                           </h4>
                                           <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -2197,7 +2270,9 @@ function SessionView({ user, onBack }) {
                                   {room.notes && (
                                     <div className="mt-4">
                                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                        <span className="mr-1">📝</span>
+                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
                                         Room Notes
                                       </h4>
                                       <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
@@ -2279,9 +2354,12 @@ function SessionView({ user, onBack }) {
                             e.stopPropagation()
                             handleMarkRoomIncomplete(room._id)
                           }}
-                          className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
                         >
-                          ↩️ Mark Incomplete
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Mark Incomplete
                         </button>
                       ) : (
                         <button
@@ -2289,9 +2367,12 @@ function SessionView({ user, onBack }) {
                             e.stopPropagation()
                             handleMarkRoomComplete(room._id)
                           }}
-                          className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
                         >
-                          ✅ Mark Complete
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Mark Complete
                         </button>
                       )}
 
@@ -2302,7 +2383,9 @@ function SessionView({ user, onBack }) {
                         }}
                         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
                       >
-                        <span className="mr-2">↗️</span>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                         View Details
                       </button>
 
@@ -2328,7 +2411,9 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
-                                <span className="mr-2">📦</span>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
                                 Add Supply
                               </button>
                               <button
@@ -2338,7 +2423,9 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
-                                <span className="mr-2">🚶‍♂️</span>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
                                 Move Students
                               </button>
                               <button
@@ -2348,7 +2435,9 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
                               >
-                                <span className="mr-2">📝</span>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
                                 Add Notes
                               </button>
                               <button
@@ -2358,7 +2447,9 @@ function SessionView({ user, onBack }) {
                                 }}
                                 className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                               >
-                                <span className="mr-2">⚠</span>
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
                                 Invalidate Test
                               </button>
                             </div>
@@ -2396,7 +2487,9 @@ function SessionView({ user, onBack }) {
                     {room.notes && (
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                          <span className="mr-1">📝</span>
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                           Room Notes
                         </h4>
                         <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
@@ -2829,7 +2922,9 @@ function SessionView({ user, onBack }) {
           <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl shadow-lg border border-red-200 dark:border-red-800 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 flex items-center">
-                <span className="mr-2">⚠</span>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
                 Invalidated Tests
               </h2>
               <span className="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 text-sm font-medium px-3 py-1 rounded-full">
@@ -2880,35 +2975,86 @@ function SessionView({ user, onBack }) {
       {/* Present Students Modal */}
       {showPresentStudentsModal && roomToComplete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Room: {roomToComplete.name}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   Total Students: {calculateTotalStudents(roomToComplete.sections)}
                 </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  How many students were present?
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max={calculateTotalStudents(roomToComplete.sections)}
-                  value={presentStudentsCount}
-                  onChange={(e) => setPresentStudentsCount(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter number of present students"
-                  autoFocus
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Enter a number between 0 and {calculateTotalStudents(roomToComplete.sections)}
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Sections: {roomToComplete.sections?.length || 0}
                 </p>
               </div>
+              
+              {roomToComplete.sections && roomToComplete.sections.length > 1 ? (
+                // Per-section input for multiple sections
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Students Present by Section
+                  </h3>
+                  <div className="space-y-4">
+                    {roomToComplete.sections
+                      .sort((a, b) => a.number - b.number)
+                      .map((section) => (
+                        <div key={section._id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-gray-900 dark:text-white">
+                              Section {section.number}
+                            </h4>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              Total: {section.studentCount} students
+                            </span>
+                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            max={section.studentCount}
+                            value={sectionPresentCounts[section._id] || ''}
+                            onChange={(e) => setSectionPresentCounts(prev => ({
+                              ...prev,
+                              [section._id]: e.target.value
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-600 dark:text-white"
+                            placeholder={`Enter present students (0-${section.studentCount})`}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">Total Present:</span> {
+                        Object.values(sectionPresentCounts).reduce((total, count) => {
+                          const num = parseInt(count) || 0
+                          return total + num
+                        }, 0)
+                      } / {calculateTotalStudents(roomToComplete.sections)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                // Single input for single section or no sections
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    How many students were present?
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={calculateTotalStudents(roomToComplete.sections)}
+                    value={presentStudentsCount}
+                    onChange={(e) => setPresentStudentsCount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="Enter number of present students"
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Enter a number between 0 and {calculateTotalStudents(roomToComplete.sections)}
+                  </p>
+                </div>
+              )}
               
               <div className="flex space-x-4 pt-4">
                 <button
@@ -2916,6 +3062,7 @@ function SessionView({ user, onBack }) {
                     setShowPresentStudentsModal(false)
                     setRoomToComplete(null)
                     setPresentStudentsCount('')
+                    setSectionPresentCounts({})
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
@@ -2923,7 +3070,10 @@ function SessionView({ user, onBack }) {
                 </button>
                 <button
                   onClick={handleConfirmRoomComplete}
-                  disabled={!presentStudentsCount || isNaN(parseInt(presentStudentsCount))}
+                  disabled={roomToComplete.sections && roomToComplete.sections.length > 1 
+                    ? !Object.values(sectionPresentCounts).every(count => count !== '' && !isNaN(parseInt(count)))
+                    : (!presentStudentsCount || isNaN(parseInt(presentStudentsCount)))
+                  }
                   className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Mark Complete

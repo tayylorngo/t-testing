@@ -393,6 +393,113 @@ const RoomDetail = ({ user }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Room Statistics Overview */}
+        <div className="mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Room Overview</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Total Students */}
+              <div className="text-center">
+                <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) || 0}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Total Students</div>
+              </div>
+
+              {/* Present Students */}
+              <div className="text-center">
+                <div className="bg-green-100 dark:bg-green-900/30 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {room.presentStudents || 0}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Present</div>
+              </div>
+
+              {/* Absent Students */}
+              <div className="text-center">
+                <div className="bg-red-100 dark:bg-red-900/30 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {room.status === 'completed' 
+                    ? (room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) || 0) - (room.presentStudents || 0)
+                    : '-'
+                  }
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {room.status === 'completed' ? 'Absent' : 'Not Available'}
+                </div>
+              </div>
+
+              {/* Number of Sections */}
+              <div className="text-center">
+                <div className="bg-purple-100 dark:bg-purple-900/30 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {room.sections?.length || 0}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Sections</div>
+              </div>
+            </div>
+
+            {/* Additional Stats Row */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Attendance Rate */}
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {room.status === 'completed' && room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) > 0 
+                      ? Math.round(((room.presentStudents || 0) / room.sections.reduce((total, section) => total + (section.studentCount || 0), 0)) * 100)
+                      : room.status === 'active' && room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) > 0
+                      ? Math.round(((room.presentStudents || 0) / room.sections.reduce((total, section) => total + (section.studentCount || 0), 0)) * 100)
+                      : '-'
+                    }{room.status === 'completed' || room.status === 'active' ? '%' : ''}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {room.status === 'completed' ? 'Final Attendance' : room.status === 'active' ? 'Current Attendance' : 'Not Available'}
+                  </div>
+                </div>
+
+                {/* Room Status */}
+                <div className="text-center">
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    room.status === 'completed' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : room.status === 'active'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+                  }`}>
+                    {room.status === 'completed' ? 'Completed' : room.status === 'active' ? 'Active' : 'Planned'}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Room Status</div>
+                </div>
+
+                {/* Proctors Count */}
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {room.proctors?.length || 0}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Proctors Assigned</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Room Information */}
           <div className="space-y-6">
@@ -442,7 +549,9 @@ const RoomDetail = ({ user }) => {
             {room.notes && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <span className="mr-2">📝</span>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
                   Room Notes
                 </h2>
                 <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
@@ -556,7 +665,9 @@ const RoomDetail = ({ user }) => {
             {roomInvalidations.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-4 flex items-center">
-                  <span className="mr-2">⚠</span>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
                   Invalidated Tests ({roomInvalidations.length})
                 </h2>
                 <div className="space-y-3">

@@ -80,6 +80,8 @@ function SessionDetail({ onBack }) {
     endTime: '',
     email: ''
   })
+  const [editingProctor, setEditingProctor] = useState(null)
+  const [editingIndex, setEditingIndex] = useState(-1)
   
   // Custom confirm delete modals
   const [showDeleteRoomModal, setShowDeleteRoomModal] = useState(false)
@@ -653,10 +655,48 @@ function SessionDetail({ onBack }) {
       endTime: '',
       email: ''
     })
+    // Reset editing state when adding new proctor
+    setEditingProctor(null)
+    setEditingIndex(-1)
   }
 
   const handleRemoveProctor = (index) => {
     setProctors(proctors.filter((_, i) => i !== index))
+  }
+
+  const handleEditProctor = (index) => {
+    const proctor = proctors[index]
+    setEditingProctor({
+      firstName: proctor.firstName || '',
+      lastName: proctor.lastName || '',
+      startTime: proctor.startTime || '',
+      endTime: proctor.endTime || '',
+      email: proctor.email || ''
+    })
+    setEditingIndex(index)
+  }
+
+  const handleSaveEditProctor = () => {
+    if (!editingProctor.firstName.trim() || !editingProctor.lastName.trim() || !editingProctor.startTime || !editingProctor.endTime) {
+      alert('Please fill in first name, last name, start time, and end time.')
+      return
+    }
+    
+    const updatedProctor = {
+      ...editingProctor,
+      name: `${editingProctor.firstName.trim()} ${editingProctor.lastName.trim()}`
+    }
+    
+    const updatedProctors = [...proctors]
+    updatedProctors[editingIndex] = updatedProctor
+    setProctors(updatedProctors)
+    setEditingProctor(null)
+    setEditingIndex(-1)
+  }
+
+  const handleCancelEditProctor = () => {
+    setEditingProctor(null)
+    setEditingIndex(-1)
   }
 
   const handleSaveProctors = async () => {
@@ -687,6 +727,9 @@ function SessionDetail({ onBack }) {
       endTime: '',
       email: ''
     })
+    // Reset editing state when canceling
+    setEditingProctor(null)
+    setEditingIndex(-1)
   }
 
   const getStatusColor = (status) => {
@@ -1946,23 +1989,117 @@ function SessionDetail({ onBack }) {
               {proctors.length > 0 ? (
                 <div className="space-y-2">
                   {proctors.map((proctor, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{proctor.name}</div>
-                        <div className="text-sm text-gray-600">
-                          {proctor.startTime} - {proctor.endTime}
-                          {proctor.email && ` • ${proctor.email}`}
+                    <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      {editingIndex === index ? (
+                        // Edit mode
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                First Name *
+                              </label>
+                              <input
+                                type="text"
+                                value={editingProctor.firstName}
+                                onChange={(e) => setEditingProctor({...editingProctor, firstName: e.target.value})}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="First name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Last Name *
+                              </label>
+                              <input
+                                type="text"
+                                value={editingProctor.lastName}
+                                onChange={(e) => setEditingProctor({...editingProctor, lastName: e.target.value})}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Last name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Start Time *
+                              </label>
+                              <input
+                                type="time"
+                                value={editingProctor.startTime}
+                                onChange={(e) => setEditingProctor({...editingProctor, startTime: e.target.value})}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                End Time *
+                              </label>
+                              <input
+                                type="time"
+                                value={editingProctor.endTime}
+                                onChange={(e) => setEditingProctor({...editingProctor, endTime: e.target.value})}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                value={editingProctor.email}
+                                onChange={(e) => setEditingProctor({...editingProctor, email: e.target.value})}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="proctor@example.com"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleSaveEditProctor}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition duration-200"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEditProctor}
+                              className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition duration-200"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveProctor(index)}
-                        className="text-red-500 hover:text-red-700 p-1"
-                        title="Remove Proctor"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                      ) : (
+                        // Display mode
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{proctor.name}</div>
+                            <div className="text-sm text-gray-600">
+                              {proctor.startTime} - {proctor.endTime}
+                              {proctor.email && ` • ${proctor.email}`}
+                            </div>
+                          </div>
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => handleEditProctor(index)}
+                              className="text-blue-500 hover:text-blue-700 p-1"
+                              title="Edit Proctor"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveProctor(index)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Remove Proctor"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
