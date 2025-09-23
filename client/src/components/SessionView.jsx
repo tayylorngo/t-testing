@@ -1999,7 +1999,7 @@ function SessionView({ user, onBack }) {
         {isTableView ? (
           /* Table View */
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-visible">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -2150,7 +2150,7 @@ function SessionView({ user, onBack }) {
                                 </button>
                                 
                                 {showDropdown === room._id && (
-                                  <div className="fixed right-4 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999]">
                                     <div className="py-1">
                                       <button
                                         onClick={(e) => {
