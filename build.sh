@@ -5,10 +5,14 @@ set -e
 
 echo "🚀 Starting build process..."
 
-# Install client dependencies
+# Install client dependencies (including devDependencies)
 echo "📦 Installing client dependencies..."
 cd client
-npm install
+echo "📁 Current directory: $(pwd)"
+echo "📁 Package.json exists: $(test -f package.json && echo 'YES' || echo 'NO')"
+npm install --include=dev
+echo "📦 Checking if vite is installed..."
+ls node_modules/.bin/vite || echo "❌ Vite not found in node_modules/.bin/"
 
 # Build client
 echo "🏗️  Building client..."
