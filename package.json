@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node build-render.js",
     "start": "node server/server.js",
-    "install:client": "cd client && npm ci",
+    "install:client": "cd client && npm install",
     "install:server": "cd server && npm ci --production",
     "postinstall": "npm run build",
     "prestart": "npm run build"

@@ -12,9 +12,9 @@ const path = require('path');
 console.log('🚀 Starting Render build process...');
 
 try {
-  // Step 1: Install client dependencies
+  // Step 1: Install client dependencies (including devDependencies for build)
   console.log('📦 Installing client dependencies...');
-  execSync('cd client && npm ci', { stdio: 'inherit' });
+  execSync('cd client && npm install', { stdio: 'inherit' });
 
   // Step 2: Build client
   console.log('🏗️  Building client...');
@@ -34,22 +34,17 @@ try {
 
   // Copy all files from client/dist to server/public
   if (fs.existsSync(clientDist)) {
-    const files = fs.readdirSync(clientDist);
-    files.forEach(file => {
-      const srcPath = path.join(clientDist, file);
-      const destPath = path.join(serverPublic, file);
-      
-      if (fs.statSync(srcPath).isDirectory()) {
-        // Copy directory recursively
-        execSync(`cp -r "${srcPath}" "${destPath}"`, { stdio: 'inherit' });
-      } else {
-        // Copy file
-        fs.copyFileSync(srcPath, destPath);
-      }
-    });
+    // Use cross-platform copy command
+    if (process.platform === 'win32') {
+      execSync(`xcopy "${clientDist}" "${serverPublic}" /E /I /Y`, { stdio: 'inherit' });
+    } else {
+      execSync(`cp -r "${clientDist}"/* "${serverPublic}"/`, { stdio: 'inherit' });
+    }
     console.log('✅ Client build copied successfully');
   } else {
     console.error('❌ Client dist directory not found');
+    console.log('📁 Current directory contents:', fs.readdirSync(__dirname));
+    console.log('📁 Client directory contents:', fs.readdirSync(path.join(__dirname, 'client')));
     process.exit(1);
   }
 
