@@ -1637,6 +1637,11 @@ function SessionView({ user, onBack }) {
   }, [roomTimeCalculations, debouncedSession?.rooms, expandedRooms, expandedCards, calculateRoomTimeRemaining])
 
   const toggleRoomExpansion = useCallback((roomId) => {
+    // Store scroll positions before state change
+    const roomElement = document.querySelector(`[data-room-id="${roomId}"]`)
+    const sectionsContainer = roomElement?.querySelector('.overflow-y-auto')
+    const scrollTop = sectionsContainer?.scrollTop || 0
+    
     setExpandedRooms(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -1646,9 +1651,21 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
+    
+    // Restore scroll position after state change
+    if (sectionsContainer && scrollTop > 0) {
+      setTimeout(() => {
+        sectionsContainer.scrollTop = scrollTop
+      }, 10)
+    }
   }, [])
 
   const toggleCardExpansion = useCallback((roomId) => {
+    // Store scroll positions before state change
+    const roomElement = document.querySelector(`[data-room-id="${roomId}"]`)
+    const sectionsContainer = roomElement?.querySelector('.overflow-y-auto')
+    const scrollTop = sectionsContainer?.scrollTop || 0
+    
     setExpandedCards(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -1660,16 +1677,25 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
+    
+    // Restore scroll position after state change
+    if (sectionsContainer && scrollTop > 0) {
+      setTimeout(() => {
+        sectionsContainer.scrollTop = scrollTop
+      }, 10)
+    }
   }, [])
 
   // Memoized component for room sections to prevent unnecessary re-renders
   const RoomSections = memo(({ sections }) => {
+    const scrollRef = useRef(null)
+
     if (!sections || sections.length === 0) {
       return <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
     }
 
     return (
-      <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+      <div ref={scrollRef} className="space-y-2 max-h-64 overflow-y-auto pr-2">
         {sections
           .sort((a, b) => a.number - b.number)
           .map((section) => (
