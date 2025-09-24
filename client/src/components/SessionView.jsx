@@ -1661,7 +1661,7 @@ function SessionView({ user, onBack }) {
     })
   }, [])
 
-  // Global scroll position store to persist across re-renders - production fix
+  // Global scroll position store to persist across re-renders
   const scrollPositions = useRef(new Map())
 
   // Memoized component for room sections to prevent unnecessary re-renders
@@ -1683,12 +1683,9 @@ function SessionView({ user, onBack }) {
           savedScrollTop = stored ? parseInt(stored, 10) : 0
         }
         
-        console.log(`[Scroll Fix] Room ${roomId}: savedScrollTop = ${savedScrollTop}`)
-        
         if (savedScrollTop > 0) {
           // Set scroll position synchronously before paint
           containerRef.current.scrollTop = savedScrollTop
-          console.log(`[Scroll Fix] Room ${roomId}: Restored scroll to ${savedScrollTop}`)
         }
       }
     })
@@ -1698,7 +1695,6 @@ function SessionView({ user, onBack }) {
       scrollPositions.current.set(roomId, scrollTop)
       // Also store in localStorage for persistence
       localStorage.setItem(`scroll-${roomId}`, scrollTop.toString())
-      console.log(`[Scroll Fix] Room ${roomId}: Saved scroll position ${scrollTop}`)
     }, [roomId])
 
     if (!sections || sections.length === 0) {
