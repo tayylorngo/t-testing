@@ -319,15 +319,21 @@ function SessionDetail({ onBack }) {
       // Create sections first if any are being created
       let createdSectionIds = [...selectedSectionsForRoom]
       if (roomSectionsToCreate.length > 0) {
-        for (const sectionData of roomSectionsToCreate) {
-          const sectionResponse = await testingAPI.createSection({
-            number: sectionData.number,
-            studentCount: sectionData.studentCount,
-            description: sectionData.description,
-            accommodations: sectionData.accommodations,
-            notes: sectionData.notes
-          })
-          createdSectionIds.push(sectionResponse.section._id)
+        try {
+          for (const sectionData of roomSectionsToCreate) {
+            const sectionResponse = await testingAPI.createSection({
+              number: sectionData.number,
+              studentCount: sectionData.studentCount,
+              description: sectionData.description,
+              accommodations: sectionData.accommodations,
+              notes: sectionData.notes
+            })
+            createdSectionIds.push(sectionResponse.section._id)
+          }
+        } catch (sectionError) {
+          console.error('Error creating sections for room:', sectionError)
+          showError(sectionError.message || 'Error creating sections. Please check for duplicate section numbers.')
+          return // Stop room creation if section creation fails
         }
       }
       
