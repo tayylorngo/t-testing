@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
@@ -1661,17 +1661,57 @@ function SessionView({ user, onBack }) {
     })
   }, [])
 
+  // Global scroll position store to persist across re-renders
+  const scrollPositions = useRef(new Map())
+
   // Memoized component for room sections to prevent unnecessary re-renders
-  const RoomSections = memo(({ sections }) => {
+  const RoomSections = memo(({ sections, roomId }) => {
+    const containerRef = useRef(null)
+
+    const sortedSections = useMemo(() => {
+      if (!sections || sections.length === 0) return []
+      return [...sections].sort((a, b) => a.number - b.number)
+    }, [sections])
+
+    // Restore scroll position synchronously before paint to prevent glitch
+    useLayoutEffect(() => {
+      if (containerRef.current) {
+        let savedScrollTop = scrollPositions.current.get(roomId)
+        if (!savedScrollTop) {
+          // Try to get from localStorage
+          const stored = localStorage.getItem(`scroll-${roomId}`)
+          savedScrollTop = stored ? parseInt(stored, 10) : 0
+        }
+        
+        if (savedScrollTop > 0) {
+          // Set scroll position synchronously before paint
+          containerRef.current.scrollTop = savedScrollTop
+        }
+      }
+    })
+
+    const handleScroll = useCallback((e) => {
+      const scrollTop = e.target.scrollTop
+      scrollPositions.current.set(roomId, scrollTop)
+      // Also store in localStorage for persistence
+      localStorage.setItem(`scroll-${roomId}`, scrollTop.toString())
+    }, [roomId])
+
     if (!sections || sections.length === 0) {
       return <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
     }
 
     return (
-      <div className="max-h-64 overflow-y-auto space-y-2">
-        {sections
-          .sort((a, b) => a.number - b.number)
-          .map((section) => (
+      <div 
+        ref={containerRef}
+        className="max-h-64 overflow-y-auto space-y-2" 
+        style={{ 
+          scrollBehavior: 'auto',
+          scrollbarGutter: 'stable'
+        }}
+        onScroll={handleScroll}
+      >
+        {sortedSections.map((section) => (
             <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
               <div className="flex justify-between items-start mb-1">
                 <span className="text-sm font-medium text-gray-700 dark:text-white">
@@ -2431,15 +2471,16 @@ function SessionView({ user, onBack }) {
                       </tr>
                       
                       {/* Expanded Details Row */}
-                      <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
-                        <td colSpan="9" className="px-0 py-0">
-                          <div className={`overflow-hidden room-expansion-transition ${expandedRooms.has(room._id) ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                      {expandedRooms.has(room._id) && (
+                        <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
+                          <td colSpan="9" className="px-0 py-0">
+                            <div className="overflow-hidden">
                             <div className="px-6 py-3">
                               <div className="grid grid-cols-3 gap-4">
                                 {/* Sections Column */}
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                                  <RoomSections sections={room.sections} />
+                                  <RoomSections sections={room.sections} roomId={room._id} />
                                 </div>
 
                                 {/* Proctors Column */}
@@ -2528,6 +2569,7 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         </tr>
+                      )}
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -2758,7 +2800,7 @@ function SessionView({ user, onBack }) {
                     {/* Sections */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                      <RoomSections sections={room.sections} />
+                      <RoomSections sections={room.sections} roomId={room._id} />
                     </div>
 
                     {/* Proctors */}
