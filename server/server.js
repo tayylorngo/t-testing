@@ -957,8 +957,14 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Room name is required' });
     }
 
+    // Check for duplicate room name
+    const existingRoom = await Room.findOne({ name: name.trim() });
+    if (existingRoom) {
+      return res.status(400).json({ message: 'A room with this name already exists' });
+    }
+
     const newRoom = new Room({
-      name,
+      name: name.trim(),
       supplies
     });
 
@@ -981,7 +987,14 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   const { name, supplies, status, presentStudents, notes, proctors } = req.body;
   const updateData = {};
 
-  if (name !== undefined) updateData.name = name;
+  if (name !== undefined) {
+    // Check for duplicate room name (excluding current room)
+    const existingRoom = await Room.findOne({ name: name.trim(), _id: { $ne: id } });
+    if (existingRoom) {
+      return res.status(400).json({ message: 'A room with this name already exists' });
+    }
+    updateData.name = name.trim();
+  }
   if (supplies !== undefined) updateData.supplies = supplies;
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
@@ -2090,6 +2103,12 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Student count must be at least 1' });
     }
 
+    // Check for duplicate section number
+    const existingSection = await Section.findOne({ number });
+    if (existingSection) {
+      return res.status(400).json({ message: 'A section with this number already exists' });
+    }
+
     const newSection = new Section({
       number,
       studentCount,
@@ -2115,6 +2134,11 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
     if (number !== undefined) {
       if (number < 1 || number > 99) {
         return res.status(400).json({ message: 'Section number must be between 1 and 99' });
+      }
+      // Check for duplicate section number (excluding current section)
+      const existingSection = await Section.findOne({ number, _id: { $ne: id } });
+      if (existingSection) {
+        return res.status(400).json({ message: 'A section with this number already exists' });
       }
       updateData.number = number;
     }
@@ -2500,6 +2524,12 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ message: 'Room name is required' });
+    }
+
+    // Check for duplicate room name
+    const existingRoom = await Room.findOne({ name: name.trim() });
+    if (existingRoom) {
+      return res.status(400).json({ message: 'A room with this name already exists' });
     }
 
     // Create the room
