@@ -5,7 +5,7 @@
   "private": true,
   "main": "server/server.js",
   "scripts": {
-    "build": "node build-render.js",
+    "build": "chmod +x build.sh && ./build.sh",
     "start": "node server/server.js",
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm ci --production",

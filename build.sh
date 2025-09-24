@@ -1,24 +1,28 @@
 #!/bin/bash
 
-# Build script for Railway deployment
+# Build script for Render deployment
+set -e
 
-echo "🔨 Installing client dependencies..."
+echo "🚀 Starting build process..."
+
+# Install client dependencies
+echo "📦 Installing client dependencies..."
 cd client
-npm ci
-echo "✅ Client dependencies installed"
+npm install
 
-echo "🔨 Building React app..."
+# Build client
+echo "🏗️  Building client..."
 npm run build
-echo "✅ React app built"
 
-echo "🔨 Creating public directory and copying build files..."
-mkdir -p ../server/public
-cp -r dist/* ../server/public/
-echo "✅ Build files copied to server/public"
+# Go back to root
+cd ..
 
-echo "🔨 Installing server dependencies..."
-cd ../server
-npm ci --production
-echo "✅ Server dependencies installed"
+# Create server/public directory
+echo "📁 Creating server/public directory..."
+mkdir -p server/public
+
+# Copy client build to server/public
+echo "📋 Copying client build to server/public..."
+cp -r client/dist/* server/public/
 
 echo "🎉 Build completed successfully!"
