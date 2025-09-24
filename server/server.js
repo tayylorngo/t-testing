@@ -744,12 +744,26 @@ const checkSessionPermission = (requiredPermission = 'view') => {
 
 // Routes
 
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.status(200).json({ 
     status: 'OK', 
-    message: 'T-Testing API is running',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    message: 'Elmira API is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    websocket: io.engine.clientsCount || 0,
+    version: '1.0.0'
+  });
+});
+
+// Additional health check for Render (more frequent pings)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
@@ -2808,7 +2822,7 @@ app.get('*', (req, res) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`🚀 T-Testing Server running on port ${PORT}`);
+  console.log(`🚀 Elmira Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🗄️  MongoDB URI: ${MONGODB_URI}`);
   console.log(`🔌 WebSocket server ready for real-time updates`);
