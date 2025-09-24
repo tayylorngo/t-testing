@@ -345,6 +345,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding room to session:', error)
+      alert(error.message || 'Error adding room to session. Please try again.')
     }
   }
 
@@ -402,7 +403,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding section(s) to session:', error)
-      alert('Error adding section(s) to session. Some sections may have been created.')
+      alert(error.message || 'Error adding section(s) to session. Please try again.')
     }
   }
 
@@ -526,6 +527,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating room:', error)
+      alert(error.message || 'Error updating room. Please try again.')
     }
   }
 
@@ -581,6 +583,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating section:', error)
+      alert(error.message || 'Error updating section. Please try again.')
     }
   }
 
