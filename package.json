@@ -5,7 +5,7 @@
   "private": true,
   "main": "server/server.js",
   "scripts": {
-    "build": "node build-railway.js",
+    "build": "node build-render.js",
     "start": "node server/server.js",
     "install:client": "cd client && npm ci",
     "install:server": "cd server && npm ci --production",
