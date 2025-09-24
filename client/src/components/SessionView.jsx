@@ -55,7 +55,6 @@ function SessionView({ user, onBack }) {
   const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false)
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
   const [showDropdown, setShowDropdown] = useState(null)
-  const [preventClickOutside, setPreventClickOutside] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   // const buttonRef = useRef(null) // Not currently used // roomId for which dropdown is open
   const [showInvalidateModal, setShowInvalidateModal] = useState(false)
@@ -1637,11 +1636,6 @@ function SessionView({ user, onBack }) {
   }, [roomTimeCalculations, debouncedSession?.rooms, expandedRooms, expandedCards, calculateRoomTimeRemaining])
 
   const toggleRoomExpansion = useCallback((roomId) => {
-    // Store scroll positions before state change
-    const roomElement = document.querySelector(`[data-room-id="${roomId}"]`)
-    const sectionsContainer = roomElement?.querySelector('.overflow-y-auto')
-    const scrollTop = sectionsContainer?.scrollTop || 0
-    
     setExpandedRooms(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -1651,21 +1645,9 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
-    
-    // Restore scroll position after state change
-    if (sectionsContainer && scrollTop > 0) {
-      setTimeout(() => {
-        sectionsContainer.scrollTop = scrollTop
-      }, 10)
-    }
   }, [])
 
   const toggleCardExpansion = useCallback((roomId) => {
-    // Store scroll positions before state change
-    const roomElement = document.querySelector(`[data-room-id="${roomId}"]`)
-    const sectionsContainer = roomElement?.querySelector('.overflow-y-auto')
-    const scrollTop = sectionsContainer?.scrollTop || 0
-    
     setExpandedCards(prev => {
       const newSet = new Set(prev)
       if (newSet.has(roomId)) {
@@ -1677,25 +1659,35 @@ function SessionView({ user, onBack }) {
       }
       return newSet
     })
-    
-    // Restore scroll position after state change
-    if (sectionsContainer && scrollTop > 0) {
-      setTimeout(() => {
-        sectionsContainer.scrollTop = scrollTop
-      }, 10)
-    }
   }, [])
 
   // Memoized component for room sections to prevent unnecessary re-renders
   const RoomSections = memo(({ sections }) => {
     const scrollRef = useRef(null)
+    const scrollPositionRef = useRef(0)
+
+    // Preserve scroll position on re-renders
+    useEffect(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollPositionRef.current
+      }
+    })
+
+    const handleScroll = useCallback((e) => {
+      scrollPositionRef.current = e.target.scrollTop
+    }, [])
 
     if (!sections || sections.length === 0) {
       return <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
     }
 
     return (
-      <div ref={scrollRef} className="space-y-2 max-h-64 overflow-y-auto pr-2">
+      <div 
+        ref={scrollRef} 
+        className="space-y-2 max-h-64 overflow-y-auto pr-2"
+        onScroll={handleScroll}
+        style={{ scrollBehavior: 'auto' }}
+      >
         {sections
           .sort((a, b) => a.number - b.number)
           .map((section) => (
@@ -2466,7 +2458,7 @@ function SessionView({ user, onBack }) {
                                 {/* Sections Column */}
                                 <div>
                                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                                  <RoomSections sections={room.sections} />
+                                  <RoomSections key={`sections-${room._id}`} sections={room.sections} />
                                 </div>
 
                                 {/* Proctors Column */}
@@ -2785,7 +2777,7 @@ function SessionView({ user, onBack }) {
                     {/* Sections */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                      <RoomSections sections={room.sections} />
+                      <RoomSections key={`card-sections-${room._id}`} sections={room.sections} />
                     </div>
 
                     {/* Proctors */}
