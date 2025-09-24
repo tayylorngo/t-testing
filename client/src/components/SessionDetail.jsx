@@ -139,18 +139,18 @@ function SessionDetail({ onBack }) {
   }, [sessionId])
 
   // Update page title when session loads
-  useEffect(() => {
-    if (session) {
-      document.title = `T-Testing | ${session.name}`
-    } else {
-      document.title = 'T-Testing'
-    }
-    
-    // Cleanup function to reset title when component unmounts
-    return () => {
-      document.title = 'T-Testing'
-    }
-  }, [session])
+        useEffect(() => {
+          if (session) {
+            document.title = `Elmira | ${session.name}`
+          } else {
+            document.title = 'Elmira'
+          }
+
+          // Cleanup function to reset title when component unmounts
+          return () => {
+            document.title = 'Elmira'
+          }
+        }, [session])
 
   // Handle real-time updates from other users
   const handleRealTimeUpdate = (update) => {

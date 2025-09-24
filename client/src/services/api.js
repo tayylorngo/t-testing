@@ -1,4 +1,4 @@
-// API service for T-Testing application
+// API service for Elmira application
 
 // Use relative URL in production, absolute URL in development
 const API_BASE_URL = import.meta.env.PROD 

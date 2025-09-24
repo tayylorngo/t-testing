@@ -111,8 +111,20 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
       <div className="max-w-lg w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">T-Testing</h1>
-          <p className="text-gray-600 text-lg">School Testing Management System</p>
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <svg className="w-9 h-9 text-white" viewBox="0 0 32 32" fill="none">
+                <rect x="8" y="6" width="2.5" height="20" rx="1.25" fill="white"/>
+                <rect x="8" y="6" width="12" height="2.5" rx="1.25" fill="white"/>
+                <rect x="8" y="14.75" width="9" height="2.5" rx="1.25" fill="white"/>
+                <rect x="8" y="23.5" width="12" height="2.5" rx="1.25" fill="white"/>
+                <circle cx="24" cy="10" r="2" fill="white" opacity="0.8"/>
+                <circle cx="26" cy="22" r="1.5" fill="white" opacity="0.6"/>
+              </svg>
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Elmira</h1>
+          <p className="text-gray-600 text-lg">Professional Testing Management Platform</p>
         </div>
         
         {/* Register Card */}

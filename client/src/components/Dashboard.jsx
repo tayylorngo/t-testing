@@ -11,7 +11,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'T-Testing'
+    document.title = 'Elmira'
   }, [])
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState('date') // date, name, createdAt, status, roomCount
@@ -409,8 +409,26 @@ function Dashboard({ user, onLogout, onViewSession }) {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">T-Testing Dashboard</h1>
+            <div className="flex items-center space-x-4">
+              {/* Elmira Logo */}
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" viewBox="0 0 32 32" fill="none">
+                    <rect x="8" y="6" width="2.5" height="20" rx="1.25" fill="white"/>
+                    <rect x="8" y="6" width="12" height="2.5" rx="1.25" fill="white"/>
+                    <rect x="8" y="14.75" width="9" height="2.5" rx="1.25" fill="white"/>
+                    <rect x="8" y="23.5" width="12" height="2.5" rx="1.25" fill="white"/>
+                    <circle cx="24" cy="10" r="2" fill="white" opacity="0.8"/>
+                    <circle cx="26" cy="22" r="1.5" fill="white" opacity="0.6"/>
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Elmira</h1>
+                  <p className="text-gray-600">Testing Session Management</p>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
               <p className="text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
             </div>
             <div className="flex items-center space-x-3">
