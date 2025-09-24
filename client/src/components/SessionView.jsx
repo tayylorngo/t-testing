@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -799,27 +798,6 @@ function SessionView({ user, onBack }) {
     }
   }, [showDropdown])
 
-  // Close dropdown when clicking outside - DISABLED FOR DEBUGGING
-  // useEffect(() => {
-  //   const handleClickOutside = (event) => {
-  //     if (preventClickOutside) {
-  //       return // Don't close dropdown if we're preventing click outside
-  //     }
-      
-  //     // Add a delay to ensure button clicks are processed first
-  //     setTimeout(() => {
-  //       if (showDropdown && !event.target.closest('.dropdown-container') && !event.target.closest('[data-dropdown-menu]')) {
-  //         setShowDropdown(null)
-  //       }
-  //     }, 100)
-  //   }
-
-  //   // Use click event with delay to ensure button clicks are processed first
-  //   document.addEventListener('click', handleClickOutside)
-  //   return () => {
-  //     document.removeEventListener('click', handleClickOutside)
-  //   }
-  // }, [showDropdown, preventClickOutside])
 
   // Debug modal states
   useEffect(() => {
@@ -1084,14 +1062,14 @@ function SessionView({ user, onBack }) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showDropdown && !event.target.closest('.dropdown-container')) {
+      if (showDropdown && !event.target.closest('[data-dropdown-menu]') && !event.target.closest('button[title="More Actions"]')) {
         setShowDropdown(null)
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('click', handleClickOutside)
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('click', handleClickOutside)
     }
   }, [showDropdown])
 
@@ -2202,7 +2180,7 @@ function SessionView({ user, onBack }) {
         {isTableView ? (
           /* Table View */
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
-            <div className="overflow-x-auto" style={{ touchAction: 'pan-x', overflowY: 'visible' }}>
+            <div className="overflow-x-auto" style={{ touchAction: 'pan-x', overflowY: 'visible', position: 'relative' }}>
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
@@ -2359,14 +2337,14 @@ function SessionView({ user, onBack }) {
                                   ⋯
                                 </button>
                                 
-                                {showDropdown === room._id && createPortal(
+                                {showDropdown === room._id && (
                                   <div 
                                     data-dropdown-menu
-                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                                     style={{ 
-                                      position: 'fixed',
-                                      top: `${dropdownPosition.top}px`,
-                                      left: `${dropdownPosition.left}px`,
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: '0',
                                       zIndex: 99999,
                                       minHeight: 'auto',
                                       maxHeight: 'none',
@@ -2460,8 +2438,7 @@ function SessionView({ user, onBack }) {
                                         Invalidate Test
                                       </button>
                                     </div>
-                                  </div>,
-                                  document.body
+                                  </div>
                                 )}
                               </div>
                             )}
