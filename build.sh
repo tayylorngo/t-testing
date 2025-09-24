@@ -5,6 +5,12 @@ set -e
 
 echo "🚀 Starting build process..."
 
+# Install server dependencies first
+echo "📦 Installing server dependencies..."
+cd server
+npm install --production
+cd ..
+
 # Install client dependencies (including devDependencies)
 echo "📦 Installing client dependencies..."
 cd client
