@@ -8,6 +8,11 @@ import PendingInvitationsModal from './PendingInvitationsModal'
 function Dashboard({ user, onLogout, onViewSession }) {
   const { isConnected, reconnect } = useRealTime()
   const [sessions, setSessions] = useState([])
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'T-Testing'
+  }, [])
   const [isLoading, setIsLoading] = useState(true)
   const [sortBy, setSortBy] = useState('date') // date, name, createdAt, status, roomCount
   const [sortDescending, setSortDescending] = useState(true) // true for newest first by default

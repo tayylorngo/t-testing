@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
+import { useCustomAlert } from '../hooks/useCustomAlert'
+import CustomAlert from './CustomAlert'
 
 function SessionDetail({ onBack }) {
   const { sessionId } = useParams()
   const { joinSession, leaveSession, onSessionUpdate, isConnected } = useRealTime()
+  const { alertState, showError, hideAlert } = useCustomAlert()
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddRoomModal, setShowAddRoomModal] = useState(false)
@@ -134,6 +137,20 @@ function SessionDetail({ onBack }) {
       leaveSession()
     }
   }, [sessionId])
+
+  // Update page title when session loads
+  useEffect(() => {
+    if (session) {
+      document.title = `T-Testing | ${session.name}`
+    } else {
+      document.title = 'T-Testing'
+    }
+    
+    // Cleanup function to reset title when component unmounts
+    return () => {
+      document.title = 'T-Testing'
+    }
+  }, [session])
 
   // Handle real-time updates from other users
   const handleRealTimeUpdate = (update) => {
@@ -345,7 +362,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding room to session:', error)
-      alert(error.message || 'Error adding room to session. Please try again.')
+      showError(error.message || 'Error adding room to session. Please try again.')
     }
   }
 
@@ -403,7 +420,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error adding section(s) to session:', error)
-      alert(error.message || 'Error adding section(s) to session. Please try again.')
+      showError(error.message || 'Error adding section(s) to session. Please try again.')
     }
   }
 
@@ -527,7 +544,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating room:', error)
-      alert(error.message || 'Error updating room. Please try again.')
+      showError(error.message || 'Error updating room. Please try again.')
     }
   }
 
@@ -583,7 +600,7 @@ function SessionDetail({ onBack }) {
       fetchSessionData() // Refresh data
     } catch (error) {
       console.error('Error updating section:', error)
-      alert(error.message || 'Error updating section. Please try again.')
+      showError(error.message || 'Error updating section. Please try again.')
     }
   }
 
@@ -2491,6 +2508,15 @@ function SessionDetail({ onBack }) {
           </div>
         </div>
       )}
+
+      {/* Custom Alert */}
+      <CustomAlert
+        isOpen={alertState.isOpen}
+        onClose={hideAlert}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+      />
     </div>
   )
 }
