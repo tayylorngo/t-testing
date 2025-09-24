@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
@@ -765,33 +766,13 @@ function SessionView({ user, onBack }) {
     if (showDropdown === roomId) {
       setShowDropdown(null)
     } else {
-      // Calculate position for dropdown
+      // Simple positioning - just below the button
       if (event && event.currentTarget) {
         const rect = event.currentTarget.getBoundingClientRect()
-        const dropdownWidth = 192
-        const dropdownHeight = 200 // Approximate height for all options
-        const viewportWidth = window.innerWidth
-        const viewportHeight = window.innerHeight
-        
-        // Calculate position with viewport bounds checking
-        let left = rect.right - dropdownWidth
-        let top = rect.bottom + 8
-        
-        // Ensure dropdown stays within viewport bounds
-        if (left < 8) {
-          left = rect.left
+        const position = {
+          top: rect.bottom + 8,
+          left: rect.right - 192 // Align right edge with button right edge
         }
-        if (left + dropdownWidth > viewportWidth - 8) {
-          left = viewportWidth - dropdownWidth - 8
-        }
-        if (top + dropdownHeight > viewportHeight - 8) {
-          top = rect.top - dropdownHeight - 8
-        }
-        if (top < 8) {
-          top = 8
-        }
-        
-        const position = { top, left }
         setDropdownPosition(position)
       }
       setShowDropdown(roomId)
@@ -1067,9 +1048,14 @@ function SessionView({ user, onBack }) {
       }
     }
 
-    document.addEventListener('click', handleClickOutside)
+    // Use a slight delay to ensure button clicks are processed first
+    const handleClick = (event) => {
+      setTimeout(() => handleClickOutside(event), 10)
+    }
+
+    document.addEventListener('click', handleClick)
     return () => {
-      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('click', handleClick)
     }
   }, [showDropdown])
 
@@ -2337,17 +2323,15 @@ function SessionView({ user, onBack }) {
                                   ⋯
                                 </button>
                                 
-                                {showDropdown === room._id && (
+                                {showDropdown === room._id && createPortal(
                                   <div 
                                     data-dropdown-menu
-                                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                                     style={{ 
-                                      position: 'absolute',
-                                      top: '100%',
-                                      right: '0',
+                                      position: 'fixed',
+                                      top: `${dropdownPosition.top}px`,
+                                      left: `${dropdownPosition.left}px`,
                                       zIndex: 99999,
-                                      minHeight: 'auto',
-                                      maxHeight: 'none',
                                       width: '192px'
                                     }}
                                   >
@@ -2438,7 +2422,8 @@ function SessionView({ user, onBack }) {
                                         Invalidate Test
                                       </button>
                                     </div>
-                                  </div>
+                                  </div>,
+                                  document.body
                                 )}
                               </div>
                             )}
