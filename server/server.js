@@ -619,7 +619,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the React app build
-const publicPath = path.join(process.cwd(), 'public');
+const publicPath = path.join(__dirname, 'public');
 console.log('🔍 Public path:', publicPath);
 console.log('🔍 Public directory exists:', fs.existsSync(publicPath));
 
@@ -2817,7 +2817,7 @@ app.use((err, req, res, next) => {
 
 // Catch-all handler: send back React's index.html file for client-side routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start server
