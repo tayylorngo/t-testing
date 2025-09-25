@@ -638,14 +638,14 @@ function SessionView({ user, onBack }) {
         alert(`Present students must be between 0 and ${totalStudents}`)
         return
       }
+      
+      // For single section, also populate sectionPresentData
+      if (roomToComplete.sections && roomToComplete.sections.length === 1) {
+        sectionPresentData[roomToComplete.sections[0]._id] = presentCount
+      }
     }
     
     try {
-      console.log('Marking room complete with present students:', presentCount)
-      if (Object.keys(sectionPresentData).length > 0) {
-        console.log('Per-section data:', sectionPresentData)
-      }
-      
       // Update room with present students count and per-section data
       const updateData = { 
         status: 'completed',
@@ -654,7 +654,7 @@ function SessionView({ user, onBack }) {
       
       // Add per-section data if available
       if (Object.keys(sectionPresentData).length > 0) {
-        updateData.sectionPresentStudents = sectionPresentData
+        updateData.sectionAttendance = sectionPresentData
       }
       
       const response = await testingAPI.updateRoom(roomToComplete._id, updateData)
@@ -670,7 +670,7 @@ function SessionView({ user, onBack }) {
                   ...room, 
                   status: 'completed', 
                   presentStudents: presentCount,
-                  sectionPresentStudents: sectionPresentData
+                  sectionAttendance: sectionPresentData
                 }
               : room
           )
@@ -717,7 +717,8 @@ function SessionView({ user, onBack }) {
       // Update room status to active and clear present students
       await testingAPI.updateRoom(roomToMarkIncomplete, { 
         status: 'active',
-        presentStudents: undefined
+        presentStudents: undefined,
+        sectionAttendance: {}
       })
       
       // Update local state immediately
@@ -726,7 +727,7 @@ function SessionView({ user, onBack }) {
           ...prevSession,
           rooms: prevSession.rooms.map(room => 
             room._id === roomToMarkIncomplete 
-              ? { ...room, status: 'active', presentStudents: undefined }
+              ? { ...room, status: 'active', presentStudents: undefined, sectionAttendance: {} }
               : room
           )
         }

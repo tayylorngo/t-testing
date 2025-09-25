@@ -32,6 +32,8 @@ const RoomDetail = ({ user }) => {
         setError('Room not found')
         return
       }
+      console.log('🔍 Room data from session:', foundRoom)
+      console.log('🔍 Section attendance data:', foundRoom.sectionAttendance)
       setRoom(foundRoom)
       
       // Fetch activity log
@@ -508,35 +510,74 @@ const RoomDetail = ({ user }) => {
                 <div className="space-y-4">
                   {room.sections
                     .sort((a, b) => a.number - b.number)
-                    .map((section) => (
-                      <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-lg">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-lg font-medium text-gray-900 dark:text-white">
-                            Section {section.number}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {section.studentCount} students
-                          </span>
-                        </div>
-                        {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                          <div className="mt-2">
-                            <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {section.accommodations.map((acc, index) => (
-                                <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
-                                  {acc}
-                                </span>
-                              ))}
+                    .map((section) => {
+                      // Calculate section attendance if room is completed or active
+                      const sectionPresent = room.sectionAttendance?.[section._id] || 0
+                      const sectionAbsent = room.status === 'completed' || room.status === 'active' 
+                        ? Math.max(0, section.studentCount - sectionPresent)
+                        : 0
+                      const sectionAttendanceRate = section.studentCount > 0 
+                        ? Math.round((sectionPresent / section.studentCount) * 100)
+                        : 0
+
+                      return (
+                        <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-lg font-medium text-gray-900 dark:text-white">
+                              Section {section.number}
+                            </span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {section.studentCount} students
+                            </span>
+                          </div>
+                          
+                          {/* Section Attendance */}
+                          {(room.status === 'completed' || room.status === 'active') && (
+                            <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attendance</h4>
+                              <div className="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                  <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                                    {sectionPresent}
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">Present</div>
+                                </div>
+                                <div>
+                                  <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                                    {sectionAbsent}
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">Absent</div>
+                                </div>
+                                <div>
+                                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                    {sectionAttendanceRate}%
+                                  </div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">Rate</div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {section.notes && (
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                            <span className="font-medium">Notes:</span> {section.notes}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+
+                          {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                            <div className="mt-2">
+                              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {section.accommodations.map((acc, index) => (
+                                  <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                                    {acc}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {section.notes && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                              <span className="font-medium">Notes:</span> {section.notes}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                 </div>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400">No sections assigned to this room</p>

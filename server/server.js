@@ -360,6 +360,10 @@ const roomSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  sectionAttendance: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   notes: {
     type: String,
     trim: true
@@ -919,9 +923,10 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
     // Prepare update data
     const updateData = { status, updatedAt: new Date() };
     
-    // If marking room incomplete, clear presentStudents
+    // If marking room incomplete, clear presentStudents and sectionAttendance
     if (status === 'active') {
       updateData.presentStudents = undefined;
+      updateData.sectionAttendance = {};
     }
 
     const room = await Room.findByIdAndUpdate(
@@ -998,7 +1003,7 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
 app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents, notes, proctors } = req.body;
+  const { name, supplies, status, presentStudents, sectionAttendance, notes, proctors } = req.body;
   const updateData = {};
 
   if (name !== undefined) {
@@ -1012,6 +1017,7 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   if (supplies !== undefined) updateData.supplies = supplies;
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
+  if (sectionAttendance !== undefined) updateData.sectionAttendance = sectionAttendance;
   if (notes !== undefined) updateData.notes = notes;
   if (proctors !== undefined) updateData.proctors = proctors;
 
@@ -1026,6 +1032,12 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     ).populate('sections', 'number studentCount accommodations notes');
+    
+    // Ensure sectionAttendance is included in the response
+    const roomResponse = room.toObject();
+    if (!roomResponse.sectionAttendance) {
+      roomResponse.sectionAttendance = {};
+    }
 
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
@@ -1157,9 +1169,13 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           details = `Room status changed from completed to active. Present students count cleared.`;
         }
         
-        // Clear presentStudents when marking room incomplete
-        await Room.findByIdAndUpdate(id, { presentStudents: undefined });
+        // Clear presentStudents and sectionAttendance when marking room incomplete
+        await Room.findByIdAndUpdate(id, { 
+          presentStudents: undefined,
+          sectionAttendance: {}
+        });
         room.presentStudents = undefined;
+        room.sectionAttendance = {};
         
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
         console.log(`🔍 Room incomplete log entry created:`, logEntry);
@@ -1216,12 +1232,12 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         console.log(`🔍 No supplies in request body`);
       }
       
-      emitSessionUpdate(session._id, 'room-updated', { roomId: id, room }, user, logEntry);
+      emitSessionUpdate(session._id, 'room-updated', { roomId: id, room: roomResponse }, user, logEntry);
     } else {
       console.log(`Room update - No session found containing room: ${id}`);
     }
 
-    res.json({ message: 'Room updated successfully', room });
+    res.json({ message: 'Room updated successfully', room: roomResponse });
   } catch (error) {
     console.error('Update room error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -1274,7 +1290,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance notes proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
@@ -1359,7 +1375,7 @@ app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), 
     }).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1576,7 +1592,7 @@ app.post('/api/sessions/:id/duplicate', authenticateToken, checkSessionPermissio
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance notes proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
