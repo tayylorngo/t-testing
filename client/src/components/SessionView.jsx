@@ -1011,7 +1011,7 @@ function SessionView({ user, onBack }) {
   }, [session?.rooms])
 
   const handleSaveRoomNotes = useCallback(async () => {
-    if (!selectedRoomForNotes || !roomNotes.trim()) return
+    if (!selectedRoomForNotes) return
 
     try {
       await testingAPI.updateRoom(selectedRoomForNotes._id, {
@@ -3787,8 +3787,7 @@ function SessionView({ user, onBack }) {
               </button>
               <button
                 onClick={handleSaveRoomNotes}
-                disabled={!roomNotes.trim()}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
               >
                 Save Notes
               </button>

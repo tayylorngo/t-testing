@@ -1967,7 +1967,20 @@ app.delete('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, 
   try {
     const { sessionId, userId } = req.params;
 
-    const session = await Session.findByIdAndUpdate(
+    // Get the session to check if the current user is the owner
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Only session owners can remove collaborators
+    if (session.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'Only session owners can remove collaborators' 
+      });
+    }
+
+    const updatedSession = await Session.findByIdAndUpdate(
       sessionId,
       {
         $pull: {
@@ -1977,13 +1990,9 @@ app.delete('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, 
       { new: true }
     ).populate('collaborators.userId', 'username firstName lastName');
 
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
-    }
-
     res.json({ 
       message: 'Collaborator removed successfully',
-      collaborators: session.collaborators
+      collaborators: updatedSession.collaborators
     });
   } catch (error) {
     console.error('Remove collaborator error:', error);
