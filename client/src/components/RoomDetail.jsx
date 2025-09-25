@@ -32,8 +32,6 @@ const RoomDetail = ({ user }) => {
         setError('Room not found')
         return
       }
-      console.log('🔍 Room data from session:', foundRoom)
-      console.log('🔍 Section attendance data:', foundRoom.sectionAttendance)
       setRoom(foundRoom)
       
       // Fetch activity log
@@ -464,13 +462,11 @@ const RoomDetail = ({ user }) => {
                   <div className="text-lg font-semibold text-gray-900 dark:text-white">
                     {room.status === 'completed' && room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) > 0 
                       ? Math.round(((room.presentStudents || 0) / room.sections.reduce((total, section) => total + (section.studentCount || 0), 0)) * 100)
-                      : room.status === 'active' && room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) > 0
-                      ? Math.round(((room.presentStudents || 0) / room.sections.reduce((total, section) => total + (section.studentCount || 0), 0)) * 100)
                       : '-'
-                    }{room.status === 'completed' || room.status === 'active' ? '%' : ''}
+                    }{room.status === 'completed' ? '%' : ''}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {room.status === 'completed' ? 'Final Attendance' : room.status === 'active' ? 'Current Attendance' : 'Not Available'}
+                    {room.status === 'completed' ? 'Final Attendance' : 'Not Available'}
                   </div>
                 </div>
 
@@ -507,16 +503,16 @@ const RoomDetail = ({ user }) => {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Sections</h2>
               {room.sections && room.sections.length > 0 ? (
-                <div className="space-y-4">
+                <div className="max-h-80 overflow-y-auto space-y-4">
                   {room.sections
                     .sort((a, b) => a.number - b.number)
                     .map((section) => {
-                      // Calculate section attendance if room is completed or active
-                      const sectionPresent = room.sectionAttendance?.[section._id] || 0
-                      const sectionAbsent = room.status === 'completed' || room.status === 'active' 
+                      // Calculate section attendance only for completed rooms
+                      const sectionPresent = room.status === 'completed' ? (room.sectionAttendance?.[section._id] || 0) : 0
+                      const sectionAbsent = room.status === 'completed' 
                         ? Math.max(0, section.studentCount - sectionPresent)
                         : 0
-                      const sectionAttendanceRate = section.studentCount > 0 
+                      const sectionAttendanceRate = room.status === 'completed' && section.studentCount > 0 
                         ? Math.round((sectionPresent / section.studentCount) * 100)
                         : 0
 
@@ -531,8 +527,8 @@ const RoomDetail = ({ user }) => {
                             </span>
                           </div>
                           
-                          {/* Section Attendance */}
-                          {(room.status === 'completed' || room.status === 'active') && (
+                          {/* Section Attendance - Only show for completed rooms */}
+                          {room.status === 'completed' && (
                             <div className="mt-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attendance</h4>
                               <div className="grid grid-cols-3 gap-3 text-center">
@@ -584,28 +580,13 @@ const RoomDetail = ({ user }) => {
               )}
             </div>
 
-            {/* Room Notes */}
-            {room.notes && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Room Notes
-                </h2>
-                <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                    {room.notes}
-                  </p>
-                </div>
-              </div>
-            )}
+
 
             {/* Proctors */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Proctors</h2>
               {room.proctors && room.proctors.length > 0 ? (
-                <div className="space-y-3">
+                <div className="max-h-64 overflow-y-auto space-y-3">
                   {room.proctors.map((proctor, index) => (
                     <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
@@ -635,6 +616,106 @@ const RoomDetail = ({ user }) => {
               )}
             </div>
 
+            {/* Invalidated Tests */}
+            {roomInvalidations.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  Invalidated Tests ({roomInvalidations.length})
+                </h2>
+                <div className="space-y-3">
+                  {roomInvalidations.map((invalidation) => (
+                    <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                            Section {invalidation.sectionNumber}
+                          </p>
+                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                            {invalidation.notes}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-red-500 dark:text-red-400">
+                            {formatTimestamp(invalidation.timestamp)}
+                          </p>
+                          <p className="text-xs text-red-500 dark:text-red-400">
+                            by {invalidation.invalidatedBy}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Activity Log and Room Notes */}
+          <div className="space-y-6">
+            {/* Activity Log */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Activity Log</h2>
+              {activityLog.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">No activity recorded yet</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Actions will appear here as they happen</p>
+                </div>
+              ) : (
+                <div className="max-h-80 overflow-y-auto space-y-3">
+                  {activityLog
+                    .filter(log => log.roomName === room.name)
+                    .map((log, index) => {
+                      const colors = getActivityLogColors(log.action);
+                      return (
+                      <div key={index} className={`flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 ${colors.border}`}>
+                        <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {log.action}
+                            </p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatTimestamp(log.timestamp)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
+                              User: <span className="font-medium">{log.userName}</span>
+                            </span>
+                            {log.details && (
+                              <span className="text-xs text-gray-600 dark:text-gray-300">
+                                {log.details}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+            
+            {/* Room Notes */}
+            {room.notes && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Room Notes
+                </h2>
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                    {room.notes}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {/* Supplies */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Supplies</h2>
@@ -699,86 +780,6 @@ const RoomDetail = ({ user }) => {
                 <p className="text-gray-500 dark:text-gray-400">No supplies added to this room</p>
               )}
             </div>
-
-            {/* Invalidated Tests */}
-            {roomInvalidations.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-red-700 dark:text-red-300 mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  Invalidated Tests ({roomInvalidations.length})
-                </h2>
-                <div className="space-y-3">
-                  {roomInvalidations.map((invalidation) => (
-                    <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                            Section {invalidation.sectionNumber}
-                          </p>
-                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                            {invalidation.notes}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-red-500 dark:text-red-400">
-                            {formatTimestamp(invalidation.timestamp)}
-                          </p>
-                          <p className="text-xs text-red-500 dark:text-red-400">
-                            by {invalidation.invalidatedBy}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Activity Log */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Activity Log</h2>
-            {activityLog.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400">No activity recorded yet</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Actions will appear here as they happen</p>
-              </div>
-            ) : (
-              <div className="max-h-96 overflow-y-auto space-y-3">
-                {activityLog
-                  .filter(log => log.roomName === room.name)
-                  .map((log, index) => {
-                    const colors = getActivityLogColors(log.action);
-                    return (
-                    <div key={index} className={`flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 ${colors.border}`}>
-                      <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {log.action}
-                          </p>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatTimestamp(log.timestamp)}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-xs text-gray-600 dark:text-gray-300">
-                            User: <span className="font-medium">{log.userName}</span>
-                          </span>
-                          {log.details && (
-                            <span className="text-xs text-gray-600 dark:text-gray-300">
-                              {log.details}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    );
-                  })}
-              </div>
-            )}
           </div>
         </div>
       </div>

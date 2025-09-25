@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { testingAPI } from '../services/api'
 
-function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShowError }) {
+function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShowError, currentUser, sessionOwner }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -9,12 +9,27 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
   const [isInviting, setIsInviting] = useState(false)
   const [invitationProgress, setInvitationProgress] = useState({ sent: 0, total: 0, errors: [] })
 
+  // Check if current user is the session owner
+  const isOwner = sessionOwner && currentUser && sessionOwner._id === currentUser._id
+
   // Default permissions for new users
-  const getDefaultPermissions = () => ({
-    view: true,
-    edit: false,
-    manage: false
-  })
+  const getDefaultPermissions = () => {
+    if (isOwner) {
+      // Owners can set any permissions
+      return {
+        view: true,
+        edit: false,
+        manage: false
+      }
+    } else {
+      // Non-owners (managers) can only invite as viewers
+      return {
+        view: true,
+        edit: false,
+        manage: false
+      }
+    }
+  }
 
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
@@ -57,6 +72,11 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
   const handlePermissionChange = (userId, permission) => {
     if (permission === 'view') {
       // View permission can't be disabled
+      return
+    }
+    
+    if (!isOwner) {
+      // Non-owners can't change permissions - they can only invite as viewers
       return
     }
     
@@ -225,7 +245,14 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
                     
                     {/* Individual Permissions */}
                     <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700 mb-2">Permissions:</div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">
+                        Permissions:
+                        {!isOwner && (
+                          <span className="text-xs text-gray-500 ml-2">
+                            (Only owners can set permissions - invited as viewers)
+                          </span>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="flex items-center">
                           <input
@@ -244,9 +271,15 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
                             type="checkbox"
                             checked={permissions.edit}
                             onChange={() => handlePermissionChange(user._id, 'edit')}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            disabled={!isOwner}
+                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                              !isOwner ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title={!isOwner ? 'Only session owners can set edit permissions' : ''}
                           />
-                          <label className="ml-2 text-sm text-gray-700">
+                          <label className={`ml-2 text-sm ${
+                            !isOwner ? 'text-gray-400' : 'text-gray-700'
+                          }`}>
                             Edit Details
                           </label>
                         </div>
@@ -256,9 +289,15 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
                             type="checkbox"
                             checked={permissions.manage}
                             onChange={() => handlePermissionChange(user._id, 'manage')}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            disabled={!isOwner}
+                            className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                              !isOwner ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title={!isOwner ? 'Only session owners can set manage permissions' : ''}
                           />
-                          <label className="ml-2 text-sm text-gray-700">
+                          <label className={`ml-2 text-sm ${
+                            !isOwner ? 'text-gray-400' : 'text-gray-700'
+                          }`}>
                             Manage Others
                           </label>
                         </div>

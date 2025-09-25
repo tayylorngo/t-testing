@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { testingAPI } from '../services/api'
 
-function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUpdated, onShowRemoveCollaboratorConfirmation }) {
+function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUpdated, onShowRemoveCollaboratorConfirmation, currentUser }) {
   console.log('ManageCollaboratorsModal props:', {
     sessionId,
     isOpen,
@@ -15,6 +15,9 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
   const [isLoading, setIsLoading] = useState(true)
   const [updatingPermissions, setUpdatingPermissions] = useState(null)
   const [removingCollaborator, setRemovingCollaborator] = useState(null)
+
+  // Check if current user is the session owner
+  const isOwner = owner && currentUser && owner._id === currentUser._id
 
   useEffect(() => {
     if (isOpen) {
@@ -71,6 +74,7 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
 
   const handlePermissionChange = async (userId, permission) => {
     if (permission === 'view') return // View permission can't be changed
+    if (!isOwner) return // Only owners can change permissions
 
     setUpdatingPermissions(userId)
     try {
@@ -219,10 +223,15 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
                                   type="checkbox"
                                   checked={collaborator.permissions[permission]}
                                   onChange={() => handlePermissionChange(collaborator.userId._id, permission)}
-                                  disabled={updatingPermissions === collaborator.userId._id}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                  disabled={updatingPermissions === collaborator.userId._id || !isOwner}
+                                  className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                    !isOwner ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                  title={!isOwner && permission !== 'view' ? 'Only session owners can change permissions' : ''}
                                 />
-                                <label className="ml-1 text-xs text-gray-600">
+                                <label className={`ml-1 text-xs ${
+                                  !isOwner && permission !== 'view' ? 'text-gray-400' : 'text-gray-600'
+                                }`}>
                                   {getPermissionLabel(permission)}
                                 </label>
                               </div>

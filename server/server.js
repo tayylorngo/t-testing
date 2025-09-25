@@ -933,7 +933,13 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       id,
       updateData,
       { new: true, runValidators: true }
-    );
+    ).populate('sections', 'number studentCount accommodations notes');
+    
+    // Ensure sectionAttendance is included in the response
+    const roomResponse = room.toObject();
+    if (!roomResponse.sectionAttendance) {
+      roomResponse.sectionAttendance = {};
+    }
 
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
@@ -955,12 +961,12 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       
       const logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
       
-      emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room, status }, user, logEntry);
+      emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room: roomResponse, status }, user, logEntry);
     } else {
       console.log(`Room status update - No session found containing room: ${id}`);
     }
 
-    res.json({ message: 'Room status updated', room });
+    res.json({ message: 'Room status updated', room: roomResponse });
   } catch (error) {
     console.error('Update room error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -1673,8 +1679,13 @@ app.post('/api/sessions/:sessionId/invite', authenticateToken, checkSessionPermi
       return res.status(400).json({ message: 'Invited user ID is required' });
     }
 
-    // Check if user is already a collaborator
+    // Get the session to check if the current user is the owner
     const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if user is already a collaborator
     const existingCollaborator = session.collaborators.find(
       collab => collab.userId.toString() === invitedUserId
     );
@@ -1694,12 +1705,24 @@ app.post('/api/sessions/:sessionId/invite', authenticateToken, checkSessionPermi
       return res.status(400).json({ message: 'Invitation already sent to this user' });
     }
 
+    // Determine permissions based on whether user is owner or manager
+    let finalPermissions = { view: true, edit: false, manage: false }; // Default
+    const isOwner = session.createdBy.toString() === req.user.id;
+
+    if (isOwner) {
+      // Owners can set any permissions
+      finalPermissions = permissions || { view: true, edit: false, manage: false };
+    } else {
+      // Non-owners (managers) can only invite as viewers
+      finalPermissions = { view: true, edit: false, manage: false };
+    }
+
     // Create invitation
     const invitation = new SessionInvitation({
       sessionId,
       invitedUserId,
       invitedBy: req.user.id,
-      permissions: permissions || { view: true, edit: false, manage: false }
+      permissions: finalPermissions
     });
 
     await invitation.save();
@@ -1903,7 +1926,20 @@ app.put('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, che
       return res.status(400).json({ message: 'Valid permissions object is required' });
     }
 
-    const session = await Session.findByIdAndUpdate(
+    // Get the session to check if the current user is the owner
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Only session owners can change permissions
+    if (session.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'Only session owners can change collaborator permissions' 
+      });
+    }
+
+    const updatedSession = await Session.findByIdAndUpdate(
       sessionId,
       {
         $set: {
@@ -1916,13 +1952,9 @@ app.put('/api/sessions/:sessionId/collaborators/:userId', authenticateToken, che
       }
     ).populate('collaborators.userId', 'username firstName lastName');
 
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
-    }
-
     res.json({ 
       message: 'Collaborator permissions updated successfully',
-      collaborators: session.collaborators
+      collaborators: updatedSession.collaborators
     });
   } catch (error) {
     console.error('Update collaborator permissions error:', error);

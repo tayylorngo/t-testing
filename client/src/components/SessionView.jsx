@@ -54,6 +54,8 @@ function SessionView({ user, onBack }) {
   const [showClearLogModal, setShowClearLogModal] = useState(false)
   const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false)
   const [roomToMarkIncomplete, setRoomToMarkIncomplete] = useState(null)
+  const [showAttendanceErrorModal, setShowAttendanceErrorModal] = useState(false)
+  const [attendanceError, setAttendanceError] = useState('')
   const [showDropdown, setShowDropdown] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   // const buttonRef = useRef(null) // Not currently used // roomId for which dropdown is open
@@ -614,13 +616,15 @@ function SessionView({ user, onBack }) {
       for (const section of roomToComplete.sections) {
         const sectionCount = sectionPresentCounts[section._id]
         if (!sectionCount || isNaN(parseInt(sectionCount))) {
-          alert(`Please enter a valid number for Section ${section.number}`)
+          setAttendanceError(`Please enter a valid number for Section ${section.number}`)
+          setShowAttendanceErrorModal(true)
           return
         }
         
         const count = parseInt(sectionCount)
         if (count < 0 || count > section.studentCount) {
-          alert(`Section ${section.number} present count must be between 0 and ${section.studentCount}`)
+          setAttendanceError(`Section ${section.number} present count must be between 0 and ${section.studentCount} students`)
+          setShowAttendanceErrorModal(true)
           return
         }
         
@@ -629,13 +633,18 @@ function SessionView({ user, onBack }) {
       }
     } else {
       // Handle single section or no sections
-      if (!presentStudentsCount || isNaN(parseInt(presentStudentsCount))) return
+      if (!presentStudentsCount || isNaN(parseInt(presentStudentsCount))) {
+        setAttendanceError('Please enter a valid number of present students')
+        setShowAttendanceErrorModal(true)
+        return
+      }
       
       presentCount = parseInt(presentStudentsCount)
       const totalStudents = calculateTotalStudents(roomToComplete.sections)
       
       if (presentCount < 0 || presentCount > totalStudents) {
-        alert(`Present students must be between 0 and ${totalStudents}`)
+        setAttendanceError(`Present students must be between 0 and ${totalStudents} students`)
+        setShowAttendanceErrorModal(true)
         return
       }
       
@@ -3601,6 +3610,37 @@ function SessionView({ user, onBack }) {
                   className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Mark Incomplete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Error Modal */}
+      {showAttendanceErrorModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="flex items-center mb-6">
+              <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white ml-4">Invalid Attendance</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-gray-700 dark:text-gray-300">
+                {attendanceError}
+              </p>
+              
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={() => setShowAttendanceErrorModal(false)}
+                  className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  OK
                 </button>
               </div>
             </div>
