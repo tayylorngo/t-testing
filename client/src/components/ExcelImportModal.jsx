@@ -24,19 +24,25 @@ function ExcelImportModal({ isOpen, onClose, onImport, sessionId }) {
     setValidationResult(null);
 
     try {
+      console.log('Starting Excel file parsing...');
       // Parse the Excel file
       const parsedData = await parseExcelFile(file);
+      console.log('Parsed data:', parsedData);
       
       // Validate the data
       const validation = validateImportData(parsedData);
+      console.log('Validation result:', validation);
       
       setImportData(parsedData);
       setValidationResult(validation);
       
       if (!validation.isValid) {
-        setError('The Excel file contains errors. Please review and fix them before importing.');
+        setError(`The Excel file contains errors: ${validation.errors.join(', ')}`);
+      } else {
+        setError(''); // Clear any previous errors
       }
     } catch (err) {
+      console.error('Excel parsing error:', err);
       setError(err.message || 'Error parsing Excel file');
     } finally {
       setIsLoading(false);
@@ -116,16 +122,16 @@ function ExcelImportModal({ isOpen, onClose, onImport, sessionId }) {
               <div className="bg-blue-50 rounded-lg p-4">
                 <h4 className="font-semibold text-blue-900 mb-2">Expected Excel Format</h4>
                 <p className="text-blue-800 text-sm mb-2">
-                  Your Excel file should contain columns for:
+                  Your Excel file should contain these required columns:
                 </p>
                 <ul className="text-blue-800 text-sm space-y-1">
                   <li>• <strong>Room</strong> - Room name or number</li>
                   <li>• <strong>Section</strong> - Section number</li>
                   <li>• <strong>Student Count</strong> - Number of students in the section</li>
-                  <li>• <strong>Accommodations</strong> - Any accommodations (optional)</li>
-                  <li>• <strong>Notes</strong> - Additional notes (optional)</li>
-                  <li>• <strong>Present/Absent</strong> - Attendance data (optional)</li>
                 </ul>
+                <p className="text-blue-700 text-xs mt-2">
+                  Each row represents one section. Multiple sections can belong to the same room.
+                </p>
               </div>
             </div>
           ) : (
@@ -187,7 +193,6 @@ function ExcelImportModal({ isOpen, onClose, onImport, sessionId }) {
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sections</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Attendance</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -199,15 +204,6 @@ function ExcelImportModal({ isOpen, onClose, onImport, sessionId }) {
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-600">
                             {room.sections.reduce((sum, s) => sum + (s.studentCount || 0), 0)}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
-                            {room.attendance.present > 0 || room.attendance.absent > 0 ? (
-                              <span>
-                                {room.attendance.present || 0} present, {room.attendance.absent || 0} absent
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">No data</span>
-                            )}
                           </td>
                         </tr>
                       ))}

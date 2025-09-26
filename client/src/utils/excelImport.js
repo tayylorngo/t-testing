@@ -58,6 +58,8 @@ export const parseExcelFile = (file) => {
  * @returns {Object} - Structured data with rooms, sections, and attendance
  */
 const parseExcelData = (jsonData) => {
+  console.log('Parsing Excel data:', jsonData);
+  
   if (!jsonData || jsonData.length === 0) {
     throw new Error('Excel file appears to be empty');
   }
@@ -66,97 +68,95 @@ const parseExcelData = (jsonData) => {
   let headerRowIndex = -1;
   let headers = [];
   
-  for (let i = 0; i < jsonData.length; i++) {
+  console.log('Looking for header row...');
+  for (let i = 0; i < Math.min(jsonData.length, 10); i++) { // Only check first 10 rows
     const row = jsonData[i];
+    console.log(`Row ${i}:`, row);
     if (row && row.length > 0) {
       // Look for common headers
       const headerText = row[0]?.toString().toLowerCase() || '';
+      console.log(`Row ${i} header text: "${headerText}"`);
       if (headerText.includes('room') || headerText.includes('section') || 
           headerText.includes('student') || headerText.includes('attendance')) {
         headerRowIndex = i;
         headers = row.map(h => h?.toString().toLowerCase().trim() || '');
+        console.log('Found header row at index:', headerRowIndex);
+        console.log('Headers:', headers);
         break;
       }
     }
   }
   
   if (headerRowIndex === -1) {
+    console.log('No header row found. Available data:');
+    jsonData.slice(0, 5).forEach((row, i) => {
+      console.log(`Row ${i}:`, row);
+    });
     throw new Error('Could not find header row in Excel file. Please ensure the first column contains room or section information.');
   }
   
   // Map column indices
   const columnMap = mapColumns(headers);
+  console.log('Column mapping:', columnMap);
   
   // Parse data rows
   const rooms = new Map();
   const sections = [];
-  const attendanceData = [];
   
+  console.log('Parsing data rows...');
   for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
     const row = jsonData[i];
-    if (!row || row.length === 0) continue;
+    console.log(`Processing row ${i}:`, row);
+    if (!row || row.length === 0) {
+      console.log(`Skipping empty row ${i}`);
+      continue;
+    }
     
     const rowData = parseDataRow(row, columnMap);
-    if (!rowData) continue;
+    console.log(`Parsed row data:`, rowData);
+    if (!rowData) {
+      console.log(`Skipping invalid row ${i}`);
+      continue;
+    }
     
     // Group by room
-    if (rowData.room) {
+    if (rowData.room && rowData.section && rowData.studentCount) {
+      console.log(`Adding section ${rowData.section} to room ${rowData.room}`);
       if (!rooms.has(rowData.room)) {
         rooms.set(rowData.room, {
           name: rowData.room,
           sections: [],
-          supplies: [],
-          attendance: {
-            present: 0,
-            absent: 0,
-            total: 0
-          }
+          supplies: []
         });
       }
       
       const room = rooms.get(rowData.room);
       
-      // Add section if present
-      if (rowData.section) {
-        const section = {
-          number: rowData.section,
-          studentCount: rowData.studentCount || 0,
-          accommodations: rowData.accommodations || [],
-          notes: rowData.notes || ''
-        };
-        
-        room.sections.push(section);
-        sections.push(section);
-      }
+      // Add section
+      const section = {
+        number: rowData.section,
+        studentCount: rowData.studentCount,
+        accommodations: [],
+        notes: ''
+      };
       
-      // Add attendance data if present
-      if (rowData.present !== undefined) {
-        room.attendance.present += rowData.present;
-      }
-      if (rowData.absent !== undefined) {
-        room.attendance.absent += rowData.absent;
-      }
-      if (rowData.total !== undefined) {
-        room.attendance.total += rowData.total;
-      }
-      
-      // Store individual attendance record
-      if (rowData.present !== undefined || rowData.absent !== undefined) {
-        attendanceData.push({
-          room: rowData.room,
-          section: rowData.section,
-          present: rowData.present || 0,
-          absent: rowData.absent || 0,
-          total: rowData.total || 0
-        });
-      }
+      room.sections.push(section);
+      sections.push(section);
+    } else {
+      console.log(`Row ${i} missing required data:`, {
+        room: rowData?.room,
+        section: rowData?.section,
+        studentCount: rowData?.studentCount
+      });
     }
   }
+  
+  console.log('Final rooms:', Array.from(rooms.values()));
+  console.log('Final sections:', sections);
   
   return {
     rooms: Array.from(rooms.values()),
     sections: sections,
-    attendance: attendanceData,
     summary: {
       totalRooms: rooms.size,
       totalSections: sections.length,
@@ -171,39 +171,30 @@ const parseExcelData = (jsonData) => {
  * @returns {Object} - Column mapping
  */
 const mapColumns = (headers) => {
+  console.log('Mapping columns from headers:', headers);
   const mapping = {
     room: -1,
     section: -1,
-    studentCount: -1,
-    accommodations: -1,
-    notes: -1,
-    present: -1,
-    absent: -1,
-    total: -1
+    studentCount: -1
   };
   
   headers.forEach((header, index) => {
     const h = header.toLowerCase();
+    console.log(`Header ${index}: "${header}" -> "${h}"`);
     
     if (h.includes('room')) {
       mapping.room = index;
+      console.log(`Found room column at index ${index}`);
     } else if (h.includes('section')) {
       mapping.section = index;
+      console.log(`Found section column at index ${index}`);
     } else if (h.includes('student') && h.includes('count')) {
       mapping.studentCount = index;
-    } else if (h.includes('accommodation')) {
-      mapping.accommodations = index;
-    } else if (h.includes('note')) {
-      mapping.notes = index;
-    } else if (h.includes('present')) {
-      mapping.present = index;
-    } else if (h.includes('absent')) {
-      mapping.absent = index;
-    } else if (h.includes('total')) {
-      mapping.total = index;
+      console.log(`Found student count column at index ${index}`);
     }
   });
   
+  console.log('Final column mapping:', mapping);
   return mapping;
 };
 
@@ -214,100 +205,59 @@ const mapColumns = (headers) => {
  * @returns {Object|null} - Parsed row data or null if invalid
  */
 const parseDataRow = (row, columnMap) => {
+  console.log('Parsing data row:', row, 'with column map:', columnMap);
   const data = {};
   
   // Extract room name
   if (columnMap.room >= 0 && row[columnMap.room]) {
     data.room = row[columnMap.room].toString().trim();
+    console.log('Extracted room:', data.room);
+  } else {
+    console.log('No room found. Column index:', columnMap.room, 'Value:', row[columnMap.room]);
   }
   
   // Extract section number
   if (columnMap.section >= 0 && row[columnMap.section]) {
     const sectionValue = row[columnMap.section];
+    console.log('Section value:', sectionValue, 'Type:', typeof sectionValue);
     if (typeof sectionValue === 'number') {
       data.section = sectionValue;
     } else {
       const sectionStr = sectionValue.toString().trim();
       const sectionNum = parseInt(sectionStr);
+      console.log('Parsed section number:', sectionNum);
       if (!isNaN(sectionNum)) {
         data.section = sectionNum;
       }
     }
+  } else {
+    console.log('No section found. Column index:', columnMap.section, 'Value:', row[columnMap.section]);
   }
   
   // Extract student count
   if (columnMap.studentCount >= 0 && row[columnMap.studentCount]) {
     const studentValue = row[columnMap.studentCount];
+    console.log('Student value:', studentValue, 'Type:', typeof studentValue);
     if (typeof studentValue === 'number') {
       data.studentCount = studentValue;
     } else {
       const studentStr = studentValue.toString().trim();
       const studentNum = parseInt(studentStr);
+      console.log('Parsed student count:', studentNum);
       if (!isNaN(studentNum) && studentNum > 0) {
         data.studentCount = studentNum;
       }
     }
+  } else {
+    console.log('No student count found. Column index:', columnMap.studentCount, 'Value:', row[columnMap.studentCount]);
   }
   
-  // Extract accommodations
-  if (columnMap.accommodations >= 0 && row[columnMap.accommodations]) {
-    const accommodationsStr = row[columnMap.accommodations].toString().trim();
-    if (accommodationsStr) {
-      // Split by common delimiters and clean up
-      data.accommodations = accommodationsStr
-        .split(/[,;|]/)
-        .map(acc => acc.trim())
-        .filter(acc => acc.length > 0);
-    }
-  }
+  console.log('Final parsed data:', data);
   
-  // Extract notes
-  if (columnMap.notes >= 0 && row[columnMap.notes]) {
-    data.notes = row[columnMap.notes].toString().trim();
-  }
-  
-  // Extract attendance numbers
-  if (columnMap.present >= 0 && row[columnMap.present]) {
-    const presentValue = row[columnMap.present];
-    if (typeof presentValue === 'number') {
-      data.present = presentValue;
-    } else {
-      const presentStr = presentValue.toString().trim();
-      const presentNum = parseInt(presentStr);
-      if (!isNaN(presentNum) && presentNum >= 0) {
-        data.present = presentNum;
-      }
-    }
-  }
-  
-  if (columnMap.absent >= 0 && row[columnMap.absent]) {
-    const absentValue = row[columnMap.absent];
-    if (typeof absentValue === 'number') {
-      data.absent = absentValue;
-    } else {
-      const absentStr = absentValue.toString().trim();
-      const absentNum = parseInt(absentStr);
-      if (!isNaN(absentNum) && absentNum >= 0) {
-        data.absent = absentNum;
-      }
-    }
-  }
-  
-  if (columnMap.total >= 0 && row[columnMap.total]) {
-    const totalValue = row[columnMap.total];
-    if (typeof totalValue === 'number') {
-      data.total = totalValue;
-    } else {
-      const totalStr = totalValue.toString().trim();
-      const totalNum = parseInt(totalStr);
-      if (!isNaN(totalNum) && totalNum >= 0) {
-        data.total = totalNum;
-      }
-    }
-  }
-  
-  // Must have at least a room name to be valid
-  return data.room ? data : null;
+  // Must have room name, section number, and student count to be valid
+  const isValid = data.room && data.section && data.studentCount;
+  console.log('Is valid row:', isValid);
+  return isValid ? data : null;
 };
 
 /**
@@ -346,7 +296,7 @@ export const validateImportData = (parsedData) => {
     !section.studentCount || section.studentCount < 1
   );
   if (invalidSections.length > 0) {
-    warnings.push(`${invalidSections.length} sections have invalid or missing student counts`);
+    errors.push(`${invalidSections.length} sections have invalid or missing student counts`);
   }
   
   return {

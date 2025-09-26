@@ -461,9 +461,9 @@ function SessionDetail({ onBack }) {
           const sectionResponse = await testingAPI.createSection({
             number: sectionData.number,
             studentCount: sectionData.studentCount,
-            description: sectionData.description || '',
-            accommodations: sectionData.accommodations || [],
-            notes: sectionData.notes || ''
+            description: '',
+            accommodations: [],
+            notes: ''
           });
           createdSections.push(sectionResponse.section);
         } catch (sectionError) {
@@ -491,21 +491,13 @@ function SessionDetail({ onBack }) {
           
           const roomResponse = await testingAPI.createRoomWithSections({
             name: roomData.name,
-            supplies: roomData.supplies || [],
+            supplies: [],
             sectionIds: sectionIds,
             sessionId: sessionId
           });
           
           // Add room to session
           await testingAPI.addRoomToSession(sessionId, roomResponse.room._id);
-          
-          // Set attendance data if available
-          if (roomData.attendance && (roomData.attendance.present > 0 || roomData.attendance.absent > 0)) {
-            await testingAPI.updateRoom(roomResponse.room._id, {
-              presentStudents: roomData.attendance.present || 0,
-              status: 'completed' // Mark as completed if attendance data is provided
-            });
-          }
           
           createdRooms.push(roomResponse.room);
         } catch (roomError) {
