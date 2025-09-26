@@ -4,6 +4,7 @@ import { testingAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { useCustomAlert } from '../hooks/useCustomAlert'
 import CustomAlert from './CustomAlert'
+import ExcelImportModal from './ExcelImportModal'
 
 function SessionDetail({ onBack }) {
   const { sessionId } = useParams()
@@ -14,6 +15,7 @@ function SessionDetail({ onBack }) {
   const [showAddRoomModal, setShowAddRoomModal] = useState(false)
   const [showAddSectionModal, setShowAddSectionModal] = useState(false)
   const [showAddSectionToRoomModal, setShowAddSectionToRoomModal] = useState(false)
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomSupplies, setNewRoomSupplies] = useState({})
   const [newSectionNumber, setNewSectionNumber] = useState('')
@@ -447,6 +449,83 @@ function SessionDetail({ onBack }) {
       console.error('Error adding sections to room:', error)
     }
   }
+
+  const handleExcelImport = async (importData) => {
+    try {
+      const createdRooms = [];
+      const createdSections = [];
+      
+      // First, create all sections
+      for (const sectionData of importData.sections) {
+        try {
+          const sectionResponse = await testingAPI.createSection({
+            number: sectionData.number,
+            studentCount: sectionData.studentCount,
+            description: sectionData.description || '',
+            accommodations: sectionData.accommodations || [],
+            notes: sectionData.notes || ''
+          });
+          createdSections.push(sectionResponse.section);
+        } catch (sectionError) {
+          console.error('Error creating section:', sectionError);
+          // Continue with other sections even if one fails
+        }
+      }
+      
+      // Group sections by room
+      const sectionsByRoom = new Map();
+      importData.rooms.forEach(room => {
+        sectionsByRoom.set(room.name, []);
+        room.sections.forEach(section => {
+          const createdSection = createdSections.find(s => s.number === section.number);
+          if (createdSection) {
+            sectionsByRoom.get(room.name).push(createdSection._id);
+          }
+        });
+      });
+      
+      // Create rooms with their sections
+      for (const roomData of importData.rooms) {
+        try {
+          const sectionIds = sectionsByRoom.get(roomData.name) || [];
+          
+          const roomResponse = await testingAPI.createRoomWithSections({
+            name: roomData.name,
+            supplies: roomData.supplies || [],
+            sectionIds: sectionIds,
+            sessionId: sessionId
+          });
+          
+          // Add room to session
+          await testingAPI.addRoomToSession(sessionId, roomResponse.room._id);
+          
+          // Set attendance data if available
+          if (roomData.attendance && (roomData.attendance.present > 0 || roomData.attendance.absent > 0)) {
+            await testingAPI.updateRoom(roomResponse.room._id, {
+              presentStudents: roomData.attendance.present || 0,
+              status: 'completed' // Mark as completed if attendance data is provided
+            });
+          }
+          
+          createdRooms.push(roomResponse.room);
+        } catch (roomError) {
+          console.error('Error creating room:', roomError);
+          // Continue with other rooms even if one fails
+        }
+      }
+      
+      // Show success message
+      const successMessage = `Successfully imported ${createdRooms.length} rooms and ${createdSections.length} sections`;
+      alert(successMessage);
+      
+      // Refresh session data
+      fetchSessionData();
+      
+    } catch (error) {
+      console.error('Error importing Excel data:', error);
+      throw new Error(error.message || 'Failed to import Excel data');
+    }
+  };
 
   const handleRemoveRoom = async (roomId) => {
     const room = session.rooms.find(r => r._id === roomId)
@@ -1090,6 +1169,15 @@ function SessionDetail({ onBack }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                     Add Room
+                  </button>
+                  <button
+                    onClick={() => setShowExcelImportModal(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                    Import Excel
                   </button>
                 </div>
               </div>
@@ -2514,6 +2602,14 @@ function SessionDetail({ onBack }) {
           </div>
         </div>
       )}
+
+      {/* Excel Import Modal */}
+      <ExcelImportModal
+        isOpen={showExcelImportModal}
+        onClose={() => setShowExcelImportModal(false)}
+        onImport={handleExcelImport}
+        sessionId={sessionId}
+      />
 
       {/* Custom Alert */}
       <CustomAlert
