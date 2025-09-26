@@ -73,13 +73,20 @@ const parseExcelData = (jsonData) => {
     const row = jsonData[i];
     console.log(`Row ${i}:`, row);
     if (row && row.length > 0) {
-      // Look for common headers
-      const headerText = row[0]?.toString().toLowerCase() || '';
-      console.log(`Row ${i} header text: "${headerText}"`);
-      if (headerText.includes('room') || headerText.includes('section') || 
-          headerText.includes('student') || headerText.includes('attendance')) {
+      // Look for common headers in any column, not just the first
+      const headerTexts = row.map(h => h?.toString().toLowerCase().trim() || '');
+      console.log(`Row ${i} header texts:`, headerTexts);
+      
+      // Check if any column contains room, section, or student keywords
+      const hasRoomKeyword = headerTexts.some(h => h.includes('room'));
+      const hasSectionKeyword = headerTexts.some(h => h.includes('section'));
+      const hasStudentKeyword = headerTexts.some(h => h.includes('student'));
+      
+      console.log(`Row ${i} keywords found:`, { hasRoomKeyword, hasSectionKeyword, hasStudentKeyword });
+      
+      if (hasRoomKeyword || hasSectionKeyword || hasStudentKeyword) {
         headerRowIndex = i;
-        headers = row.map(h => h?.toString().toLowerCase().trim() || '');
+        headers = headerTexts;
         console.log('Found header row at index:', headerRowIndex);
         console.log('Headers:', headers);
         break;
@@ -102,10 +109,13 @@ const parseExcelData = (jsonData) => {
   // Parse data rows
   const rooms = new Map();
   const sections = [];
+  let processedRows = 0;
+  let validRows = 0;
   
   console.log('Parsing data rows...');
   for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
     const row = jsonData[i];
+    processedRows++;
     console.log(`Processing row ${i}:`, row);
     if (!row || row.length === 0) {
       console.log(`Skipping empty row ${i}`);
@@ -119,29 +129,40 @@ const parseExcelData = (jsonData) => {
       continue;
     }
     
-    // Group by room
+    // Group by room - multiple rows with same room = multiple sections in that room
     if (rowData.room && rowData.section && rowData.studentCount) {
+      validRows++;
       console.log(`Adding section ${rowData.section} to room ${rowData.room}`);
+      
       if (!rooms.has(rowData.room)) {
         rooms.set(rowData.room, {
           name: rowData.room,
           sections: [],
           supplies: []
         });
+        console.log(`Created new room: ${rowData.room}`);
       }
       
       const room = rooms.get(rowData.room);
       
-      // Add section
-      const section = {
-        number: rowData.section,
-        studentCount: rowData.studentCount,
-        accommodations: [],
-        notes: ''
-      };
-      
-      room.sections.push(section);
-      sections.push(section);
+      // Check if section already exists in this room
+      const existingSection = room.sections.find(s => s.number === rowData.section);
+      if (existingSection) {
+        console.log(`Section ${rowData.section} already exists in room ${rowData.room}, updating student count`);
+        existingSection.studentCount = rowData.studentCount;
+      } else {
+        // Add new section
+        const section = {
+          number: rowData.section,
+          studentCount: rowData.studentCount,
+          accommodations: [],
+          notes: ''
+        };
+        
+        room.sections.push(section);
+        sections.push(section);
+        console.log(`Added new section ${rowData.section} with ${rowData.studentCount} students to room ${rowData.room}`);
+      }
     } else {
       console.log(`Row ${i} missing required data:`, {
         room: rowData?.room,
@@ -151,6 +172,7 @@ const parseExcelData = (jsonData) => {
     }
   }
   
+  console.log(`Processed ${processedRows} rows, ${validRows} valid rows`);
   console.log('Final rooms:', Array.from(rooms.values()));
   console.log('Final sections:', sections);
   
@@ -182,13 +204,21 @@ const mapColumns = (headers) => {
     const h = header.toLowerCase();
     console.log(`Header ${index}: "${header}" -> "${h}"`);
     
-    if (h.includes('room')) {
+    // More flexible matching for room column
+    if (h.includes('room') || h.includes('classroom') || h.includes('location')) {
       mapping.room = index;
       console.log(`Found room column at index ${index}`);
-    } else if (h.includes('section')) {
+    } 
+    // More flexible matching for section column
+    else if (h.includes('section') || h.includes('class') || h.includes('period')) {
       mapping.section = index;
       console.log(`Found section column at index ${index}`);
-    } else if (h.includes('student') && h.includes('count')) {
+    } 
+    // More flexible matching for student count column
+    else if ((h.includes('student') && h.includes('count')) || 
+             h.includes('students') || 
+             h.includes('enrollment') ||
+             (h.includes('count') && !h.includes('room'))) {
       mapping.studentCount = index;
       console.log(`Found student count column at index ${index}`);
     }
