@@ -47,7 +47,7 @@ const CustomAlert = ({ isOpen, onClose, title, message, type = 'error' }) => {
   const styles = getAlertStyles()
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
       <div className={`${styles.bgColor} ${styles.borderColor} border rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4`}>
         <div className="flex items-start">
           <div className={`${styles.iconColor} flex-shrink-0 mr-4`}>

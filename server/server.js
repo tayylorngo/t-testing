@@ -101,33 +101,38 @@ io.on('connection', (socket) => {
 
 // Helper function to emit updates to all users in a session
 const emitSessionUpdate = (sessionId, eventType, data, user = null, logEntry = null) => {
-  console.log(`🚀 emitSessionUpdate called for session: ${sessionId}`)
-  console.log(`🚀 Event type: ${eventType}`)
-  console.log(`🚀 Data:`, data)
-  console.log(`🚀 User:`, user ? `${user.firstName} ${user.lastName}` : 'Unknown User')
-  console.log(`🚀 Log entry:`, logEntry)
-  
-  const updatePayload = {
-    type: eventType,
-    sessionId,
-    data: {
-      ...data,
-      userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User'
-    },
-    logEntry: logEntry,
-    timestamp: new Date().toISOString()
-  };
-  
-  console.log(`🚀 Final update payload:`, updatePayload)
-  console.log(`🚀 Emitting ${eventType} update to session ${sessionId}`);
-  
-  // Check how many sockets are in the session room
-  const sessionRoom = io.sockets.adapter.rooms.get(`session-${sessionId}`);
-  const socketCount = sessionRoom ? sessionRoom.size : 0;
-  console.log(`🚀 Number of sockets in session-${sessionId}: ${socketCount}`);
-  
-  io.to(`session-${sessionId}`).emit('session-update', updatePayload);
-  console.log(`🚀 Emitted ${eventType} update to session ${sessionId}`);
+  try {
+    console.log(`🚀 emitSessionUpdate called for session: ${sessionId}`)
+    console.log(`🚀 Event type: ${eventType}`)
+    console.log(`🚀 Data:`, data)
+    console.log(`🚀 User:`, user ? `${user.firstName} ${user.lastName}` : 'Unknown User')
+    console.log(`🚀 Log entry:`, logEntry)
+    
+    const updatePayload = {
+      type: eventType,
+      sessionId,
+      data: {
+        ...data,
+        userName: user ? `${user.firstName} ${user.lastName}` : 'Unknown User'
+      },
+      logEntry: logEntry,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log(`🚀 Final update payload:`, updatePayload)
+    console.log(`🚀 Emitting ${eventType} update to session ${sessionId}`);
+    
+    // Check how many sockets are in the session room
+    const sessionRoom = io.sockets.adapter.rooms.get(`session-${sessionId}`);
+    const socketCount = sessionRoom ? sessionRoom.size : 0;
+    console.log(`🚀 Number of sockets in session-${sessionId}: ${socketCount}`);
+    
+    io.to(`session-${sessionId}`).emit('session-update', updatePayload);
+    console.log(`🚀 Emitted ${eventType} update to session ${sessionId}`);
+  } catch (error) {
+    console.error(`❌ Error in emitSessionUpdate:`, error);
+    // Don't throw the error, just log it to prevent 500 responses
+  }
 };
 
 // Helper function to normalize supply names (remove quantities in parentheses)
@@ -982,10 +987,24 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Room name is required' });
     }
 
-    // Check for duplicate room name
-    const existingRoom = await Room.findOne({ name: name.trim() });
-    if (existingRoom) {
-      return res.status(400).json({ message: 'A room with this name already exists' });
+    // Check for duplicate room name within the same session
+    const sessionId = req.body.sessionId;
+    
+    if (sessionId) {
+      // Check if room name already exists in this session
+      const session = await Session.findById(sessionId).populate('rooms');
+      if (session) {
+        const existingRoomInSession = session.rooms.find(r => r.name === name.trim());
+        if (existingRoomInSession) {
+          return res.status(400).json({ message: 'A room with this name already exists in this session' });
+        }
+      }
+    } else {
+      // If no sessionId provided, use global check (backward compatibility)
+      const existingRoom = await Room.findOne({ name: name.trim() });
+      if (existingRoom) {
+        return res.status(400).json({ message: 'A room with this name already exists' });
+      }
     }
 
     const newRoom = new Room({
@@ -2106,6 +2125,38 @@ app.post('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) =
   }
 });
 
+// Clear all rooms from session
+app.delete('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Clear all rooms from session
+    const roomCount = session.rooms.length;
+    session.rooms = [];
+    await session.save();
+
+    console.log(`Cleared ${roomCount} rooms from session ${sessionId}`);
+
+    res.json({ 
+      message: `Successfully cleared ${roomCount} rooms from session`,
+      clearedCount: roomCount
+    });
+  } catch (error) {
+    console.error('Clear all rooms error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Remove room from session
 app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (req, res) => {
   try {
@@ -2141,13 +2192,18 @@ app.delete('/api/sessions/:sessionId/rooms/:roomId', authenticateToken, async (r
     const user = await User.findById(req.user.id);
     const room = await Room.findById(roomId);
     let logEntry = null;
-    if (room) {
+    
+    if (user && room) {
       const action = `${user.firstName} ${user.lastName} removed Room ${room.name} from the session`;
       logEntry = await addActivityLogEntry(sessionId, action, room.name, null, `${user.firstName} ${user.lastName}`);
     }
 
     // Emit real-time update to all users in the session
-    emitSessionUpdate(sessionId, 'room-removed', { roomId, session: updatedSession }, user, logEntry);
+    if (user) {
+      emitSessionUpdate(sessionId, 'room-removed', { roomId, session: updatedSession }, user, logEntry);
+    } else {
+      console.error('User not found for room removal, skipping real-time update');
+    }
 
     res.json({ 
       message: 'Room removed from session successfully', 
@@ -2174,10 +2230,25 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Student count must be at least 1' });
     }
 
-    // Check for duplicate section number
-    const existingSection = await Section.findOne({ number });
-    if (existingSection) {
-      return res.status(400).json({ message: 'A section with this number already exists' });
+    // Check for duplicate section number within the same session
+    // Get sessionId from request body or headers
+    const sessionId = req.body.sessionId;
+    
+    if (sessionId) {
+      // Check if section number already exists in this session
+      const session = await Session.findById(sessionId).populate('sections');
+      if (session) {
+        const existingSectionInSession = session.sections.find(s => s.number === number);
+        if (existingSectionInSession) {
+          return res.status(400).json({ message: 'A section with this number already exists in this session' });
+        }
+      }
+    } else {
+      // If no sessionId provided, use global check (backward compatibility)
+      const existingSection = await Section.findOne({ number });
+      if (existingSection) {
+        return res.status(400).json({ message: 'A section with this number already exists' });
+      }
     }
 
     const newSection = new Section({
@@ -2312,6 +2383,38 @@ app.post('/api/sessions/:sessionId/sections', authenticateToken, async (req, res
     });
   } catch (error) {
     console.error('Add section to session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Clear all sections from session
+app.delete('/api/sessions/:sessionId/sections', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Check if session exists and belongs to user
+    const session = await Session.findOne({ 
+      _id: sessionId, 
+      createdBy: req.user.id 
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Clear all sections from session
+    const sectionCount = session.sections.length;
+    session.sections = [];
+    await session.save();
+
+    console.log(`Cleared ${sectionCount} sections from session ${sessionId}`);
+
+    res.json({ 
+      message: `Successfully cleared ${sectionCount} sections from session`,
+      clearedCount: sectionCount
+    });
+  } catch (error) {
+    console.error('Clear all sections error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -2597,10 +2700,22 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Room name is required' });
     }
 
-    // Check for duplicate room name
-    const existingRoom = await Room.findOne({ name: name.trim() });
-    if (existingRoom) {
-      return res.status(400).json({ message: 'A room with this name already exists' });
+    // Check for duplicate room name within the same session
+    if (sessionId) {
+      // Check if room name already exists in this session
+      const session = await Session.findById(sessionId).populate('rooms');
+      if (session) {
+        const existingRoomInSession = session.rooms.find(r => r.name === name.trim());
+        if (existingRoomInSession) {
+          return res.status(400).json({ message: 'A room with this name already exists in this session' });
+        }
+      }
+    } else {
+      // If no sessionId provided, use global check (backward compatibility)
+      const existingRoom = await Room.findOne({ name: name.trim() });
+      if (existingRoom) {
+        return res.status(400).json({ message: 'A room with this name already exists' });
+      }
     }
 
     // Create the room

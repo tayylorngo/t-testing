@@ -341,6 +341,19 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Clear all rooms from session
+  clearAllRoomsFromSession: async (sessionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/rooms`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(response);
+  },
+
   // Remove room from session
   removeRoomFromSession: async (sessionId, roomId) => {
     const token = localStorage.getItem('authToken');
@@ -419,6 +432,19 @@ export const testingAPI = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ sectionId }),
+    });
+    return handleResponse(response);
+  },
+
+  // Clear all sections from session
+  clearAllSectionsFromSession: async (sessionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/sections`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     });
     return handleResponse(response);
   },
