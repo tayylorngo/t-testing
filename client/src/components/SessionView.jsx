@@ -1526,6 +1526,36 @@ function SessionView({ user, onBack }) {
     setCurrentPage(1)
   }, [searchQuery, sortBy, sortDescending])
 
+  // Helper function to get accommodation summary for a room
+  const getRoomAccommodationSummary = useCallback((room) => {
+    if (!room.sections || room.sections.length === 0) {
+      return null
+    }
+    
+    const accommodationTypes = new Set()
+    
+    room.sections.forEach(section => {
+      if (section.accommodations && section.accommodations.length > 0) {
+        section.accommodations.forEach(acc => {
+          // Check for bilingual accommodations (case insensitive)
+          if (acc.toLowerCase().includes('bilingual')) {
+            accommodationTypes.add('bilingual')
+          }
+          // Check for extra time accommodations
+          else if (acc.includes('1.5x') || acc.includes('2x') || 
+                   acc.includes('1.5×') || acc.includes('2×') ||
+                   acc.toLowerCase().includes('extended time') || 
+                   acc.toLowerCase().includes('double time') ||
+                   acc.toLowerCase().includes('extra time')) {
+            accommodationTypes.add('extra-time')
+          }
+        })
+      }
+    })
+    
+    return accommodationTypes.size > 0 ? Array.from(accommodationTypes) : null
+  }, [])
+
   // Calculate time multiplier for a room based on section accommodations
   const calculateRoomTimeMultiplier = useCallback((room) => {
     if (!room.sections || room.sections.length === 0) {
@@ -1973,49 +2003,49 @@ function SessionView({ user, onBack }) {
         {/* Session Info and Timer */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Session Details */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Session Information</h2>
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Session Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Date</p>
-                <p className="font-medium dark:text-white">{new Date(session.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-500">Date</p>
+                <p className="font-medium">{new Date(session.date).toLocaleDateString()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Time</p>
-                <p className="font-medium dark:text-white">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
+                <p className="text-sm text-gray-500">Time</p>
+                <p className="font-medium">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
+                <p className="text-sm text-gray-500">Status</p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(session.status)}`}>
                   {getStatusText(session.status)}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Students</p>
-                <p className="font-medium dark:text-white">{calculateTotalStudentsInSession()}</p>
+                <p className="text-sm text-gray-500">Total Students</p>
+                <p className="font-medium">{calculateTotalStudentsInSession()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Rooms</p>
-                <p className="font-medium dark:text-white">{session.rooms?.length || 0}</p>
+                <p className="text-sm text-gray-500">Total Rooms</p>
+                <p className="font-medium">{session.rooms?.length || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Sections</p>
-                <p className="font-medium dark:text-white">{calculateTotalSectionsInSession()}</p>
+                <p className="text-sm text-gray-500">Total Sections</p>
+                <p className="font-medium">{calculateTotalSectionsInSession()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Present Students</p>
-                <p className="font-medium dark:text-white">{calculateTotalPresentStudents()}</p>
+                <p className="text-sm text-gray-500">Present Students</p>
+                <p className="font-medium">{calculateTotalPresentStudents()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Absent Students</p>
-                <p className="font-medium dark:text-white">{calculateTotalAbsentStudents()}</p>
+                <p className="text-sm text-gray-500">Absent Students</p>
+                <p className="font-medium">{calculateTotalAbsentStudents()}</p>
               </div>
             </div>
           </div>
 
           {/* Timer */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Time Remaining</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Time Remaining</h2>
             <div className="flex-1 flex items-center justify-center">
               {timeRemaining ? (
                 <div className="text-center">
@@ -2026,37 +2056,37 @@ function SessionView({ user, onBack }) {
                       {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
                     </div>
                   )}
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Until exam ends</p>
+                  <p className="text-sm text-gray-500 mt-2">Until exam ends</p>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 dark:text-gray-400">Loading timer...</div>
+                <div className="text-center text-gray-500">Loading timer...</div>
               )}
             </div>
           </div>
         </div>
 
         {/* Overall Progress */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Overall Progress</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Overall Progress</h2>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-blue-600">{progress}%</span>
             </div>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-full h-4">
             <div 
               className="bg-blue-600 h-4 rounded-full progress-bar-transition"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             {session.rooms?.filter(room => room.status === 'completed').length || 0} of {session.rooms?.length || 0} rooms completed
           </p>
         </div>
 
         {/* Testing In Progress with Circular Bars */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Testing In Progress</h2>
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Testing In Progress</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="flex flex-col items-center">
               <div className="relative w-24 h-24 mb-4">
@@ -2090,7 +2120,7 @@ function SessionView({ user, onBack }) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 dark:text-white transition-all duration-1000 ease-out transform scale-100">
+                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -2102,7 +2132,7 @@ function SessionView({ user, onBack }) {
                   </span>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Students Still Testing</p>
+              <p className="text-sm text-gray-500 text-center">Students Still Testing</p>
             </div>
             <div className="flex flex-col items-center">
               <div className="relative w-24 h-24 mb-4">
@@ -2132,7 +2162,7 @@ function SessionView({ user, onBack }) {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 dark:text-white transition-all duration-1000 ease-out transform scale-100">
+                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -2142,24 +2172,24 @@ function SessionView({ user, onBack }) {
                   </span>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Sections Remaining</p>
+              <p className="text-sm text-gray-500 text-center">Sections Remaining</p>
             </div>
           </div>
         </div>
 
         {/* Sort Controls and Search */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Sort Criteria and Direction */}
             <div className="flex items-center gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Sort By
                 </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="roomNumber">Room Number</option>
                   <option value="status">Status</option>
@@ -2169,7 +2199,7 @@ function SessionView({ user, onBack }) {
               
               {/* Sort Direction Toggle Button */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Sort Direction
                 </label>
                 <button
@@ -2192,7 +2222,7 @@ function SessionView({ user, onBack }) {
                 placeholder="Search by room number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
@@ -2211,45 +2241,46 @@ function SessionView({ user, onBack }) {
           </div>
         </div>
 
+
         {/* Rooms Display */}
         {isTableView ? (
           /* Table View */
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+          <div className="bg-white rounded-2xl shadow-lg">
             <div className="overflow-x-auto" style={{ touchAction: 'pan-x', overflowY: 'visible', position: 'relative' }}>
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Room
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Students
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Present
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Absent
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Sections
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Time Remaining
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {getPaginatedRooms().map((room) => (
                     <React.Fragment key={room._id}>
                       <tr 
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                        className="hover:bg-gray-50 cursor-pointer"
                         onClick={(e) => {
                           // Don't expand if clicking on action buttons
                           if (!e.target.closest('.dropdown-container') && !e.target.closest('button')) {
@@ -2259,8 +2290,22 @@ function SessionView({ user, onBack }) {
                         data-room-id={room._id}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">{room.name}</span>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-medium text-gray-900">{room.name}</span>
+                            {getRoomAccommodationSummary(room) && (
+                              <div className="flex gap-1">
+                                {getRoomAccommodationSummary(room).includes('bilingual') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    🌐 Bilingual
+                                  </span>
+                                )}
+                                {getRoomAccommodationSummary(room).includes('extra-time') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    ⏱️ Extra Time
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2592,12 +2637,28 @@ function SessionView({ user, onBack }) {
             {getPaginatedRooms().map((room) => (
               <div 
                 key={room._id} 
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
+                className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
                 onClick={() => toggleCardExpansion(room._id)}
                 data-room-id={room._id}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{room.name}</h3>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
+                    {getRoomAccommodationSummary(room) && (
+                      <div className="flex gap-1">
+                        {getRoomAccommodationSummary(room).includes('bilingual') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            🌐 Bilingual
+                          </span>
+                        )}
+                        {getRoomAccommodationSummary(room).includes('extra-time') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            ⏱️ Extra Time
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
                   </span>
@@ -2940,7 +3001,7 @@ function SessionView({ user, onBack }) {
             <div className="space-y-4">
               {/* Preset Supplies */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Supply
                 </label>
                 <select
@@ -2957,7 +3018,7 @@ function SessionView({ user, onBack }) {
 
               {/* Quantity */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quantity
                 </label>
                 <input
@@ -3002,7 +3063,7 @@ function SessionView({ user, onBack }) {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Supply Name
                 </label>
                 <input
@@ -3014,7 +3075,7 @@ function SessionView({ user, onBack }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quantity
                 </label>
                 <input
@@ -3058,7 +3119,7 @@ function SessionView({ user, onBack }) {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   From Room
                 </label>
                 <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-lg dark:text-white">
@@ -3068,7 +3129,7 @@ function SessionView({ user, onBack }) {
 
               {moveFromRoom.sections && moveFromRoom.sections.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Students to Move
                   </label>
                   <div className="space-y-4 max-h-60 overflow-y-auto">
@@ -3504,7 +3565,7 @@ function SessionView({ user, onBack }) {
               ) : (
                 // Single input for single section or no sections
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     How many students were present?
                   </label>
                   <input
@@ -3661,7 +3722,7 @@ function SessionView({ user, onBack }) {
               
               {/* Section Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Section
                 </label>
                 <select
@@ -3679,7 +3740,7 @@ function SessionView({ user, onBack }) {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes
                 </label>
                 <textarea
@@ -3765,7 +3826,7 @@ function SessionView({ user, onBack }) {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Room Notes
                 </label>
                 <textarea
