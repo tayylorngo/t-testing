@@ -1914,9 +1914,9 @@ function SessionView({ user, onBack }) {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{session.name}</h1>
+          <div className="flex justify-between items-center py-6 gap-4">
+            <div className="min-w-0 flex-1 pr-4">
+              <h1 className="text-3xl font-bold text-gray-900 truncate">{session.name}</h1>
               <p className="text-gray-600">Session Progress View</p>
               <div className="mt-2 flex items-center gap-3">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -1948,7 +1948,7 @@ function SessionView({ user, onBack }) {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <button
                 onClick={() => exportSessionToExcel(session, session.name)}
                 className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2"

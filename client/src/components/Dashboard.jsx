@@ -583,9 +583,9 @@ function Dashboard({ user, onLogout, onViewSession }) {
             getSortedSessions().map((session) => (
               <div key={session._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition duration-200">
                 <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900">{session.name}</h3>
+                  <div className="flex justify-between items-start mb-4 gap-4">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <h3 className="text-xl font-semibold text-gray-900 break-words">{session.name}</h3>
                       <div className="flex items-center mt-1">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                           session.createdBy._id === user._id 
@@ -596,7 +596,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
                         </span>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 flex-shrink-0">
                       {canEditSession(session) && (
                         <button
                           onClick={() => openEditModal(session)}
