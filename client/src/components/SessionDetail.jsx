@@ -102,16 +102,17 @@ function SessionDetail({ onBack }) {
     'ELL'
   ];
 
-  // Helper function to group accommodations by category
+  // Helper function to group accommodations by category and sort alphabetically
   const getAccommodationGroups = () => {
-    return {
-      'Time Accommodations': ACCOMMODATIONS.filter(acc => acc === '1.5x' || acc === '2x'),
-      'Bilingual Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('Bilingual –')),
-      'ISS/ELL Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('ISS/ELL –')),
+    const groups = {
+      'Time Accommodations': ACCOMMODATIONS.filter(acc => acc === '1.5x' || acc === '2x').sort(),
+      'Bilingual Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('Bilingual –')).sort(),
+      'ISS/ELL Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('ISS/ELL –')).sort(),
       'Other Testing Supports': ACCOMMODATIONS.filter(acc => 
         acc === '504\'s' || acc === '2-tech' || acc === 'Reader' || acc === 'Vision' || acc === 'Scribe' || acc === 'D75' || acc === 'Conflict' || acc === 'ELL'
-      )
-    }
+      ).sort()
+    };
+    return groups;
   };
   
   // State for expanded accommodation categories

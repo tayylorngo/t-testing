@@ -1610,9 +1610,9 @@ function SessionView({ user, onBack }) {
     const timeMultiplier = calculateRoomTimeMultiplier(room)
     
     // Calculate total session duration in minutes
-    const [startHour, startMinute] = session.startTime.split(':')
-    const [endHour, endMinute] = session.endTime.split(':')
-    const sessionDate = new Date(session.date)
+    const [startHour, startMinute] = memoizedSession.startTime.split(':')
+    const [endHour, endMinute] = memoizedSession.endTime.split(':')
+    const sessionDate = new Date(memoizedSession.date)
     
     const startTime = new Date(sessionDate)
     startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
@@ -1638,42 +1638,33 @@ function SessionView({ user, onBack }) {
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
     
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
-  }, [session?.startTime, session?.endTime, session?.date, timeRemaining, calculateRoomTimeMultiplier])
+  }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
 
-  // Only calculate time for visible/expanded rooms to improve performance with many rooms
+  // Calculate time for all rooms - this is needed for proper display
   const roomTimeCalculations = useMemo(() => {
-    if (!debouncedSession?.rooms) return {}
+    if (!debouncedSession?.rooms || !timeRemaining) return {}
     
     const calculations = {}
-    // Only calculate time for expanded rooms or first 10 rooms (for initial display)
-    const roomsToCalculate = debouncedSession.rooms.filter((room, index) => 
-      expandedRooms.has(room._id) || expandedCards.has(room._id) || index < 10
-    )
-    
-    roomsToCalculate.forEach(room => {
-      calculations[room._id] = calculateRoomTimeRemaining(room)
+    // Calculate time for all rooms to ensure proper display
+    debouncedSession.rooms.forEach(room => {
+      const timeData = calculateRoomTimeRemaining(room)
+      if (timeData) {
+        calculations[room._id] = timeData
+      }
     })
     return calculations
-  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeMultiplier, expandedRooms, expandedCards])
+  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining])
 
-  // Lazy time calculation function for rooms not in the main calculations
+  // Get time remaining for a room - always returns calculated value
   const getRoomTimeRemaining = useCallback((room) => {
     // First check if we already have it calculated
     if (roomTimeCalculations[room._id]) {
       return roomTimeCalculations[room._id]
     }
     
-    // Only calculate if the room is expanded or we're in the first 10 rooms
-    const roomIndex = debouncedSession?.rooms?.findIndex(r => r._id === room._id) ?? -1
-    const shouldCalculate = expandedRooms.has(room._id) || expandedCards.has(room._id) || roomIndex < 10
-    
-    if (shouldCalculate) {
-      return calculateRoomTimeRemaining(room)
-    }
-    
-    // Return a placeholder for non-visible rooms
-    return null
-  }, [roomTimeCalculations, debouncedSession?.rooms, expandedRooms, expandedCards, calculateRoomTimeRemaining])
+    // If not in cache, calculate it now (shouldn't happen often due to useMemo)
+    return calculateRoomTimeRemaining(room)
+  }, [roomTimeCalculations, calculateRoomTimeRemaining])
 
   const toggleRoomExpansion = useCallback((roomId) => {
     setExpandedRooms(prev => {
