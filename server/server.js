@@ -1352,14 +1352,14 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Name, date, start time, and end time are required' });
     }
 
-    // Fix timezone issue by ensuring the date is treated as local date
+    // Fix timezone issue by ensuring the date is stored at UTC midnight
     const [year, month, day] = date.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day); // month is 0-indexed
+    const utcDate = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed, UTC midnight
     
     const newSession = new Session({
       name,
       description,
-      date: localDate,
+      date: utcDate,
       startTime,
       endTime,
       createdBy: req.user.id
@@ -1440,9 +1440,9 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (date) {
-      // Fix timezone issue by ensuring the date is treated as local date
+      // Fix timezone issue by ensuring the date is stored at UTC midnight
       const [year, month, day] = date.split('-').map(Number);
-      updateData.date = new Date(year, month - 1, day); // month is 0-indexed
+      updateData.date = new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed, UTC midnight
     }
     if (startTime) updateData.startTime = startTime;
     if (endTime) updateData.endTime = endTime;
@@ -1601,7 +1601,11 @@ app.post('/api/sessions/:id/duplicate', authenticateToken, checkSessionPermissio
     const newSession = new Session({
       name: name || `${originalSession.name} (Copy)`,
       description: description || originalSession.description || '',
-      date: date ? new Date(date) : originalSession.date,
+      date: date ? (() => {
+        // Fix timezone issue by ensuring the date is stored at UTC midnight
+        const [year, month, day] = date.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day)); // month is 0-indexed, UTC midnight
+      })() : originalSession.date,
       startTime: startTime || originalSession.startTime,
       endTime: endTime || originalSession.endTime,
       createdBy: req.user.id,
@@ -2230,26 +2234,8 @@ app.post('/api/sections', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Student count must be at least 1' });
     }
 
-    // Check for duplicate section number within the same session
-    // Get sessionId from request body or headers
-    const sessionId = req.body.sessionId;
-    
-    if (sessionId) {
-      // Check if section number already exists in this session
-      const session = await Session.findById(sessionId).populate('sections');
-      if (session) {
-        const existingSectionInSession = session.sections.find(s => s.number === number);
-        if (existingSectionInSession) {
-          return res.status(400).json({ message: 'A section with this number already exists in this session' });
-        }
-      }
-    } else {
-      // If no sessionId provided, use global check (backward compatibility)
-      const existingSection = await Section.findOne({ number });
-      if (existingSection) {
-        return res.status(400).json({ message: 'A section with this number already exists' });
-      }
-    }
+    // Note: Section numbers can be duplicated across different rooms/sessions
+    // Duplicate checking is done at the room level when adding sections to rooms
 
     const newSection = new Section({
       number,
@@ -2277,10 +2263,13 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
       if (number < 1 || number > 99) {
         return res.status(400).json({ message: 'Section number must be between 1 and 99' });
       }
-      // Check for duplicate section number (excluding current section)
-      const existingSection = await Section.findOne({ number, _id: { $ne: id } });
-      if (existingSection) {
-        return res.status(400).json({ message: 'A section with this number already exists' });
+      // Check if any room containing this section already has another section with the same number
+      const roomsWithThisSection = await Room.find({ sections: id }).populate('sections', 'number');
+      for (const room of roomsWithThisSection) {
+        const duplicateSection = room.sections.find(s => s._id.toString() !== id && s.number === number);
+        if (duplicateSection) {
+          return res.status(400).json({ message: `A section with number ${number} already exists in room "${room.name}"` });
+        }
       }
       updateData.number = number;
     }
@@ -2650,6 +2639,14 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
         throw new Error('Section is already in this room');
       }
 
+      // Check if a section with the same number already exists in this room
+      const roomWithSections = await Room.findById(roomId)
+        .populate('sections', 'number')
+        .session(session);
+      if (roomWithSections.sections.some(s => s._id.toString() !== sectionId && s.number === section.number)) {
+        throw new Error(`A section with number ${section.number} already exists in this room`);
+      }
+
       // Add section to room atomically
       await Room.findByIdAndUpdate(
         roomId,
@@ -2731,6 +2728,14 @@ app.post('/api/rooms/with-sections', authenticateToken, async (req, res) => {
       if (sections.length !== sectionIds.length) {
         return res.status(400).json({ message: 'One or more sections not found' });
       }
+      
+      // Check for duplicate section numbers within this room
+      const sectionNumbers = sections.map(s => s.number);
+      const duplicateNumbers = sectionNumbers.filter((num, index) => sectionNumbers.indexOf(num) !== index);
+      if (duplicateNumbers.length > 0) {
+        return res.status(400).json({ message: `Duplicate section numbers found: ${[...new Set(duplicateNumbers)].join(', ')}. Section numbers must be unique within a room.` });
+      }
+      
       newRoom.sections = sectionIds;
     }
 

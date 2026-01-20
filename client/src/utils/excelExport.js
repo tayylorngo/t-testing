@@ -28,7 +28,7 @@ export const exportSessionToExcel = (session, filename = 'testing-session') => {
     [''],
     ['Session Name:', session.name || ''],
     ['Description:', session.description || ''],
-    ['Date:', session.date ? new Date(session.date).toLocaleDateString() : ''],
+    ['Date:', session.date ? new Date(session.date).toLocaleDateString('en-US', { timeZone: 'UTC' }) : ''],
     ['Start Time:', session.startTime || ''],
     ['End Time:', session.endTime || ''],
     ['Status:', session.status || ''],

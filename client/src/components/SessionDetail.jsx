@@ -71,13 +71,35 @@ function SessionDetail({ onBack }) {
     'Bilingual – Ukrainian',
     'Bilingual – Urdu',
     'Bilingual – Uzbek',
+    'Bilingual – Turkish',
+    'Bilingual – Turkmen',
+    
+    // ISS/ELL Accommodations
+    'ISS/ELL – Chinese',
+    'ISS/ELL – Bengali',
+    'ISS/ELL – French',
+    'ISS/ELL – Georgian',
+    'ISS/ELL – Russian',
+    'ISS/ELL – Spanish',
+    'ISS/ELL – Tadzhik',
+    'ISS/ELL – Arabic',
+    'ISS/ELL – Armenian',
+    'ISS/ELL – Haitian',
+    'ISS/ELL – Ukrainian',
+    'ISS/ELL – Urdu',
+    'ISS/ELL – Uzbek',
+    'ISS/ELL – Turkish',
+    'ISS/ELL – Turkmen',
     
     // Other Testing Supports
     '504\'s',
     '2-tech',
     'Reader',
     'Vision',
-    'Scribe'
+    'Scribe',
+    'D75',
+    'Conflict',
+    'ELL'
   ];
 
   // Helper function to group accommodations by category
@@ -85,10 +107,26 @@ function SessionDetail({ onBack }) {
     return {
       'Time Accommodations': ACCOMMODATIONS.filter(acc => acc === '1.5x' || acc === '2x'),
       'Bilingual Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('Bilingual –')),
+      'ISS/ELL Accommodations': ACCOMMODATIONS.filter(acc => acc.startsWith('ISS/ELL –')),
       'Other Testing Supports': ACCOMMODATIONS.filter(acc => 
-        acc === '504\'s' || acc === '2-tech' || acc === 'Reader' || acc === 'Vision' || acc === 'Scribe'
+        acc === '504\'s' || acc === '2-tech' || acc === 'Reader' || acc === 'Vision' || acc === 'Scribe' || acc === 'D75' || acc === 'Conflict' || acc === 'ELL'
       )
     }
+  };
+  
+  // State for expanded accommodation categories
+  const [expandedCategories, setExpandedCategories] = useState({
+    'Time Accommodations': false,
+    'Bilingual Accommodations': false,
+    'ISS/ELL Accommodations': false,
+    'Other Testing Supports': false
+  });
+  
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
   };
   const [selectedAccommodations, setSelectedAccommodations] = useState([])
   // Add state for custom accommodations
@@ -277,21 +315,16 @@ function SessionDetail({ onBack }) {
       return
     }
     
-    // Check for duplicate section numbers
+    // Check for duplicate section numbers within the same room being created
     const existingNumbers = roomSectionsToCreate.map(s => s.number)
     const duplicates = numbers.filter(num => existingNumbers.includes(num))
     if (duplicates.length > 0) {
-      alert(`Section number(s) ${duplicates.join(', ')} already added.`)
+      alert(`Section number(s) ${duplicates.join(', ')} already added to this room.`)
       return
     }
     
-    // Check against existing sections in session
-    const sessionSectionNumbers = session.sections?.map(s => s.number) || []
-    const sessionDuplicates = numbers.filter(num => sessionSectionNumbers.includes(num))
-    if (sessionDuplicates.length > 0) {
-      alert(`Section number(s) ${sessionDuplicates.join(', ')} already exist in the session.`)
-      return
-    }
+    // Note: Section numbers can be duplicated across different rooms
+    // Duplicate checking is done at the room level when adding sections to rooms
     
     // Create section objects
     const newSections = numbers.map(number => ({
@@ -1812,23 +1845,34 @@ function SessionDetail({ onBack }) {
                     <label className="block text-sm font-medium text-gray-700 mb-3">
                       Accommodations (Optional)
                     </label>
-                    <div className="space-y-4">
+                    <div className="space-y-2 border border-gray-300 rounded-lg p-3">
                       {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                        <div key={category}>
-                          <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {accommodations.map((accommodation) => (
-                              <label key={accommodation} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={newRoomSectionAccommodations.includes(accommodation)}
-                                  onChange={() => toggleRoomSectionAccommodation(accommodation)}
-                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                                />
-                                <span className="text-sm text-gray-700">{accommodation}</span>
-                              </label>
-                            ))}
-                          </div>
+                        <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleCategory(category)}
+                            className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                          >
+                            <span>{category}</span>
+                            <span className="text-gray-500">
+                              {expandedCategories[category] ? '▼' : '▶'}
+                            </span>
+                          </button>
+                          {expandedCategories[category] && (
+                            <div className="mt-2 pl-4 space-y-1 max-h-48 overflow-y-auto">
+                              {accommodations.map((accommodation) => (
+                                <label key={accommodation} className="flex items-center space-x-2 py-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={newRoomSectionAccommodations.includes(accommodation)}
+                                    onChange={() => toggleRoomSectionAccommodation(accommodation)}
+                                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                  />
+                                  <span className="text-sm text-gray-700">{accommodation}</span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2003,30 +2047,41 @@ function SessionDetail({ onBack }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Accommodations
                 </label>
-                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  <div className="space-y-4">
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <div className="space-y-2">
                     {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                      <div key={category}>
-                        <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
-                        <div className="space-y-1">
-                          {accommodations.map((accommodation) => (
-                            <label key={accommodation} className="flex items-center space-x-2 py-1">
-                              <input
-                                type="checkbox"
-                                checked={selectedAccommodations.includes(accommodation)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedAccommodations([...selectedAccommodations, accommodation])
-                                  } else {
-                                    setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
-                                  }
-                                }}
-                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                              />
-                              <span className="text-sm text-gray-700">{accommodation}</span>
-                            </label>
-                          ))}
-                        </div>
+                      <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(category)}
+                          className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                        >
+                          <span>{category}</span>
+                          <span className="text-gray-500">
+                            {expandedCategories[category] ? '▼' : '▶'}
+                          </span>
+                        </button>
+                        {expandedCategories[category] && (
+                          <div className="mt-2 pl-4 space-y-1 max-h-48 overflow-y-auto">
+                            {accommodations.map((accommodation) => (
+                              <label key={accommodation} className="flex items-center space-x-2 py-1">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAccommodations.includes(accommodation)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedAccommodations([...selectedAccommodations, accommodation])
+                                    } else {
+                                      setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span className="text-sm text-gray-700">{accommodation}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2458,30 +2513,41 @@ function SessionDetail({ onBack }) {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Accommodations
                 </label>
-                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                  <div className="space-y-4">
+                <div className="border border-gray-300 rounded-lg p-3">
+                  <div className="space-y-2">
                     {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                      <div key={category}>
-                        <h4 className="text-sm font-semibold text-gray-800 mb-2">{category}</h4>
-                        <div className="space-y-1">
-                          {accommodations.map((accommodation) => (
-                            <label key={accommodation} className="flex items-center space-x-2 py-1">
-                              <input
-                                type="checkbox"
-                                checked={editSectionAccommodations.includes(accommodation)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setEditSectionAccommodations([...editSectionAccommodations, accommodation])
-                                  } else {
-                                    setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
-                                  }
-                                }}
-                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                              />
-                              <span className="text-sm text-gray-700">{accommodation}</span>
-                            </label>
-                          ))}
-                        </div>
+                      <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(category)}
+                          className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                        >
+                          <span>{category}</span>
+                          <span className="text-gray-500">
+                            {expandedCategories[category] ? '▼' : '▶'}
+                          </span>
+                        </button>
+                        {expandedCategories[category] && (
+                          <div className="mt-2 pl-4 space-y-1 max-h-48 overflow-y-auto">
+                            {accommodations.map((accommodation) => (
+                              <label key={accommodation} className="flex items-center space-x-2 py-1">
+                                <input
+                                  type="checkbox"
+                                  checked={editSectionAccommodations.includes(accommodation)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setEditSectionAccommodations([...editSectionAccommodations, accommodation])
+                                    } else {
+                                      setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span className="text-sm text-gray-700">{accommodation}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -553,7 +553,7 @@ function SessionView({ user, onBack }) {
     const sessionDate = new Date(memoizedSession.date)
     const [endHour, endMinute] = memoizedSession.endTime.split(':')
     const endTime = new Date(sessionDate)
-    endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
+    endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
 
     const timeDiff = endTime - now
     if (timeDiff <= 0) {
@@ -1615,10 +1615,10 @@ function SessionView({ user, onBack }) {
     const sessionDate = new Date(session.date)
     
     const startTime = new Date(sessionDate)
-    startTime.setHours(parseInt(startHour), parseInt(startMinute), 0)
+    startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
     
     const endTime = new Date(sessionDate)
-    endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
+    endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
     
     const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
     
@@ -2008,7 +2008,7 @@ function SessionView({ user, onBack }) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Date</p>
-                <p className="font-medium">{new Date(session.date).toLocaleDateString()}</p>
+                <p className="font-medium">{new Date(session.date).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Time</p>

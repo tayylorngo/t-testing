@@ -165,7 +165,7 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
     try {
       const date = new Date(dateString)
       if (isNaN(date.getTime())) return 'Invalid date'
-      return date.toLocaleDateString()
+      return date.toLocaleDateString('en-US', { timeZone: 'UTC' })
     } catch (error) {
       console.error('Error formatting date:', dateString, error)
       return 'Invalid date'

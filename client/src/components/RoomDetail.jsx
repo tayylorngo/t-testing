@@ -106,10 +106,10 @@ const RoomDetail = ({ user }) => {
       const sessionDate = new Date(session.date)
       
       const startTime = new Date(sessionDate)
-      startTime.setHours(parseInt(startHour), parseInt(startMinute), 0)
+      startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
       
       const endTime = new Date(sessionDate)
-      endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
+      endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
       
       const timeDiff = endTime - now
       
@@ -314,10 +314,10 @@ const RoomDetail = ({ user }) => {
       const sessionDate = new Date(session.date)
       
       const startTime = new Date(sessionDate)
-      startTime.setHours(parseInt(startHour), parseInt(startMinute), 0)
+      startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
       
       const endTime = new Date(sessionDate)
-      endTime.setHours(parseInt(endHour), parseInt(endMinute), 0)
+      endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
       
       const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
       
