@@ -120,6 +120,7 @@ function SessionView({ user, onBack }) {
   const [sortDescending, setSortDescending] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isTableView, setIsTableView] = useState(true)
+  const [isDisplayMode, setIsDisplayMode] = useState(false) // Large screen display mode
   const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
   const [expandedCards, setExpandedCards] = useState(new Set())
 
@@ -2228,16 +2229,232 @@ function SessionView({ user, onBack }) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 View Mode
               </label>
-              <button
-                onClick={() => setIsTableView(!isTableView)}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
-              >
-                {isTableView ? 'Card View' : 'Table View'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsTableView(!isTableView)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+                >
+                  {isTableView ? 'Card View' : 'Table View'}
+                </button>
+                <button
+                  onClick={() => setIsDisplayMode(true)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-purple-500 hover:bg-purple-600 text-white flex items-center gap-2"
+                  title="Open large screen display mode"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Display Mode
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Large Screen Display Mode */}
+        {isDisplayMode && (
+          <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 z-50 flex flex-col overflow-hidden">
+            {/* Exit button */}
+            <button
+              onClick={() => setIsDisplayMode(false)}
+              className="fixed top-4 right-4 z-50 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 shadow-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Exit Display
+            </button>
+
+            {/* Fixed Header Section */}
+            <div className="flex-shrink-0 p-8 pb-4">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <h1 className="text-5xl font-bold text-gray-900 mb-4">{session?.name}</h1>
+                <p className="text-2xl text-gray-600">
+                  {session?.date && new Date(session.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: 'UTC'
+                  })}
+                  {session?.startTime && session?.endTime && (
+                    <span className="mx-3">|</span>
+                  )}
+                  {session?.startTime && session?.endTime && (() => {
+                    // Convert to 12-hour format
+                    const formatTime = (time) => {
+                      const [hours, minutes] = time.split(':')
+                      const hour = parseInt(hours)
+                      const ampm = hour >= 12 ? 'PM' : 'AM'
+                      const hour12 = hour % 12 || 12
+                      return `${hour12}:${minutes} ${ampm}`
+                    }
+                    return `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
+                  })()}
+                </p>
+              </div>
+
+              {/* Main Timer */}
+              <div className="text-center mb-8">
+                <div className="inline-block bg-white rounded-3xl px-16 py-10 shadow-2xl border border-gray-200">
+                  <p className="text-xl text-gray-500 mb-2">Estimated Time Remaining</p>
+                  {timeRemaining ? (
+                    timeRemaining.isOver ? (
+                      <div className="text-7xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                    ) : (
+                      <div className="text-8xl font-mono font-bold text-green-600">
+                        {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-4xl text-gray-400">Loading...</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats Row */}
+              <div className="grid grid-cols-6 gap-4 max-w-7xl mx-auto">
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Progress</p>
+                  <p className="text-4xl font-bold text-blue-600">{progress}%</p>
+                </div>
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Total Students</p>
+                  <p className="text-4xl font-bold text-gray-900">
+                    {calculateTotalPresentStudents()}/{calculateTotalStudentsInSession()}
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Present</p>
+                  <p className="text-4xl font-bold text-green-600">{calculateTotalPresentStudents()}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Absent</p>
+                  <p className="text-4xl font-bold text-red-600">{calculateTotalAbsentStudents()}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Rooms</p>
+                  <p className="text-4xl font-bold text-purple-600">
+                    {debouncedSession?.rooms?.filter(r => r.status === 'completed').length || 0}/{debouncedSession?.rooms?.length || 0}
+                  </p>
+                </div>
+                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Sections</p>
+                  <p className="text-4xl font-bold text-indigo-600">
+                    {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.filter(s => s.status === 'completed').length || 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
+                  </p>
+                </div>
+              </div>
+
+              {/* Testing Rooms Title - Fixed, not scrollable */}
+              <h2 className="text-3xl font-bold text-gray-900 mt-6 text-left px-8">Testing Rooms</h2>
+            </div>
+
+            {/* Scrollable Rooms Section */}
+            <div className="flex-1 overflow-y-auto px-8 pb-8">
+              <div className="max-w-full mx-auto">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  {debouncedSession?.rooms?.slice().sort((a, b) => {
+                    // Extract numbers from room names for natural sorting
+                    const numA = parseInt(a.name?.match(/\d+/)?.[0]) || 0
+                    const numB = parseInt(b.name?.match(/\d+/)?.[0]) || 0
+                    if (numA !== numB) return numA - numB
+                    // Fallback to alphabetical if no numbers or same number
+                    return (a.name || '').localeCompare(b.name || '')
+                  }).map((room) => {
+                    const roomTimeData = getRoomTimeRemaining(room)
+                    const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
+                    const presentStudents = room.presentStudents || 0
+                    const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
+
+                    return (
+                      <div
+                        key={room._id}
+                        className={`rounded-xl p-5 shadow-lg ${room.status === 'completed'
+                          ? 'bg-green-50 border-2 border-green-500'
+                          : room.status === 'active'
+                            ? 'bg-blue-50 border-2 border-blue-500'
+                            : 'bg-white border-2 border-gray-300'
+                          }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="text-xl font-bold text-gray-900 truncate flex-1">{room.name}</h3>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ml-2 ${room.status === 'completed'
+                            ? 'bg-green-500 text-white'
+                            : room.status === 'active'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-400 text-white'
+                            }`}>
+                            {room.status?.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-gray-600">
+                          <div className="flex justify-between">
+                            <span>Students:</span>
+                            <span className="font-semibold text-gray-900">{presentStudents} / {totalStudents}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Sections:</span>
+                            <span className="font-semibold text-gray-900">{room.sections?.length || 0}</span>
+                          </div>
+                          {roomTimeData && !roomTimeData.isOver && (
+                            <div className="flex justify-between">
+                              <span>Time Left:</span>
+                              <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-orange-600' : 'text-green-600'}`}>
+                                {String(roomTimeData.hours).padStart(2, '0')}:{String(roomTimeData.minutes).padStart(2, '0')}:{String(roomTimeData.seconds).padStart(2, '0')}
+                                {roomTimeData.multiplier > 1 && <span className="text-xs ml-1">({roomTimeData.multiplier}x)</span>}
+                              </span>
+                            </div>
+                          )}
+                          {roomTimeData?.isOver && (
+                            <div className="text-red-600 font-semibold text-center mt-2">TIME UP</div>
+                          )}
+                        </div>
+
+                        {sortedSections.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-xs font-semibold text-gray-700 mb-2">Sections</div>
+                            <div className="max-h-28 overflow-y-auto pr-1 space-y-2">
+                              {sortedSections.map((section) => (
+                                <div key={section._id} className="text-xs">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span className="font-semibold text-gray-900">#{section.number}</span>
+                                    <span className="text-gray-500">({section.studentCount || 0})</span>
+                                    {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {section.accommodations.map((acc, index) => (
+                                          <span
+                                            key={`${section._id}-acc-${index}`}
+                                            className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[10px]"
+                                          >
+                                            {acc}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Footer with session times */}
+              <div className="mt-6 text-center text-gray-500">
+                <p className="text-lg">
+                  Session Time: {session?.startTime} - {session?.endTime}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Rooms Display */}
         {isTableView ? (
@@ -2966,8 +3183,8 @@ function SessionView({ user, onBack }) {
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
                       className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
                         }`}
                     >
                       {pageNum}
