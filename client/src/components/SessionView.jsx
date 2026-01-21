@@ -1725,6 +1725,16 @@ function SessionView({ user, onBack }) {
     }
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining])
 
+  // Create a hash of section accommodations to detect changes
+  const sectionAccommodationsHash = useMemo(() => {
+    if (!debouncedSession?.rooms) return ''
+    return debouncedSession.rooms.map(room => 
+      room.sections?.map(section => 
+        `${section._id}:${JSON.stringify(section.accommodations || [])}`
+      ).join('|') || ''
+    ).join('||')
+  }, [debouncedSession?.rooms])
+
   // Calculate time for all rooms - this is needed for proper display
   const roomTimeCalculations = useMemo(() => {
     if (!debouncedSession?.rooms || !timeRemaining) return {}
@@ -1738,7 +1748,7 @@ function SessionView({ user, onBack }) {
       }
     })
     return calculations
-  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining])
+  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining, sectionAccommodationsHash])
 
   // Get time remaining for a room - always returns calculated value
   const getRoomTimeRemaining = useCallback((room) => {
