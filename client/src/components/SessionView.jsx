@@ -2616,7 +2616,8 @@ function SessionView({ user, onBack }) {
                               if (room.status === 'completed' && typeof room.presentStudents === 'number') {
                                 return Math.max(0, total - room.presentStudents);
                               }
-                              return total;
+                              // If test is in progress (not completed), show 0 for absent
+                              return 0;
                             })())}
                           </div>
                         </td>
