@@ -13,24 +13,24 @@ function SessionView({ user, onBack }) {
   const [session, setSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(null)
-  
+
   // Memoize session data to prevent unnecessary re-renders
   const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.length])
-  
+
   // Debounced session update to prevent rapid successive updates
   const [debouncedSession, setDebouncedSession] = useState(null)
-  
+
   // Ref to store fetchSessionData function to avoid dependency issues
   const fetchSessionDataRef = useRef()
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSession(session)
     }, 25) // Further reduced to 25ms for more responsive feel
-    
+
     return () => clearTimeout(timer)
   }, [session])
-  
+
   const [showAddSupplyModal, setShowAddSupplyModal] = useState(false)
   const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
   const [showEditSuppliesModal, setShowEditSuppliesModal] = useState(false)
@@ -87,10 +87,10 @@ function SessionView({ user, onBack }) {
   // Permission checking functions
   const canEditSession = useCallback(() => {
     if (!memoizedSession || !user) return false
-    return memoizedSession.createdBy._id === user._id || 
-           memoizedSession.collaborators?.some(collab => 
-             collab.userId._id === user._id && (collab.permissions.edit || collab.permissions.manage)
-           )
+    return memoizedSession.createdBy._id === user._id ||
+      memoizedSession.collaborators?.some(collab =>
+        collab.userId._id === user._id && (collab.permissions.edit || collab.permissions.manage)
+      )
   }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
 
@@ -122,7 +122,7 @@ function SessionView({ user, onBack }) {
   const [isTableView, setIsTableView] = useState(true)
   const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
   const [expandedCards, setExpandedCards] = useState(new Set())
-  
+
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
   const roomsPerPage = 20 // Show 20 rooms per page for better performance
@@ -137,13 +137,13 @@ function SessionView({ user, onBack }) {
       console.log('SessionView - Session data received:', sessionData.session)
       console.log('SessionView - Rooms count:', sessionData.session.rooms?.length || 0)
       setSession(sessionData.session)
-      
+
       // Check if user has permission to view this session
       if (sessionData.session) {
-        const hasAccess = sessionData.session.createdBy._id === user._id || 
-                         sessionData.session.collaborators?.some(collab => 
-                           collab.userId._id === user._id && collab.permissions.view
-                         )
+        const hasAccess = sessionData.session.createdBy._id === user._id ||
+          sessionData.session.collaborators?.some(collab =>
+            collab.userId._id === user._id && collab.permissions.view
+          )
         if (!hasAccess) {
           console.error('User does not have permission to view this session')
           // Redirect back to dashboard or show access denied message
@@ -190,7 +190,7 @@ function SessionView({ user, onBack }) {
       console.error('Error in silent refresh:', error)
     }
   }, [sessionId])
-  
+
   // Store fetchSessionData in ref to avoid dependency issues in handleRealTimeUpdate
   useEffect(() => {
     fetchSessionDataRef.current = fetchSessionData
@@ -201,7 +201,7 @@ function SessionView({ user, onBack }) {
   useEffect(() => {
     silentRefreshRef.current = silentRefreshSession
   }, [silentRefreshSession])
-  
+
   // Function to add temporary CSS class for real-time updates
   const addUpdateAnimation = useCallback((elementId, animationClass, duration = 1500) => {
     const element = document.querySelector(`[data-room-id="${elementId}"]`)
@@ -218,13 +218,13 @@ function SessionView({ user, onBack }) {
     console.log('🔄 SessionView useEffect - isConnected:', isConnected)
     console.log('🔄 SessionView useEffect - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
     console.log('🔄 SessionView useEffect - Session loaded:', !!session)
-    
+
     // Only set up real-time updates if we have session data
     if (!session) {
       console.log('⏳ Session not loaded yet, skipping real-time setup')
       return
     }
-    
+
     const attemptJoinSession = () => {
       console.log('🔄 SessionView useEffect - Attempting to join session:', sessionId)
       const success = joinSession(sessionId)
@@ -232,14 +232,14 @@ function SessionView({ user, onBack }) {
         console.log('⏳ Session join failed, will retry when connected...')
       }
     }
-    
+
     attemptJoinSession()
-    
+
     // Set up real-time update listener
     console.log('🔄 SessionView useEffect - Registering onSessionUpdate callback for session:', sessionId)
     const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
     console.log('🔄 SessionView useEffect - Callback registered successfully')
-    
+
     return () => {
       console.log('🔄 SessionView useEffect - Cleaning up real-time updates for session:', sessionId)
       cleanup()
@@ -273,13 +273,13 @@ function SessionView({ user, onBack }) {
     console.log('🔔 SessionView - Current session ID:', sessionId)
     console.log('🔔 SessionView - Update session ID:', update.sessionId)
     console.log('🔔 SessionView - Session exists:', !!session)
-    
+
     // Add log entry to local state if provided in the update
     if (update.logEntry) {
       console.log('🔔 SessionView - Adding log entry to local state:', update.logEntry)
       setActivityLog(prevLog => [update.logEntry, ...prevLog])
     }
-    
+
     switch (update.type) {
       case 'room-status-updated':
         console.log('🔔 Room status updated by another user:', update.data)
@@ -293,8 +293,8 @@ function SessionView({ user, onBack }) {
             console.log('🔔 SessionView - Updating room at index:', roomIndex)
             console.log('🔔 SessionView - Old room:', updatedSession.rooms[roomIndex])
             // Update the status and presentStudents fields from the room data
-            updatedSession.rooms[roomIndex] = { 
-              ...updatedSession.rooms[roomIndex], 
+            updatedSession.rooms[roomIndex] = {
+              ...updatedSession.rooms[roomIndex],
               status: update.data.status,
               presentStudents: update.data.room?.presentStudents,
               // Add a flag to trigger status-specific animations
@@ -303,7 +303,7 @@ function SessionView({ user, onBack }) {
             console.log('🔔 SessionView - New room:', updatedSession.rooms[roomIndex])
             setSession(updatedSession)
             console.log('🔔 SessionView - Session state updated')
-            
+
             // Add animation for room status updates
             addUpdateAnimation(update.data.roomId, 'room-status-updated')
           } else {
@@ -315,7 +315,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'room-added':
         console.log('Room added by another user:', update.data.room)
         // For room additions, we can update local state if we have the complete room data
@@ -331,7 +331,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'room-removed':
         console.log('Room removed by another user:', update.data.roomId)
         // For room removals, we can update local state if we have the roomId
@@ -347,7 +347,7 @@ function SessionView({ user, onBack }) {
           fetchSessionDataRef.current()
         }
         break
-        
+
       case 'section-added':
         console.log('Section added by another user:', update.data.section)
         // For section additions, we can update local state if we have the complete section data
@@ -371,13 +371,13 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'section-removed':
         console.log('Section removed by another user:', update.data.sectionId)
         // For section removals, we can try to update local state
         if (session && update.data.sectionId) {
           const updatedSession = { ...session }
-          
+
           updatedSession.rooms = updatedSession.rooms.map(room => ({
             ...room,
             sections: room.sections?.filter(section => section._id !== update.data.sectionId) || []
@@ -391,7 +391,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'room-updated':
         console.log('Room updated by another user:', update.data.room)
         // For room updates (like supplies), we can update local state
@@ -413,7 +413,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'section-updated':
         console.log('Section updated by another user:', update.data.section)
         // For section updates (like student count), we can update local state
@@ -423,12 +423,12 @@ function SessionView({ user, onBack }) {
           let roomToAnimate = null
           updatedSession.rooms = updatedSession.rooms.map(room => ({
             ...room,
-            sections: room.sections?.map(section => 
+            sections: room.sections?.map(section =>
               section._id === update.data.sectionId ? update.data.section : section
             ) || []
           }))
           // Find the room that contains this section
-          roomToAnimate = updatedSession.rooms.find(room => 
+          roomToAnimate = updatedSession.rooms.find(room =>
             room.sections?.some(section => section._id === update.data.sectionId)
           )
           setSession(updatedSession)
@@ -443,7 +443,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'section-added-to-room':
         console.log('Section added to room by another user:', update.data)
         // For section additions to rooms, we can update local state
@@ -456,7 +456,7 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - Section added to room in local state')
             // Add animation for section added to room
             addUpdateAnimation(update.data.roomId, 'section-added-to-room')
-            
+
             // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
@@ -465,7 +465,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'section-removed-from-room':
         console.log('Section removed from room by another user:', update.data)
         // For section removals from rooms, we can update local state
@@ -478,7 +478,7 @@ function SessionView({ user, onBack }) {
             console.log('SessionView - Section removed from room in local state')
             // Add animation for section removed from room
             addUpdateAnimation(update.data.roomId, 'section-removed-from-room')
-            
+
             // Activity log entry is now handled by the server
           } else {
             silentRefreshRef.current()
@@ -487,7 +487,7 @@ function SessionView({ user, onBack }) {
           silentRefreshRef.current()
         }
         break
-        
+
       case 'students-moved':
         console.log('Students moved by another user:', update.data)
         // For student movements, update local state smoothly without page refresh
@@ -495,7 +495,7 @@ function SessionView({ user, onBack }) {
           // Update local session state with the new room data
           setSession(prevSession => {
             if (!prevSession) return prevSession;
-            
+
             const updatedRooms = prevSession.rooms.map(room => {
               if (room._id === update.data.sourceRoomId) {
                 return update.data.sourceRoom;
@@ -504,34 +504,34 @@ function SessionView({ user, onBack }) {
               }
               return room;
             });
-            
+
             return {
               ...prevSession,
               rooms: updatedRooms
             };
           });
-          
+
           // Log entry is already handled by the general mechanism above
         } else {
           // Fallback to silent refresh if data is incomplete
           silentRefreshRef.current();
         }
         break
-        
+
       case 'session-updated':
         console.log('Session updated by another user:', update.data.session)
         // Update local session state with new data
         setSession(update.data.session)
-        
+
         // Activity log entry is now handled by the server
         break
-        
+
       case 'activity-log-cleared':
         console.log('Activity log cleared by another user:', update.data)
         // Clear the local activity log state
         setActivityLog([])
         break
-        
+
       default:
         console.log('Unknown update type:', update.type)
     }
@@ -551,9 +551,13 @@ function SessionView({ user, onBack }) {
 
     const now = new Date()
     const sessionDate = new Date(memoizedSession.date)
+    // Extract UTC date parts (since date is stored at UTC midnight)
+    const year = sessionDate.getUTCFullYear()
+    const month = sessionDate.getUTCMonth()
+    const day = sessionDate.getUTCDate()
     const [endHour, endMinute] = memoizedSession.endTime.split(':')
-    const endTime = new Date(sessionDate)
-    endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
+    // Create local time with the correct date and user-entered time
+    const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
 
     const timeDiff = endTime - now
     if (timeDiff <= 0) {
@@ -568,10 +572,10 @@ function SessionView({ user, onBack }) {
 
   const calculateProgress = useCallback(() => {
     if (!debouncedSession || !debouncedSession.rooms) return 0
-    
+
     const totalRooms = debouncedSession.rooms.length
     if (totalRooms === 0) return 0
-    
+
     const completedRooms = debouncedSession.rooms.filter(room => room.status === 'completed').length
     return Math.round((completedRooms / totalRooms) * 100)
   }, [debouncedSession?.rooms])
@@ -580,10 +584,10 @@ function SessionView({ user, onBack }) {
     // Find the room to get its name and total students
     const room = session?.rooms?.find(r => r._id === roomId)
     if (!room) return
-    
+
     setRoomToComplete(room)
     setPresentStudentsCount('')
-    
+
     // Initialize per-section counts if room has multiple sections
     if (room.sections && room.sections.length > 1) {
       const initialCounts = {}
@@ -594,7 +598,7 @@ function SessionView({ user, onBack }) {
     } else {
       setSectionPresentCounts({})
     }
-    
+
     setShowPresentStudentsModal(true)
   }, [session?.rooms])
 
@@ -605,14 +609,14 @@ function SessionView({ user, onBack }) {
 
   const handleConfirmRoomComplete = useCallback(async () => {
     if (!roomToComplete) return
-    
+
     let presentCount = 0
     let sectionPresentData = {}
-    
+
     // Handle per-section data for multiple sections
     if (roomToComplete.sections && roomToComplete.sections.length > 1) {
       // Validate all section counts are provided and valid
-      
+
       for (const section of roomToComplete.sections) {
         const sectionCount = sectionPresentCounts[section._id]
         if (!sectionCount || isNaN(parseInt(sectionCount))) {
@@ -620,14 +624,14 @@ function SessionView({ user, onBack }) {
           setShowAttendanceErrorModal(true)
           return
         }
-        
+
         const count = parseInt(sectionCount)
         if (count < 0 || count > section.studentCount) {
           setAttendanceError(`Section ${section.number} present count must be between 0 and ${section.studentCount} students`)
           setShowAttendanceErrorModal(true)
           return
         }
-        
+
         sectionPresentData[section._id] = count
         presentCount += count
       }
@@ -638,59 +642,59 @@ function SessionView({ user, onBack }) {
         setShowAttendanceErrorModal(true)
         return
       }
-      
+
       presentCount = parseInt(presentStudentsCount)
       const totalStudents = calculateTotalStudents(roomToComplete.sections)
-      
+
       if (presentCount < 0 || presentCount > totalStudents) {
         setAttendanceError(`Present students must be between 0 and ${totalStudents} students`)
         setShowAttendanceErrorModal(true)
         return
       }
-      
+
       // For single section, also populate sectionPresentData
       if (roomToComplete.sections && roomToComplete.sections.length === 1) {
         sectionPresentData[roomToComplete.sections[0]._id] = presentCount
       }
     }
-    
+
     try {
       // Update room with present students count and per-section data
-      const updateData = { 
+      const updateData = {
         status: 'completed',
         presentStudents: presentCount
       }
-      
+
       // Add per-section data if available
       if (Object.keys(sectionPresentData).length > 0) {
         updateData.sectionAttendance = sectionPresentData
       }
-      
+
       const response = await testingAPI.updateRoom(roomToComplete._id, updateData)
       console.log('Room status update response:', response)
-      
+
       // Update local state immediately
       setSession(prevSession => {
         const updatedSession = {
           ...prevSession,
-          rooms: prevSession.rooms.map(room => 
-            room._id === roomToComplete._id 
-              ? { 
-                  ...room, 
-                  status: 'completed', 
-                  presentStudents: presentCount,
-                  sectionAttendance: sectionPresentData
-                }
+          rooms: prevSession.rooms.map(room =>
+            room._id === roomToComplete._id
+              ? {
+                ...room,
+                status: 'completed',
+                presentStudents: presentCount,
+                sectionAttendance: sectionPresentData
+              }
               : room
           )
         }
-        
+
         // Note: Session completion is now handled server-side to prevent race conditions
         // Check if all rooms are completed for confetti animation
         const allRoomsCompleted = updatedSession.rooms.every(room => room.status === 'completed')
         if (allRoomsCompleted && updatedSession.status !== 'completed') {
           console.log('All rooms completed, session completion will be handled by server')
-          
+
           // Trigger confetti animation when all rooms are completed
           confetti({
             particleCount: 100,
@@ -698,7 +702,7 @@ function SessionView({ user, onBack }) {
             origin: { y: 0.6 }
           })
         }
-        
+
         return updatedSession
       })
 
@@ -721,38 +725,38 @@ function SessionView({ user, onBack }) {
 
   const confirmMarkRoomIncomplete = useCallback(async () => {
     if (!roomToMarkIncomplete) return
-    
+
     try {
       // Update room status to active and clear present students
-      await testingAPI.updateRoom(roomToMarkIncomplete, { 
+      await testingAPI.updateRoom(roomToMarkIncomplete, {
         status: 'active',
         presentStudents: undefined,
         sectionAttendance: {}
       })
-      
+
       // Update local state immediately
       setSession(prevSession => {
         const updatedSession = {
           ...prevSession,
-          rooms: prevSession.rooms.map(room => 
-            room._id === roomToMarkIncomplete 
+          rooms: prevSession.rooms.map(room =>
+            room._id === roomToMarkIncomplete
               ? { ...room, status: 'active', presentStudents: undefined, sectionAttendance: {} }
               : room
           )
         }
-        
+
         // If session was completed but now a room is active, change session back to active
         if (updatedSession.status === 'completed') {
           console.log('Room marked incomplete, updating session status to active')
           testingAPI.updateSession(sessionId, { status: 'active' })
           updatedSession.status = 'active'
         }
-        
+
         return updatedSession
       })
 
       // Activity log entry is now handled by the server
-      
+
       // Close modal and reset state
       setShowIncompleteConfirmModal(false)
       setRoomToMarkIncomplete(null)
@@ -771,7 +775,7 @@ function SessionView({ user, onBack }) {
       event.preventDefault()
       event.stopPropagation()
     }
-    
+
     if (showDropdown === roomId) {
       setShowDropdown(null)
     } else {
@@ -844,7 +848,7 @@ function SessionView({ user, onBack }) {
 
   const handleInvalidateTest = useCallback(async () => {
     if (!roomToInvalidate || !invalidationNotes.trim() || !selectedSection) return
-    
+
     try {
       // Send to server to persist
       const response = await testingAPI.addInvalidation(
@@ -853,16 +857,16 @@ function SessionView({ user, onBack }) {
         selectedSection,
         invalidationNotes.trim()
       )
-      
+
       // Add to local state
       setInvalidatedTests(prev => [...prev, response.invalidation])
-      
+
       // Close modal and reset state
       setShowInvalidateModal(false)
       setRoomToInvalidate(null)
       setInvalidationNotes('')
       setSelectedSection('')
-      
+
       console.log('Test invalidated:', response.invalidation)
     } catch (error) {
       console.error('Error invalidating test:', error)
@@ -876,18 +880,18 @@ function SessionView({ user, onBack }) {
 
   const confirmRemoveInvalidatedTest = useCallback(async () => {
     if (!invalidationToRemove) return
-    
+
     try {
       // Send to server to remove
       await testingAPI.removeInvalidation(session._id, invalidationToRemove.id)
-      
+
       // Remove from local state
       setInvalidatedTests(prev => prev.filter(inv => inv.id !== invalidationToRemove.id))
-      
+
       // Close modal and reset state
       setShowRemoveInvalidationModal(false)
       setInvalidationToRemove(null)
-      
+
       console.log('Invalidated test removed:', invalidationToRemove.id)
     } catch (error) {
       console.error('Error removing invalidation:', error)
@@ -924,22 +928,22 @@ function SessionView({ user, onBack }) {
     try {
       const room = session.rooms.find(r => r._id === roomId)
       if (!room) return
-      
+
       // Remove all instances of this supply
       const updatedSupplies = room.supplies.filter(s => s !== supplyName)
-      
+
       await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
-      
+
       // Update the room in the session state
       setSession(prevSession => ({
         ...prevSession,
-        rooms: prevSession.rooms.map(r => 
-          r._id === roomId 
+        rooms: prevSession.rooms.map(r =>
+          r._id === roomId
             ? { ...r, supplies: updatedSupplies }
             : r
         )
       }))
-      
+
       // Update the selectedRoom in the modal to reflect the changes
       setSelectedRoom(prevSelectedRoom => {
         if (prevSelectedRoom && prevSelectedRoom._id === roomId) {
@@ -947,7 +951,7 @@ function SessionView({ user, onBack }) {
         }
         return prevSelectedRoom
       })
-      
+
       console.log(`Removed all instances of ${supplyName} from room ${room.name}`)
     } catch (error) {
       console.error('Error removing supply:', error)
@@ -958,12 +962,12 @@ function SessionView({ user, onBack }) {
     try {
       const room = session.rooms.find(r => r._id === roomId)
       if (!room) return
-      
+
       const currentSupplies = room.supplies || []
       const currentCount = currentSupplies.filter(s => s === supplyName).length
-      
+
       if (adjustment < 0 && currentCount <= 0) return // Can't go below 0
-      
+
       let updatedSupplies
       if (adjustment > 0) {
         // Add more supplies
@@ -983,19 +987,19 @@ function SessionView({ user, onBack }) {
           return true
         })
       }
-      
+
       await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
-      
+
       // Update the room in the session state
       setSession(prevSession => ({
         ...prevSession,
-        rooms: prevSession.rooms.map(r => 
-          r._id === roomId 
+        rooms: prevSession.rooms.map(r =>
+          r._id === roomId
             ? { ...r, supplies: updatedSupplies }
             : r
         )
       }))
-      
+
       // Update the selectedRoom in the modal to reflect the changes
       setSelectedRoom(prevSelectedRoom => {
         if (prevSelectedRoom && prevSelectedRoom._id === roomId) {
@@ -1003,7 +1007,7 @@ function SessionView({ user, onBack }) {
         }
         return prevSelectedRoom
       })
-      
+
       console.log(`Adjusted ${supplyName} quantity by ${adjustment} in room ${room.name}`)
     } catch (error) {
       console.error('Error adjusting supply quantity:', error)
@@ -1017,12 +1021,12 @@ function SessionView({ user, onBack }) {
       await testingAPI.updateRoom(selectedRoomForNotes._id, {
         notes: roomNotes.trim()
       })
-      
+
       // Update local state
       setSession(prevSession => ({
         ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === selectedRoomForNotes._id 
+        rooms: prevSession.rooms.map(room =>
+          room._id === selectedRoomForNotes._id
             ? { ...room, notes: roomNotes.trim() }
             : room
         )
@@ -1071,7 +1075,7 @@ function SessionView({ user, onBack }) {
   // Helper function to format supplies for logging
   // const formatSuppliesForLog = (supplies) => {
   //   if (!supplies || supplies.length === 0) return []
-    
+
   //   const supplyCounts = {}
   //   supplies.forEach(supply => {
   //     if (supply.startsWith('INITIAL_')) {
@@ -1082,25 +1086,25 @@ function SessionView({ user, onBack }) {
   //       supplyCounts[supply] = (supplyCounts[supply] || 0) + 1
   //     }
   //   })
-    
+
   //   return Object.entries(supplyCounts).map(([name, count]) => `${name} (${count})`)
   // }
 
   const handleAddSupply = useCallback(async () => {
     if (!selectedPresetSupply || !selectedRoom || newSupplyQuantity < 1) return
-    
+
     try {
-      
+
       const currentSupplies = selectedRoom.supplies || []
       const newSupplyName = selectedPresetSupply
       const newQuantity = newSupplyQuantity
-      
-      
+
+
       // Check if the supply already exists
       const existingSupplyIndex = currentSupplies.findIndex(supply => supply === newSupplyName)
-      
+
       // console.log('🔍 existingSupplyIndex:', existingSupplyIndex);
-      
+
       let updatedSupplies
       if (existingSupplyIndex !== -1) {
         // Supply exists, add more of the same supply
@@ -1117,24 +1121,24 @@ function SessionView({ user, onBack }) {
           updatedSupplies.push(newSupplyName)
         }
       }
-      
+
       // console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
       // console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
-      
+
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
-      
+
       // console.log('🔍 testingAPI.updateRoom completed successfully');
-      
+
       // Update local state immediately
       setSession(prevSession => ({
         ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === selectedRoom._id 
+        rooms: prevSession.rooms.map(room =>
+          room._id === selectedRoom._id
             ? { ...room, supplies: updatedSupplies }
             : room
         )
       }))
-      
+
       setShowAddSupplyModal(false)
       setSelectedPresetSupply('')
       setNewSupplyQuantity(1)
@@ -1151,18 +1155,18 @@ function SessionView({ user, onBack }) {
   //     // console.log('🔍 handleRemoveSupply called');
   //     // console.log('🔍 roomId:', roomId);
   //     // console.log('🔍 supply to remove:', supply);
-      
+
   //     const room = session.rooms.find(r => r._id === roomId)
   //     const updatedSupplies = room.supplies.filter(s => s !== supply)
-      
+
   //     // console.log('🔍 room:', room);
   //     // console.log('🔍 updatedSupplies:', formatSuppliesForLog(updatedSupplies));
   //     // console.log('🔍 Calling testingAPI.updateRoom with:', { supplies: formatSuppliesForLog(updatedSupplies) });
-      
+
   //     await testingAPI.updateRoom(roomId, { supplies: updatedSupplies })
-      
+
   //     // console.log('🔍 testingAPI.updateRoom completed successfully');
-      
+
   //     // Update local state immediately
   //     setSession(prevSession => ({
   //       ...prevSession,
@@ -1181,30 +1185,30 @@ function SessionView({ user, onBack }) {
 
   const handleEditSupply = useCallback(async () => {
     if (!editingSupply || !selectedRoom || editSupplyQuantity < 1) return
-    
+
     try {
       const room = session.rooms.find(r => r._id === selectedRoom._id)
-      
+
       // Remove the old supply and add the new quantity as individual items
       const updatedSupplies = room.supplies.filter(supply => supply !== editingSupply.original)
-      
+
       // Add the new quantity as individual supply names
       for (let i = 0; i < editSupplyQuantity; i++) {
         updatedSupplies.push(editingSupply.name)
       }
-      
+
       await testingAPI.updateRoom(selectedRoom._id, { supplies: updatedSupplies })
-      
+
       // Update local state immediately
       setSession(prevSession => ({
         ...prevSession,
-        rooms: prevSession.rooms.map(room => 
-          room._id === selectedRoom._id 
+        rooms: prevSession.rooms.map(room =>
+          room._id === selectedRoom._id
             ? { ...room, supplies: updatedSupplies }
             : room
         )
       }))
-      
+
       setShowEditSupplyModal(false)
       setEditingSupply(null)
       setEditSupplyQuantity(1)
@@ -1218,20 +1222,20 @@ function SessionView({ user, onBack }) {
 
   const handleMoveStudents = useCallback(async () => {
     if (!moveFromRoom || Object.keys(studentMoveData).length === 0) return
-    
+
     try {
       console.log('Starting student move process...')
       console.log('Student move data:', studentMoveData)
-      
+
       // Process each section that has students to move
       for (const [sectionId, moveInfo] of Object.entries(studentMoveData)) {
         if (moveInfo.studentsToMove > 0 && moveInfo.destinationRoom) {
           console.log(`Processing section ${sectionId}:`, moveInfo)
-          
+
           const section = moveFromRoom.sections.find(s => s._id === sectionId)
           if (section && moveInfo.studentsToMove <= section.studentCount) {
             console.log(`Moving ${moveInfo.studentsToMove} students from section ${section.number}`)
-            
+
             // Use the server endpoint to move students (handles both same-room and cross-room moves)
             try {
               await testingAPI.logStudentMovement(
@@ -1250,12 +1254,12 @@ function SessionView({ user, onBack }) {
           }
         }
       }
-      
+
       // Reset the modal state
       setShowMoveStudentsModal(false)
       setMoveFromRoom(null)
       setStudentMoveData({})
-      
+
       // Real-time updates will handle the state changes automatically
       console.log('Student move process completed successfully')
     } catch (error) {
@@ -1274,12 +1278,12 @@ function SessionView({ user, onBack }) {
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return ''
     const date = new Date(timestamp)
-    
+
     // Format date as MM/DD/YYYY
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const day = date.getDate().toString().padStart(2, '0')
     const year = date.getFullYear()
-    
+
     // Format time as HH:MM:SS AM/PM
     const timeString = date.toLocaleString('en-US', {
       hour: '2-digit',
@@ -1287,13 +1291,13 @@ function SessionView({ user, onBack }) {
       second: '2-digit',
       hour12: true
     })
-    
+
     // Return date first, then time: MM/DD/YYYY, HH:MM:SS AM/PM
     return `${month}/${day}/${year}, ${timeString}`
   }, [])
 
 
-    // Helper function to get activity log colors based on action type
+  // Helper function to get activity log colors based on action type
   const getActivityLogColors = useCallback((action) => {
     const lowerAction = action.toLowerCase();
 
@@ -1318,7 +1322,7 @@ function SessionView({ user, onBack }) {
         dot: 'bg-green-500'
       };
     }
-    
+
     // Supply actions
     if (lowerAction.includes('added')) {
       return {
@@ -1332,7 +1336,7 @@ function SessionView({ user, onBack }) {
         dot: 'bg-red-500'
       };
     }
-    
+
     // Student movement
     if (lowerAction.includes('moved') && lowerAction.includes('students')) {
       return {
@@ -1340,7 +1344,7 @@ function SessionView({ user, onBack }) {
         dot: 'bg-purple-500'
       };
     }
-    
+
     // Room notes actions
     if (lowerAction.includes('notes') && (lowerAction.includes('added') || lowerAction.includes('updated') || lowerAction.includes('removed'))) {
       return {
@@ -1348,7 +1352,7 @@ function SessionView({ user, onBack }) {
         dot: 'bg-orange-500'
       };
     }
-    
+
     // Default color for other actions
     return {
       border: 'border-gray-500',
@@ -1418,25 +1422,25 @@ function SessionView({ user, onBack }) {
 
   const getSortedRooms = useCallback(() => {
     if (!debouncedSession || !debouncedSession.rooms) return []
-    
+
     let sortedRooms = [...debouncedSession.rooms]
-    
+
     // Filter by search query first
     if (searchQuery.trim()) {
-      sortedRooms = sortedRooms.filter(room => 
+      sortedRooms = sortedRooms.filter(room =>
         room.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
-    
+
     return sortedRooms.sort((a, b) => {
       let aValue, bValue
       let comparison = 0
-      
+
       switch (sortBy) {
         case 'roomNumber': {
           const aKey = getRoomSortKey(a.name)
           const bKey = getRoomSortKey(b.name)
-          
+
           // If both have numbers, sort by number first, then by letter
           if (aKey.number !== 999 && bKey.number !== 999) {
             if (aKey.number !== bKey.number) {
@@ -1456,17 +1460,17 @@ function SessionView({ user, onBack }) {
           }
           break
         }
-          
+
         case 'status':
           aValue = a.status
           bValue = b.status
           comparison = aValue.localeCompare(bValue)
-          
+
           // If status is the same, sort by room number in ascending order
           if (comparison === 0) {
             const aKey = getRoomSortKey(a.name)
             const bKey = getRoomSortKey(b.name)
-            
+
             // If both have numbers, sort by number first, then by letter
             if (aKey.number !== 999 && bKey.number !== 999) {
               if (aKey.number !== bKey.number) {
@@ -1486,13 +1490,13 @@ function SessionView({ user, onBack }) {
             }
           }
           break
-          
+
         case 'studentCount':
           aValue = calculateTotalStudents(a.sections)
           bValue = calculateTotalStudents(b.sections)
           comparison = aValue - bValue
           break
-          
+
         default: {
           // Default to room number sorting
           const aKeyDefault = getRoomSortKey(a.name)
@@ -1501,7 +1505,7 @@ function SessionView({ user, onBack }) {
           break
         }
       }
-      
+
       // Apply sort direction
       return sortDescending ? -comparison : comparison
     })
@@ -1531,9 +1535,9 @@ function SessionView({ user, onBack }) {
     if (!room.sections || room.sections.length === 0) {
       return null
     }
-    
+
     const accommodationTypes = new Set()
-    
+
     room.sections.forEach(section => {
       if (section.accommodations && section.accommodations.length > 0) {
         section.accommodations.forEach(acc => {
@@ -1542,17 +1546,17 @@ function SessionView({ user, onBack }) {
             accommodationTypes.add('bilingual')
           }
           // Check for extra time accommodations
-          else if (acc.includes('1.5x') || acc.includes('2x') || 
-                   acc.includes('1.5×') || acc.includes('2×') ||
-                   acc.toLowerCase().includes('extended time') || 
-                   acc.toLowerCase().includes('double time') ||
-                   acc.toLowerCase().includes('extra time')) {
+          else if (acc.includes('1.5x') || acc.includes('2x') ||
+            acc.includes('1.5×') || acc.includes('2×') ||
+            acc.toLowerCase().includes('extended time') ||
+            acc.toLowerCase().includes('double time') ||
+            acc.toLowerCase().includes('extra time')) {
             accommodationTypes.add('extra-time')
           }
         })
       }
     })
-    
+
     return accommodationTypes.size > 0 ? Array.from(accommodationTypes) : null
   }, [])
 
@@ -1561,7 +1565,7 @@ function SessionView({ user, onBack }) {
     if (!room.sections || room.sections.length === 0) {
       return 1
     }
-    
+
     // Check if any section has 1.5x or 2x time accommodation
     let hasTimeAccommodation = false
     room.sections.forEach(section => {
@@ -1569,18 +1573,18 @@ function SessionView({ user, onBack }) {
         section.accommodations.forEach(acc => {
           // Check for various formats of time accommodations
           if (acc.includes('1.5x') || acc.includes('2x') ||
-              acc.includes('1.5×') || acc.includes('2×') ||
-              acc.includes('extended time') || acc.includes('double time')) {
+            acc.includes('1.5×') || acc.includes('2×') ||
+            acc.includes('extended time') || acc.includes('double time')) {
             hasTimeAccommodation = true
           }
         })
       }
     })
-    
+
     if (!hasTimeAccommodation) {
       return 1
     }
-    
+
     // Find the highest time multiplier in the room
     let maxMultiplier = 1
     room.sections.forEach(section => {
@@ -1589,7 +1593,7 @@ function SessionView({ user, onBack }) {
           // Check for 2x time accommodations (various formats)
           if (acc.includes('2x') || acc.includes('2×') || acc.includes('double time')) {
             maxMultiplier = Math.max(maxMultiplier, 2)
-          } 
+          }
           // Check for 1.5x time accommodations (various formats)
           else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time')) {
             maxMultiplier = Math.max(maxMultiplier, 1.5)
@@ -1597,7 +1601,7 @@ function SessionView({ user, onBack }) {
         })
       }
     })
-    
+
     return maxMultiplier
   }, [])
 
@@ -1605,45 +1609,47 @@ function SessionView({ user, onBack }) {
     if (!memoizedSession || !timeRemaining || timeRemaining.isOver) {
       return null
     }
-    
+
     // Calculate time multiplier based on section accommodations
     const timeMultiplier = calculateRoomTimeMultiplier(room)
-    
+
     // Calculate total session duration in minutes
     const [startHour, startMinute] = memoizedSession.startTime.split(':')
     const [endHour, endMinute] = memoizedSession.endTime.split(':')
     const sessionDate = new Date(memoizedSession.date)
-    
-    const startTime = new Date(sessionDate)
-    startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
-    
-    const endTime = new Date(sessionDate)
-    endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
-    
+    // Extract UTC date parts (since date is stored at UTC midnight)
+    const year = sessionDate.getUTCFullYear()
+    const month = sessionDate.getUTCMonth()
+    const day = sessionDate.getUTCDate()
+
+    // Create local times with the correct date and user-entered times
+    const startTime = new Date(year, month, day, parseInt(startHour), parseInt(startMinute), 0)
+    const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
+
     const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
-    
+
     // Calculate room-specific end time based on multiplier
     const roomEndTime = new Date(startTime.getTime() + (totalSessionMinutes * timeMultiplier * 60 * 1000))
-    
+
     // Calculate remaining time for this room
     const now = new Date()
     const roomTimeDiff = roomEndTime - now
-    
+
     if (roomTimeDiff <= 0) {
       return { hours: 0, minutes: 0, seconds: 0, isOver: true }
     }
-    
+
     const hours = Math.floor(roomTimeDiff / (1000 * 60 * 60))
     const minutes = Math.floor((roomTimeDiff % (1000 * 60 * 60)) / (1000 * 60))
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
-    
+
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
 
   // Calculate time for all rooms - this is needed for proper display
   const roomTimeCalculations = useMemo(() => {
     if (!debouncedSession?.rooms || !timeRemaining) return {}
-    
+
     const calculations = {}
     // Calculate time for all rooms to ensure proper display
     debouncedSession.rooms.forEach(room => {
@@ -1661,7 +1667,7 @@ function SessionView({ user, onBack }) {
     if (roomTimeCalculations[room._id]) {
       return roomTimeCalculations[room._id]
     }
-    
+
     // If not in cache, calculate it now (shouldn't happen often due to useMemo)
     return calculateRoomTimeRemaining(room)
   }, [roomTimeCalculations, calculateRoomTimeRemaining])
@@ -1713,7 +1719,7 @@ function SessionView({ user, onBack }) {
           const stored = localStorage.getItem(`scroll-${roomId}`)
           savedScrollTop = stored ? parseInt(stored, 10) : 0
         }
-        
+
         if (savedScrollTop > 0) {
           // Set scroll position synchronously before paint
           containerRef.current.scrollTop = savedScrollTop
@@ -1733,41 +1739,41 @@ function SessionView({ user, onBack }) {
     }
 
     return (
-      <div 
+      <div
         ref={containerRef}
-        className="max-h-64 overflow-y-auto space-y-2" 
-        style={{ 
+        className="max-h-64 overflow-y-auto space-y-2"
+        style={{
           scrollBehavior: 'auto',
           scrollbarGutter: 'stable'
         }}
         onScroll={handleScroll}
       >
         {sortedSections.map((section) => (
-            <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-sm font-medium text-gray-700 dark:text-white">
-                  Section {section.number} ({section.studentCount} students)
-                </span>
-              </div>
-              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                <div className="mt-1">
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {section.accommodations.map((acc, index) => (
-                      <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
-                        {acc}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {section.notes && (
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  <span className="font-medium">Notes:</span> {section.notes}
-                </div>
-              )}
+          <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+            <div className="flex justify-between items-start mb-1">
+              <span className="text-sm font-medium text-gray-700 dark:text-white">
+                Section {section.number} ({section.studentCount} students)
+              </span>
             </div>
-          ))}
+            {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+              <div className="mt-1">
+                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {section.accommodations.map((acc, index) => (
+                    <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                      {acc}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {section.notes && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                <span className="font-medium">Notes:</span> {section.notes}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     )
   })
@@ -1910,7 +1916,7 @@ function SessionView({ user, onBack }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container" style={{ overflow: 'visible' }}>
-      
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1970,8 +1976,8 @@ function SessionView({ user, onBack }) {
         </div>
       </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ overflow: 'visible' }}>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ overflow: 'visible' }}>
         {/* Permission Info Message */}
         {!canEditSession() && (
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1990,7 +1996,7 @@ function SessionView({ user, onBack }) {
             </div>
           </div>
         )}
-        
+
         {/* Session Info and Timer */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Session Details */}
@@ -2065,7 +2071,7 @@ function SessionView({ user, onBack }) {
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4">
-            <div 
+            <div
               className="bg-blue-600 h-4 rounded-full progress-bar-transition"
               style={{ width: `${progress}%` }}
             ></div>
@@ -2097,12 +2103,12 @@ function SessionView({ user, onBack }) {
                       if (!session || !session.rooms) return 0;
                       const totalStudents = session.rooms.reduce((total, room) =>
                         total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                      , 0);
+                        , 0);
                       const remainingStudents = session.rooms
                         .filter(room => room.status !== 'completed')
                         .reduce((total, room) =>
                           total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                        , 0);
+                          , 0);
                       return totalStudents > 0 ? (remainingStudents / totalStudents) * 100 : 0;
                     })()} 100`}
                     strokeLinecap="round"
@@ -2118,7 +2124,7 @@ function SessionView({ user, onBack }) {
                         .filter(room => room.status !== 'completed')
                         .reduce((total, room) =>
                           total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                        , 0)
+                          , 0)
                     })()}
                   </span>
                 </div>
@@ -2187,7 +2193,7 @@ function SessionView({ user, onBack }) {
                   <option value="studentCount">Student Count</option>
                 </select>
               </div>
-              
+
               {/* Sort Direction Toggle Button */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2270,7 +2276,7 @@ function SessionView({ user, onBack }) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {getPaginatedRooms().map((room) => (
                     <React.Fragment key={room._id}>
-                      <tr 
+                      <tr
                         className="hover:bg-gray-50 cursor-pointer"
                         onClick={(e) => {
                           // Don't expand if clicking on action buttons
@@ -2316,8 +2322,8 @@ function SessionView({ user, onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-white">
-                            {room.status === 'completed' && room.presentStudents !== undefined 
-                              ? calculateTotalStudents(room.sections) - room.presentStudents 
+                            {room.status === 'completed' && room.presentStudents !== undefined
+                              ? calculateTotalStudents(room.sections) - room.presentStudents
                               : '-'}
                           </div>
                         </td>
@@ -2407,12 +2413,12 @@ function SessionView({ user, onBack }) {
                                 >
                                   ⋯
                                 </button>
-                                
+
                                 {showDropdown === room._id && createPortal(
-                                  <div 
+                                  <div
                                     data-dropdown-menu
                                     className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                                    style={{ 
+                                    style={{
                                       position: 'fixed',
                                       top: `${dropdownPosition.top}px`,
                                       left: `${dropdownPosition.left}px`,
@@ -2429,7 +2435,7 @@ function SessionView({ user, onBack }) {
                                           setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-                                        style={{ 
+                                        style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
                                           position: 'relative'
@@ -2448,7 +2454,7 @@ function SessionView({ user, onBack }) {
                                           setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-                                        style={{ 
+                                        style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
                                           position: 'relative'
@@ -2481,7 +2487,7 @@ function SessionView({ user, onBack }) {
                                           setShowDropdown(null)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-                                        style={{ 
+                                        style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
                                           position: 'relative'
@@ -2515,105 +2521,105 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                       </tr>
-                      
+
                       {/* Expanded Details Row */}
                       {expandedRooms.has(room._id) && (
                         <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
                           <td colSpan="9" className="px-0 py-0">
                             <div className="overflow-hidden">
-                            <div className="px-6 py-3">
-                              <div className="grid grid-cols-3 gap-4">
-                                {/* Sections Column */}
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
-                                  <RoomSections sections={room.sections} roomId={room._id} />
-                                </div>
-
-                                {/* Proctors Column */}
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
-                                  <RoomProctors proctors={room.proctors} />
-                                </div>
-
-                                {/* Supplies and Time Column */}
-                                <div className="flex flex-col h-full justify-between">
-                                  {/* Supplies Section */}
+                              <div className="px-6 py-3">
+                                <div className="grid grid-cols-3 gap-4">
+                                  {/* Sections Column */}
                                   <div>
-                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
-                                    <RoomSupplies supplies={room.supplies} />
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
+                                    <RoomSections sections={room.sections} roomId={room._id} />
                                   </div>
 
-                                  {/* Invalidated Tests Section */}
-                                  {(() => {
-                                    const roomInvalidatedTests = invalidatedTests.filter(inv => inv.roomId === room._id)
-                                    if (roomInvalidatedTests.length > 0) {
-                                      return (
-                                        <div className="mt-4">
-                                          <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center">
-                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                            </svg>
-                                            Invalidated Tests ({roomInvalidatedTests.length})
-                                          </h4>
-                                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                                            {roomInvalidatedTests.map((invalidation) => (
-                                              <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-2">
-                                                <div className="flex justify-between items-start">
-                                                  <div className="flex-1">
-                                                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                                                      Section {invalidation.sectionNumber}
-                                                    </p>
-                                                    <p className="text-xs text-red-600 dark:text-red-400">
-                                                      {invalidation.notes}
-                                                    </p>
-                                                  </div>
-                                                  <div className="flex items-center space-x-2">
-                                                    <span className="text-xs text-red-500 dark:text-red-400">
-                                                      {new Date(invalidation.timestamp).toLocaleTimeString()}
-                                                    </span>
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleRemoveInvalidatedTestClick(invalidation)
-                                                      }}
-                                                      className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs"
-                                                      title="Remove invalidation"
-                                                    >
-                                                      ✕
-                                                    </button>
+                                  {/* Proctors Column */}
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
+                                    <RoomProctors proctors={room.proctors} />
+                                  </div>
+
+                                  {/* Supplies and Time Column */}
+                                  <div className="flex flex-col h-full justify-between">
+                                    {/* Supplies Section */}
+                                    <div>
+                                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
+                                      <RoomSupplies supplies={room.supplies} />
+                                    </div>
+
+                                    {/* Invalidated Tests Section */}
+                                    {(() => {
+                                      const roomInvalidatedTests = invalidatedTests.filter(inv => inv.roomId === room._id)
+                                      if (roomInvalidatedTests.length > 0) {
+                                        return (
+                                          <div className="mt-4">
+                                            <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center">
+                                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                              </svg>
+                                              Invalidated Tests ({roomInvalidatedTests.length})
+                                            </h4>
+                                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                                              {roomInvalidatedTests.map((invalidation) => (
+                                                <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-2">
+                                                  <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                                                        Section {invalidation.sectionNumber}
+                                                      </p>
+                                                      <p className="text-xs text-red-600 dark:text-red-400">
+                                                        {invalidation.notes}
+                                                      </p>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                      <span className="text-xs text-red-500 dark:text-red-400">
+                                                        {new Date(invalidation.timestamp).toLocaleTimeString()}
+                                                      </span>
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation()
+                                                          handleRemoveInvalidatedTestClick(invalidation)
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs"
+                                                        title="Remove invalidation"
+                                                      >
+                                                        ✕
+                                                      </button>
+                                                    </div>
                                                   </div>
                                                 </div>
-                                              </div>
-                                            ))}
+                                              ))}
+                                            </div>
                                           </div>
+                                        )
+                                      }
+                                      return null
+                                    })()}
+
+                                    {/* Room Notes Section */}
+                                    {room.notes && (
+                                      <div className="mt-4">
+                                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
+                                          Room Notes
+                                        </h4>
+                                        <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+                                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                            {room.notes}
+                                          </p>
                                         </div>
-                                      )
-                                    }
-                                    return null
-                                  })()}
-
-                                  {/* Room Notes Section */}
-                                  {room.notes && (
-                                    <div className="mt-4">
-                                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        Room Notes
-                                      </h4>
-                                      <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-                                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                          {room.notes}
-                                        </p>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
                         </tr>
                       )}
                     </React.Fragment>
@@ -2626,8 +2632,8 @@ function SessionView({ user, onBack }) {
           /* Card View */
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {getPaginatedRooms().map((room) => (
-              <div 
-                key={room._id} 
+              <div
+                key={room._id}
                 className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
                 onClick={() => toggleCardExpansion(room._id)}
                 data-room-id={room._id}
@@ -2680,8 +2686,8 @@ function SessionView({ user, onBack }) {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Absent Students:</span>
                     <span className="text-2xl font-bold text-red-600">
-                      {room.status === 'completed' && room.presentStudents !== undefined 
-                        ? calculateTotalStudents(room.sections) - room.presentStudents 
+                      {room.status === 'completed' && room.presentStudents !== undefined
+                        ? calculateTotalStudents(room.sections) - room.presentStudents
                         : '-'}
                     </span>
                   </div>
@@ -2758,7 +2764,7 @@ function SessionView({ user, onBack }) {
                           <span className="mr-2">⋯</span>
                           More Actions
                         </button>
-                        
+
                         {showDropdown === room._id && (
                           <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
                             <div className="py-1">
@@ -2941,7 +2947,7 @@ function SessionView({ user, onBack }) {
               >
                 Previous
               </button>
-              
+
               <div className="flex items-center space-x-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum
@@ -2954,23 +2960,22 @@ function SessionView({ user, onBack }) {
                   } else {
                     pageNum = currentPage - 2 + i
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        currentPage === pageNum
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum
                           ? 'bg-blue-600 text-white'
                           : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
-                      }`}
+                        }`}
                     >
                       {pageNum}
                     </button>
                   )
                 })}
               </div>
-              
+
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
@@ -2988,7 +2993,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Supply to {selectedRoom.name}</h2>
-            
+
             <div className="space-y-4">
               {/* Preset Supplies */}
               <div>
@@ -3020,7 +3025,7 @@ function SessionView({ user, onBack }) {
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -3051,7 +3056,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supply in {selectedRoom.name}</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3060,7 +3065,7 @@ function SessionView({ user, onBack }) {
                 <input
                   type="text"
                   value={editingSupply.name}
-                  onChange={(e) => setEditingSupply({...editingSupply, name: e.target.value})}
+                  onChange={(e) => setEditingSupply({ ...editingSupply, name: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
@@ -3077,7 +3082,7 @@ function SessionView({ user, onBack }) {
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -3107,7 +3112,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Move Students</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3140,7 +3145,7 @@ function SessionView({ user, onBack }) {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="space-y-3">
                             <div>
                               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -3167,7 +3172,7 @@ function SessionView({ user, onBack }) {
                                 (0-{section.studentCount})
                               </span>
                             </div>
-                            
+
                             {(studentMoveData[section._id]?.studentsToMove || 0) > 0 && (
                               <div>
                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -3203,7 +3208,7 @@ function SessionView({ user, onBack }) {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -3217,8 +3222,8 @@ function SessionView({ user, onBack }) {
                 </button>
                 <button
                   onClick={handleMoveStudents}
-                  disabled={Object.keys(studentMoveData).filter(key => 
-                    studentMoveData[key].studentsToMove > 0 && 
+                  disabled={Object.keys(studentMoveData).filter(key =>
+                    studentMoveData[key].studentsToMove > 0 &&
                     studentMoveData[key].destinationRoom
                   ).length === 0}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
@@ -3236,24 +3241,24 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supplies for {selectedRoom.name}</h2>
-            
+
             <div className="space-y-4">
               {(() => {
                 const supplies = selectedRoom.supplies || []
                 const initialSupplies = supplies.filter(supply => supply.startsWith('INITIAL_'))
                 const addedSupplies = supplies.filter(supply => !supply.startsWith('INITIAL_'))
-                
+
                 const initialSupplyCounts = {}
                 initialSupplies.forEach(supply => {
                   const cleanName = supply.replace('INITIAL_', '')
                   initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
                 })
-                
+
                 const addedSupplyCounts = {}
                 addedSupplies.forEach(supply => {
                   addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
                 })
-                
+
                 return (
                   <div className="space-y-4">
                     {/* Initial Supplies */}
@@ -3275,7 +3280,7 @@ function SessionView({ user, onBack }) {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Added Supplies */}
                     {Object.keys(addedSupplyCounts).length > 0 && (
                       <div>
@@ -3327,7 +3332,7 @@ function SessionView({ user, onBack }) {
                         </div>
                       </div>
                     )}
-                    
+
                     {Object.keys(initialSupplyCounts).length === 0 && Object.keys(addedSupplyCounts).length === 0 && (
                       <div className="text-center py-8">
                         <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3340,7 +3345,7 @@ function SessionView({ user, onBack }) {
                 )
               })()}
             </div>
-            
+
             <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {
@@ -3379,7 +3384,7 @@ function SessionView({ user, onBack }) {
               )}
             </div>
           </div>
-          
+
           {showActivityLog && (
             <div className="space-y-4">
               {activityLog.length === 0 ? (
@@ -3395,8 +3400,8 @@ function SessionView({ user, onBack }) {
                   {activityLog.map((log, index) => {
                     const colors = getActivityLogColors(log.action);
                     return (
-                      <div 
-                        key={index} 
+                      <div
+                        key={index}
                         className={`flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 ${colors.border}`}
                       >
                         <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
@@ -3450,7 +3455,7 @@ function SessionView({ user, onBack }) {
                 {invalidatedTests.length}
               </span>
             </div>
-            
+
             <div className="space-y-4 max-h-64 overflow-y-auto">
               {invalidatedTests.map((invalidation) => {
                 const room = session?.rooms?.find(r => r._id === invalidation.roomId)
@@ -3496,7 +3501,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
-            
+
             <div className="space-y-6">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Room: {roomToComplete.name}</h3>
@@ -3507,7 +3512,7 @@ function SessionView({ user, onBack }) {
                   Sections: {roomToComplete.sections?.length || 0}
                 </p>
               </div>
-              
+
               {roomToComplete.sections && roomToComplete.sections.length > 1 ? (
                 // Per-section input for multiple sections
                 <div>
@@ -3574,7 +3579,7 @@ function SessionView({ user, onBack }) {
                   </p>
                 </div>
               )}
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -3589,7 +3594,7 @@ function SessionView({ user, onBack }) {
                 </button>
                 <button
                   onClick={handleConfirmRoomComplete}
-                  disabled={roomToComplete.sections && roomToComplete.sections.length > 1 
+                  disabled={roomToComplete.sections && roomToComplete.sections.length > 1
                     ? !Object.values(sectionPresentCounts).every(count => count !== '' && !isNaN(parseInt(count)))
                     : (!presentStudentsCount || isNaN(parseInt(presentStudentsCount)))
                   }
@@ -3608,7 +3613,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Clear Activity Log</h2>
-            
+
             <div className="space-y-4">
               <p className="text-gray-700">
                 Are you sure you want to clear the activity log for this session?
@@ -3616,7 +3621,7 @@ function SessionView({ user, onBack }) {
               <p className="text-sm text-gray-600">
                 This action cannot be undone. All activity history will be permanently removed.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => setShowClearLogModal(false)}
@@ -3641,7 +3646,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Mark Room Incomplete</h2>
-            
+
             <div className="space-y-4">
               <p className="text-gray-700">
                 Are you sure you want to mark this room as incomplete?
@@ -3649,7 +3654,7 @@ function SessionView({ user, onBack }) {
               <p className="text-sm text-gray-600">
                 This will change the room status back to active and clear the present students count. The session status may also change back to active if all rooms become incomplete.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={cancelMarkRoomIncomplete}
@@ -3681,12 +3686,12 @@ function SessionView({ user, onBack }) {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white ml-4">Invalid Attendance</h2>
             </div>
-            
+
             <div className="space-y-4">
               <p className="text-gray-700 dark:text-gray-300">
                 {attendanceError}
               </p>
-              
+
               <div className="flex justify-end pt-4">
                 <button
                   onClick={() => setShowAttendanceErrorModal(false)}
@@ -3705,12 +3710,12 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Invalidate Test</h2>
-            
+
             <div className="space-y-4">
               <p className="text-gray-700 dark:text-gray-300">
                 Invalidate 1 test in <strong>{roomToInvalidate.name}</strong>
               </p>
-              
+
               {/* Section Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3729,7 +3734,7 @@ function SessionView({ user, onBack }) {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes
@@ -3742,7 +3747,7 @@ function SessionView({ user, onBack }) {
                   placeholder="Enter notes about the test invalidation..."
                 />
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={cancelInvalidateTest}
@@ -3768,12 +3773,12 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Remove Invalidation</h2>
-            
+
             <div className="space-y-4">
               <p className="text-gray-700 dark:text-gray-300">
                 Are you sure you want to remove this test invalidation?
               </p>
-              
+
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
                 <p className="text-sm font-medium text-red-800 dark:text-red-200">
                   Section {invalidationToRemove.sectionNumber}
@@ -3785,11 +3790,11 @@ function SessionView({ user, onBack }) {
                   Invalidated by {invalidationToRemove.invalidatedBy} on {new Date(invalidationToRemove.timestamp).toLocaleString()}
                 </p>
               </div>
-              
+
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 This action will be recorded in the activity log.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={cancelRemoveInvalidatedTest}
@@ -3814,7 +3819,7 @@ function SessionView({ user, onBack }) {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Notes to {selectedRoomForNotes.name}</h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -3829,7 +3834,7 @@ function SessionView({ user, onBack }) {
                 />
               </div>
             </div>
-            
+
             <div className="flex space-x-4 pt-6">
               <button
                 onClick={cancelRoomNotes}

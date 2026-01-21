@@ -104,12 +104,14 @@ const RoomDetail = ({ user }) => {
       const [startHour, startMinute] = session.startTime.split(':')
       const [endHour, endMinute] = session.endTime.split(':')
       const sessionDate = new Date(session.date)
+      // Extract UTC date parts (since date is stored at UTC midnight)
+      const year = sessionDate.getUTCFullYear()
+      const month = sessionDate.getUTCMonth()
+      const day = sessionDate.getUTCDate()
       
-      const startTime = new Date(sessionDate)
-      startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
-      
-      const endTime = new Date(sessionDate)
-      endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
+      // Create local times with the correct date and user-entered times
+      const startTime = new Date(year, month, day, parseInt(startHour), parseInt(startMinute), 0)
+      const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
       
       const timeDiff = endTime - now
       
@@ -312,12 +314,14 @@ const RoomDetail = ({ user }) => {
       const [startHour, startMinute] = session.startTime.split(':')
       const [endHour, endMinute] = session.endTime.split(':')
       const sessionDate = new Date(session.date)
+      // Extract UTC date parts (since date is stored at UTC midnight)
+      const year = sessionDate.getUTCFullYear()
+      const month = sessionDate.getUTCMonth()
+      const day = sessionDate.getUTCDate()
       
-      const startTime = new Date(sessionDate)
-      startTime.setUTCHours(parseInt(startHour), parseInt(startMinute), 0)
-      
-      const endTime = new Date(sessionDate)
-      endTime.setUTCHours(parseInt(endHour), parseInt(endMinute), 0)
+      // Create local times with the correct date and user-entered times
+      const startTime = new Date(year, month, day, parseInt(startHour), parseInt(startMinute), 0)
+      const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
       
       const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
       
