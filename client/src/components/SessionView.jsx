@@ -1657,12 +1657,15 @@ function SessionView({ user, onBack }) {
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
 
-  // Calculate Extra Time remaining for rooms with accommodations
-  const [extraTimeRemaining, setExtraTimeRemaining] = useState(null)
+  // Calculate time remaining for 1.5x accommodations
+  const [timeRemaining15x, setTimeRemaining15x] = useState(null)
+  // Calculate time remaining for 2x accommodations
+  const [timeRemaining2x, setTimeRemaining2x] = useState(null)
 
-  const updateExtraTimeRemaining = useCallback(() => {
+  const updateAccommodationTimeRemaining = useCallback(() => {
     if (!memoizedSession || !memoizedSession.accommodationStartTime) {
-      setExtraTimeRemaining(null)
+      setTimeRemaining15x(null)
+      setTimeRemaining2x(null)
       return
     }
 
@@ -1672,35 +1675,55 @@ function SessionView({ user, onBack }) {
     const month = sessionDate.getUTCMonth()
     const day = sessionDate.getUTCDate()
 
-    const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
+    // Calculate regular exam duration
+    const [regularStartHour, regularStartMinute] = memoizedSession.startTime.split(':')
     const [endHour, endMinute] = memoizedSession.endTime.split(':')
+    const regularStartTime = new Date(year, month, day, parseInt(regularStartHour), parseInt(regularStartMinute), 0)
+    const regularEndTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
+    const regularDurationMinutes = (regularEndTime - regularStartTime) / (1000 * 60)
 
+    // Accommodation start time
+    const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
     const accStartTime = new Date(year, month, day, parseInt(accStartHour), parseInt(accStartMinute), 0)
-    const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
 
-    const timeDiff = endTime - now
-    if (timeDiff <= 0) {
-      setExtraTimeRemaining({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    // Calculate 1.5x end time: accommodationStartTime + (regularDuration * 1.5)
+    const endTime15x = new Date(accStartTime.getTime() + (regularDurationMinutes * 1.5 * 60 * 1000))
+    const timeDiff15x = endTime15x - now
+    if (timeDiff15x <= 0) {
+      setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
     } else {
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60))
-      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
-      setExtraTimeRemaining({ hours, minutes, seconds, isOver: false })
+      const hours = Math.floor(timeDiff15x / (1000 * 60 * 60))
+      const minutes = Math.floor((timeDiff15x % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((timeDiff15x % (1000 * 60)) / 1000)
+      setTimeRemaining15x({ hours, minutes, seconds, isOver: false })
     }
-  }, [memoizedSession?.accommodationStartTime, memoizedSession?.endTime, memoizedSession?.date])
 
-  // Update extra time remaining every second
+    // Calculate 2x end time: accommodationStartTime + (regularDuration * 2)
+    const endTime2x = new Date(accStartTime.getTime() + (regularDurationMinutes * 2 * 60 * 1000))
+    const timeDiff2x = endTime2x - now
+    if (timeDiff2x <= 0) {
+      setTimeRemaining2x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    } else {
+      const hours = Math.floor(timeDiff2x / (1000 * 60 * 60))
+      const minutes = Math.floor((timeDiff2x % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((timeDiff2x % (1000 * 60)) / 1000)
+      setTimeRemaining2x({ hours, minutes, seconds, isOver: false })
+    }
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date])
+
+  // Update accommodation time remaining every second
   useEffect(() => {
     if (memoizedSession && memoizedSession.accommodationStartTime) {
-      updateExtraTimeRemaining()
+      updateAccommodationTimeRemaining()
       const timer = setInterval(() => {
-        updateExtraTimeRemaining()
+        updateAccommodationTimeRemaining()
       }, 1000)
       return () => clearInterval(timer)
     } else {
-      setExtraTimeRemaining(null)
+      setTimeRemaining15x(null)
+      setTimeRemaining2x(null)
     }
-  }, [memoizedSession?.accommodationStartTime, memoizedSession?.endTime, memoizedSession?.date, updateExtraTimeRemaining])
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining])
 
   // Calculate time for all rooms - this is needed for proper display
   const roomTimeCalculations = useMemo(() => {
@@ -2290,7 +2313,7 @@ function SessionView({ user, onBack }) {
 
               {/* Main Timer */}
               <div className="text-center mb-6">
-                <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+                <div className="flex flex-col md:flex-row gap-4 justify-center items-center flex-wrap">
                   <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
                     <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
                     {timeRemaining ? (
@@ -2306,15 +2329,29 @@ function SessionView({ user, onBack }) {
                     )}
                   </div>
                   
-                  {/* Extra Time Remaining */}
-                  {extraTimeRemaining && (
+                  {/* 1.5x Time Remaining */}
+                  {timeRemaining15x && (
+                    <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-orange-200">
+                      <p className="text-base text-gray-500 mb-2">1.5x Time Remaining</p>
+                      {timeRemaining15x.isOver ? (
+                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                      ) : (
+                        <div className="text-4xl font-mono font-bold text-orange-600">
+                          {String(timeRemaining15x.hours).padStart(2, '0')}:{String(timeRemaining15x.minutes).padStart(2, '0')}:{String(timeRemaining15x.seconds).padStart(2, '0')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* 2x Time Remaining */}
+                  {timeRemaining2x && (
                     <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-purple-200">
-                      <p className="text-base text-gray-500 mb-2">Extra Time Remaining</p>
-                      {extraTimeRemaining.isOver ? (
+                      <p className="text-base text-gray-500 mb-2">2x Time Remaining</p>
+                      {timeRemaining2x.isOver ? (
                         <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
                       ) : (
                         <div className="text-4xl font-mono font-bold text-purple-600">
-                          {String(extraTimeRemaining.hours).padStart(2, '0')}:{String(extraTimeRemaining.minutes).padStart(2, '0')}:{String(extraTimeRemaining.seconds).padStart(2, '0')}
+                          {String(timeRemaining2x.hours).padStart(2, '0')}:{String(timeRemaining2x.minutes).padStart(2, '0')}:{String(timeRemaining2x.seconds).padStart(2, '0')}
                         </div>
                       )}
                     </div>
