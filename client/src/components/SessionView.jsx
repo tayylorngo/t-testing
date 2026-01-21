@@ -15,7 +15,7 @@ function SessionView({ user, onBack }) {
   const [timeRemaining, setTimeRemaining] = useState(null)
 
   // Memoize session data to prevent unnecessary re-renders
-  const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.length])
+  const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.length, session?.startTime, session?.endTime, session?.accommodationStartTime, session?.date])
 
   // Debounced session update to prevent rapid successive updates
   const [debouncedSession, setDebouncedSession] = useState(null)
@@ -538,15 +538,6 @@ function SessionView({ user, onBack }) {
     }
   }, [session, sessionId, user, addUpdateAnimation, silentRefreshRef, fetchSessionDataRef])
 
-  useEffect(() => {
-    if (memoizedSession) {
-      const timer = setInterval(() => {
-        updateTimeRemaining()
-      }, 1000)
-      return () => clearInterval(timer)
-    }
-  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.endTime]) // Only depend on specific session properties that affect time calculation
-
   const updateTimeRemaining = useCallback(() => {
     if (!memoizedSession) return
 
@@ -570,6 +561,18 @@ function SessionView({ user, onBack }) {
       setTimeRemaining({ hours, minutes, seconds, isOver: false })
     }
   }, [memoizedSession?.date, memoizedSession?.endTime])
+
+  useEffect(() => {
+    if (memoizedSession) {
+      // Update immediately when session times change
+      updateTimeRemaining()
+      // Then update every second
+      const timer = setInterval(() => {
+        updateTimeRemaining()
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, updateTimeRemaining]) // Depend on session properties that affect time calculation
 
   const calculateProgress = useCallback(() => {
     if (!debouncedSession || !debouncedSession.rooms) return 0
@@ -1613,31 +1616,38 @@ function SessionView({ user, onBack }) {
 
     // Calculate time multiplier based on section accommodations
     const timeMultiplier = calculateRoomTimeMultiplier(room)
+    const hasTimeAccommodation = timeMultiplier > 1
 
-    // Calculate total session duration in minutes
-    const [startHour, startMinute] = memoizedSession.startTime.split(':')
-    const [endHour, endMinute] = memoizedSession.endTime.split(':')
     const sessionDate = new Date(memoizedSession.date)
-    // Extract UTC date parts (since date is stored at UTC midnight)
     const year = sessionDate.getUTCFullYear()
     const month = sessionDate.getUTCMonth()
     const day = sessionDate.getUTCDate()
 
-    // Create local times with the correct date and user-entered times
-    const startTime = new Date(year, month, day, parseInt(startHour), parseInt(startMinute), 0)
-    const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
+    // Calculate regular session duration (regular end time - regular start time)
+    const [regularStartHour, regularStartMinute] = memoizedSession.startTime.split(':')
+    const [endHour, endMinute] = memoizedSession.endTime.split(':')
+    const regularStartTime = new Date(year, month, day, parseInt(regularStartHour), parseInt(regularStartMinute), 0)
+    const regularEndTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
+    const regularDurationMinutes = (regularEndTime - regularStartTime) / (1000 * 60)
 
-    const totalSessionMinutes = (endTime - startTime) / (1000 * 60)
+    let roomEndTime
 
-    // Calculate room-specific end time based on multiplier
-    const roomEndTime = new Date(startTime.getTime() + (totalSessionMinutes * timeMultiplier * 60 * 1000))
+    if (hasTimeAccommodation && memoizedSession.accommodationStartTime) {
+      // For accommodations: accommodation start time + (regular duration * multiplier)
+      const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
+      const accommodationStartTime = new Date(year, month, day, parseInt(accStartHour), parseInt(accStartMinute), 0)
+      roomEndTime = new Date(accommodationStartTime.getTime() + (regularDurationMinutes * timeMultiplier * 60 * 1000))
+    } else {
+      // For regular rooms: regular start time + (regular duration * multiplier)
+      roomEndTime = new Date(regularStartTime.getTime() + (regularDurationMinutes * timeMultiplier * 60 * 1000))
+    }
 
     // Calculate remaining time for this room
     const now = new Date()
     const roomTimeDiff = roomEndTime - now
 
     if (roomTimeDiff <= 0) {
-      return { hours: 0, minutes: 0, seconds: 0, isOver: true }
+      return { hours: 0, minutes: 0, seconds: 0, isOver: true, multiplier: timeMultiplier }
     }
 
     const hours = Math.floor(roomTimeDiff / (1000 * 60 * 60))
@@ -1645,7 +1655,52 @@ function SessionView({ user, onBack }) {
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
 
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
-  }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
+  }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
+
+  // Calculate Extra Time remaining for rooms with accommodations
+  const [extraTimeRemaining, setExtraTimeRemaining] = useState(null)
+
+  const updateExtraTimeRemaining = useCallback(() => {
+    if (!memoizedSession || !memoizedSession.accommodationStartTime) {
+      setExtraTimeRemaining(null)
+      return
+    }
+
+    const now = new Date()
+    const sessionDate = new Date(memoizedSession.date)
+    const year = sessionDate.getUTCFullYear()
+    const month = sessionDate.getUTCMonth()
+    const day = sessionDate.getUTCDate()
+
+    const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
+    const [endHour, endMinute] = memoizedSession.endTime.split(':')
+
+    const accStartTime = new Date(year, month, day, parseInt(accStartHour), parseInt(accStartMinute), 0)
+    const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
+
+    const timeDiff = endTime - now
+    if (timeDiff <= 0) {
+      setExtraTimeRemaining({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    } else {
+      const hours = Math.floor(timeDiff / (1000 * 60 * 60))
+      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
+      setExtraTimeRemaining({ hours, minutes, seconds, isOver: false })
+    }
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.endTime, memoizedSession?.date])
+
+  // Update extra time remaining every second
+  useEffect(() => {
+    if (memoizedSession && memoizedSession.accommodationStartTime) {
+      updateExtraTimeRemaining()
+      const timer = setInterval(() => {
+        updateExtraTimeRemaining()
+      }, 1000)
+      return () => clearInterval(timer)
+    } else {
+      setExtraTimeRemaining(null)
+    }
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.endTime, memoizedSession?.date, updateExtraTimeRemaining])
 
   // Calculate time for all rooms - this is needed for proper display
   const roomTimeCalculations = useMemo(() => {
@@ -2235,18 +2290,34 @@ function SessionView({ user, onBack }) {
 
               {/* Main Timer */}
               <div className="text-center mb-6">
-                <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
-                  {timeRemaining ? (
-                    timeRemaining.isOver ? (
-                      <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+                  <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
+                    <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
+                    {timeRemaining ? (
+                      timeRemaining.isOver ? (
+                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                      ) : (
+                        <div className="text-4xl font-mono font-bold text-green-600">
+                          {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                        </div>
+                      )
                     ) : (
-                      <div className="text-4xl font-mono font-bold text-green-600">
-                        {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-xl text-gray-400">Loading...</div>
+                      <div className="text-xl text-gray-400">Loading...</div>
+                    )}
+                  </div>
+                  
+                  {/* Extra Time Remaining */}
+                  {extraTimeRemaining && (
+                    <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-purple-200">
+                      <p className="text-base text-gray-500 mb-2">Extra Time Remaining</p>
+                      {extraTimeRemaining.isOver ? (
+                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                      ) : (
+                        <div className="text-4xl font-mono font-bold text-purple-600">
+                          {String(extraTimeRemaining.hours).padStart(2, '0')}:{String(extraTimeRemaining.minutes).padStart(2, '0')}:{String(extraTimeRemaining.seconds).padStart(2, '0')}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -2490,20 +2561,26 @@ function SessionView({ user, onBack }) {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white font-medium">
-                            {calculateTotalStudents(room.sections)}
+                          <div className="text-sm text-black font-medium">
+                            {String(calculateTotalStudents(room.sections) || 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
+                          <div className="text-sm text-black">
+                            {String(room.status === 'completed' 
+                              ? (typeof room.presentStudents === 'number' ? room.presentStudents : 0)
+                              : 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {room.status === 'completed' && room.presentStudents !== undefined
-                              ? calculateTotalStudents(room.sections) - room.presentStudents
-                              : '-'}
+                          <div className="text-sm text-black">
+                            {String((() => {
+                              const total = calculateTotalStudents(room.sections) || 0;
+                              if (room.status === 'completed' && typeof room.presentStudents === 'number') {
+                                return Math.max(0, total - room.presentStudents);
+                              }
+                              return total;
+                            })())}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

@@ -44,6 +44,7 @@ function SessionDetail({ onBack }) {
     date: '',
     startTime: '',
     endTime: '',
+    accommodationStartTime: '',
     status: ''
   })
   // Add state for selected sections and rooms
@@ -277,6 +278,7 @@ function SessionDetail({ onBack }) {
         date: sessionData.session.date.split('T')[0],
         startTime: sessionData.session.startTime,
         endTime: sessionData.session.endTime,
+        accommodationStartTime: sessionData.session.accommodationStartTime || '',
         status: sessionData.session.status
       })
     } catch (error) {
@@ -1346,6 +1348,20 @@ function SessionDetail({ onBack }) {
                       required
                     />
                   </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Accommodation Start Time (for Extra Time)
+                  </label>
+                  <input
+                    type="time"
+                    value={sessionUpdates.accommodationStartTime}
+                    onChange={(e) => setSessionUpdates({...sessionUpdates, accommodationStartTime: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Optional - for students with extra time accommodations"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Leave empty to use regular start time</p>
                 </div>
                 
                 <div>

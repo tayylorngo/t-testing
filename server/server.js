@@ -469,6 +469,10 @@ const sessionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  accommodationStartTime: {
+    type: String,
+    default: null
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -1551,7 +1555,7 @@ app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), 
 // Update session
 app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
   try {
-    const { name, description, date, startTime, endTime, status } = req.body;
+    const { name, description, date, startTime, endTime, accommodationStartTime, status } = req.body;
     const updateData = {};
 
     if (name) updateData.name = name;
@@ -1563,6 +1567,7 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     }
     if (startTime) updateData.startTime = startTime;
     if (endTime) updateData.endTime = endTime;
+    if (accommodationStartTime !== undefined) updateData.accommodationStartTime = accommodationStartTime || null;
     if (status) updateData.status = status;
 
     const session = await Session.findOneAndUpdate(
