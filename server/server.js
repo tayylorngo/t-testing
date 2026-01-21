@@ -503,6 +503,17 @@ const sessionSchema = new mongoose.Schema({
     enum: ['planned', 'active', 'completed', 'cancelled'],
     default: 'active'
   },
+  archived: {
+    type: Boolean,
+    default: false
+  },
+  archivedAt: {
+    type: Date
+  },
+  archivedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -1306,11 +1317,13 @@ app.get('/api/supplies', authenticateToken, async (req, res) => {
 // Get all sessions for the authenticated user (owned and collaborated)
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
+    const includeArchived = req.query.includeArchived === 'true';
     const sessions = await Session.find({
       $or: [
         { createdBy: req.user.id },
         { 'collaborators.userId': req.user.id }
-      ]
+      ],
+      ...(includeArchived ? {} : { archived: { $ne: true } })
     })
       .populate([
         {
@@ -1339,6 +1352,110 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
     res.json({ sessions });
   } catch (error) {
     console.error('Get sessions error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Archive session (hide from main list)
+app.put('/api/sessions/:id/archive', authenticateToken, checkSessionPermission('manage'), async (req, res) => {
+  try {
+    const session = await Session.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        $or: [
+          { createdBy: req.user.id },
+          { 'collaborators.userId': req.user.id }
+        ]
+      },
+      { archived: true, archivedAt: new Date(), archivedBy: req.user.id, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate([
+      {
+        path: 'rooms',
+        select: 'name supplies status presentStudents sectionAttendance notes proctors',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        }
+      },
+      {
+        path: 'sections',
+        select: 'number studentCount accommodations notes'
+      },
+      {
+        path: 'collaborators.userId',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'createdBy',
+        select: 'username firstName lastName'
+      }
+    ]);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const user = await User.findById(req.user.id);
+    const action = `${user.firstName} ${user.lastName} archived the session`;
+    const logEntry = await addActivityLogEntry(req.params.id, action, null, null, `${user.firstName} ${user.lastName}`);
+    emitSessionUpdate(req.params.id, 'session-archived', { session }, user, logEntry);
+
+    res.json({ message: 'Session archived successfully', session });
+  } catch (error) {
+    console.error('Archive session error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Unarchive session (return to main list)
+app.put('/api/sessions/:id/unarchive', authenticateToken, checkSessionPermission('manage'), async (req, res) => {
+  try {
+    const session = await Session.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        $or: [
+          { createdBy: req.user.id },
+          { 'collaborators.userId': req.user.id }
+        ]
+      },
+      { archived: false, archivedAt: undefined, archivedBy: undefined, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate([
+      {
+        path: 'rooms',
+        select: 'name supplies status presentStudents sectionAttendance notes proctors',
+        populate: {
+          path: 'sections',
+          select: 'number studentCount accommodations notes'
+        }
+      },
+      {
+        path: 'sections',
+        select: 'number studentCount accommodations notes'
+      },
+      {
+        path: 'collaborators.userId',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'createdBy',
+        select: 'username firstName lastName'
+      }
+    ]);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const user = await User.findById(req.user.id);
+    const action = `${user.firstName} ${user.lastName} unarchived the session`;
+    const logEntry = await addActivityLogEntry(req.params.id, action, null, null, `${user.firstName} ${user.lastName}`);
+    emitSessionUpdate(req.params.id, 'session-unarchived', { session }, user, logEntry);
+
+    res.json({ message: 'Session unarchived successfully', session });
+  } catch (error) {
+    console.error('Unarchive session error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

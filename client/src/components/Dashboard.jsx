@@ -8,6 +8,7 @@ import PendingInvitationsModal from './PendingInvitationsModal'
 function Dashboard({ user, onLogout, onViewSession }) {
   const { isConnected, reconnect } = useRealTime()
   const [sessions, setSessions] = useState([])
+  const [showArchived, setShowArchived] = useState(false)
 
   // Set page title
   useEffect(() => {
@@ -25,6 +26,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showPendingInvitationsModal, setShowPendingInvitationsModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
+  const [archiveSessionModal, setArchiveSessionModal] = useState({ show: false, sessionId: null, sessionName: '', isArchived: false })
   const [newSession, setNewSession] = useState({
     name: '',
     description: '',
@@ -56,7 +58,7 @@ function Dashboard({ user, onLogout, onViewSession }) {
 
   useEffect(() => {
     const handleCollaboratorRemoved = () => {
-      fetchSessions()
+      fetchSessions(showArchived)
     }
 
     window.addEventListener('collaboratorRemoved', handleCollaboratorRemoved)
@@ -72,10 +74,10 @@ function Dashboard({ user, onLogout, onViewSession }) {
     // This just ensures we're aware of the connection state
   }, [isConnected])
 
-  const fetchSessions = async () => {
+  const fetchSessions = async (includeArchived = showArchived) => {
     try {
       setIsLoading(true)
-      const data = await testingAPI.getSessions()
+      const data = await testingAPI.getSessions({ includeArchived })
       setSessions(data.sessions || [])
     } catch (error) {
       console.error('Error fetching sessions:', error)
@@ -198,6 +200,45 @@ function Dashboard({ user, onLogout, onViewSession }) {
       fetchSessions() // Refresh the list
     } catch (error) {
       console.error('Error duplicating session:', error)
+    }
+  }
+
+  const handleToggleShowArchived = () => {
+    const next = !showArchived
+    setShowArchived(next)
+    fetchSessions(next)
+  }
+
+  const openArchiveSessionModal = (session) => {
+    setArchiveSessionModal({
+      show: true,
+      sessionId: session._id,
+      sessionName: session.name,
+      isArchived: !!session.archived
+    })
+  }
+
+  const confirmArchiveSession = async () => {
+    try {
+      const { sessionId, isArchived } = archiveSessionModal
+      if (!sessionId) return
+
+      if (isArchived) {
+        await testingAPI.unarchiveSession(sessionId)
+      } else {
+        await testingAPI.archiveSession(sessionId)
+      }
+
+      setArchiveSessionModal({ show: false, sessionId: null, sessionName: '', isArchived: false })
+      fetchSessions(showArchived)
+    } catch (error) {
+      console.error('Error archiving/unarchiving session:', error)
+      setArchiveSessionModal({ show: false, sessionId: null, sessionName: '', isArchived: false })
+      setErrorModal({
+        show: true,
+        title: 'Error',
+        message: 'Failed to update archive status. Please try again.'
+      })
     }
   }
 
@@ -528,6 +569,26 @@ function Dashboard({ user, onLogout, onViewSession }) {
                   {sortDescending ? 'Newest First' : 'Oldest First'}
                 </button>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Archived
+                </label>
+                <button
+                  onClick={handleToggleShowArchived}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition duration-200 flex items-center gap-2 ${
+                    showArchived
+                      ? 'bg-gray-900 hover:bg-gray-800 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                  title={showArchived ? 'Hide archived sessions' : 'Show archived sessions'}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+                  </svg>
+                  {showArchived ? 'Showing Archived' : 'Hide Archived'}
+                </button>
+              </div>
             </div>
             
             <div className="flex-1 max-w-md">
@@ -594,6 +655,11 @@ function Dashboard({ user, onLogout, onViewSession }) {
                         }`}>
                           {getSessionRole(session)}
                         </span>
+                        {session.archived && (
+                          <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+                            Archived
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex space-x-2 flex-shrink-0">
@@ -619,6 +685,15 @@ function Dashboard({ user, onLogout, onViewSession }) {
                       </button>
                       {canManageSession(session) && (
                         <>
+                          <button
+                            onClick={() => openArchiveSessionModal(session)}
+                            className="text-gray-600 hover:text-gray-900 transition duration-200"
+                            title={session.archived ? 'Unarchive Session' : 'Archive Session'}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+                            </svg>
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedSession(session)
@@ -960,6 +1035,50 @@ function Dashboard({ user, onLogout, onViewSession }) {
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
                 >
                   Delete Session
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive/Unarchive Session Modal */}
+      {archiveSessionModal.show && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
+                <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+                </svg>
+              </div>
+
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {archiveSessionModal.isArchived ? 'Unarchive Testing Session' : 'Archive Testing Session'}
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {archiveSessionModal.isArchived
+                  ? <>Unarchive "<strong>{archiveSessionModal.sessionName}</strong>" so it shows up in your main list again?</>
+                  : <>Archive "<strong>{archiveSessionModal.sessionName}</strong>"? It will be hidden from your main list unless you choose “Show archived”.</>
+                }
+              </p>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setArchiveSessionModal({ show: false, sessionId: null, sessionName: '', isArchived: false })}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmArchiveSession}
+                  className={`flex-1 font-semibold py-3 px-6 rounded-lg transition duration-200 ${
+                    archiveSessionModal.isArchived
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-900 hover:bg-gray-800 text-white'
+                  }`}
+                >
+                  {archiveSessionModal.isArchived ? 'Unarchive' : 'Archive'}
                 </button>
               </div>
             </div>

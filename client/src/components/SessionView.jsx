@@ -2446,12 +2446,6 @@ function SessionView({ user, onBack }) {
                 </div>
               </div>
 
-              {/* Footer with session times */}
-              <div className="mt-6 text-center text-gray-500">
-                <p className="text-lg">
-                  Session Time: {session?.startTime} - {session?.endTime}
-                </p>
-              </div>
             </div>
           </div>
         )}

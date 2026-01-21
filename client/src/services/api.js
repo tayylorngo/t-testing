@@ -79,14 +79,43 @@ export const authAPI = {
 // Testing sessions API calls
 export const testingAPI = {
   // Get all testing sessions
-  getSessions: async () => {
+  getSessions: async (options = {}) => {
+    const { includeArchived = false } = options || {};
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/sessions`, {
+    const url = new URL(`${API_BASE_URL}/sessions`, window.location.origin);
+    if (includeArchived) url.searchParams.set('includeArchived', 'true');
+    const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+    });
+    return handleResponse(response);
+  },
+
+  // Archive session
+  archiveSession: async (sessionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/archive`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+    return handleResponse(response);
+  },
+
+  // Unarchive session
+  unarchiveSession: async (sessionId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/unarchive`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
     });
     return handleResponse(response);
   },
