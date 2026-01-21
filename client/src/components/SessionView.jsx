@@ -1662,6 +1662,42 @@ function SessionView({ user, onBack }) {
   // Calculate time remaining for 2x accommodations
   const [timeRemaining2x, setTimeRemaining2x] = useState(null)
 
+  // Helper function to check if a room has 1.5x accommodations
+  const roomHas15xAccommodation = useCallback((room) => {
+    if (!room.sections || room.sections.length === 0) return false
+    return room.sections.some(section => 
+      section.accommodations?.some(acc => 
+        acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time')
+      )
+    )
+  }, [])
+
+  // Helper function to check if a room has 2x accommodations
+  const roomHas2xAccommodation = useCallback((room) => {
+    if (!room.sections || room.sections.length === 0) return false
+    return room.sections.some(section => 
+      section.accommodations?.some(acc => 
+        acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
+      )
+    )
+  }, [])
+
+  // Check if all rooms with 1.5x accommodations are completed
+  const all15xRoomsCompleted = useMemo(() => {
+    if (!debouncedSession?.rooms) return false
+    const rooms15x = debouncedSession.rooms.filter(room => roomHas15xAccommodation(room))
+    if (rooms15x.length === 0) return false
+    return rooms15x.every(room => room.status === 'completed')
+  }, [debouncedSession?.rooms, roomHas15xAccommodation])
+
+  // Check if all rooms with 2x accommodations are completed
+  const all2xRoomsCompleted = useMemo(() => {
+    if (!debouncedSession?.rooms) return false
+    const rooms2x = debouncedSession.rooms.filter(room => roomHas2xAccommodation(room))
+    if (rooms2x.length === 0) return false
+    return rooms2x.every(room => room.status === 'completed')
+  }, [debouncedSession?.rooms, roomHas2xAccommodation])
+
   const updateAccommodationTimeRemaining = useCallback(() => {
     if (!memoizedSession || !memoizedSession.accommodationStartTime) {
       setTimeRemaining15x(null)
@@ -1689,7 +1725,12 @@ function SessionView({ user, onBack }) {
     // Calculate 1.5x end time: accommodationStartTime + (regularDuration * 1.5)
     const endTime15x = new Date(accStartTime.getTime() + (regularDurationMinutes * 1.5 * 60 * 1000))
     const timeDiff15x = endTime15x - now
-    if (timeDiff15x <= 0) {
+    
+    // Check if all 1.5x rooms are completed
+    const has15xRooms = debouncedSession?.rooms?.some(room => roomHas15xAccommodation(room)) || false
+    if (all15xRoomsCompleted && has15xRooms) {
+      setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    } else if (timeDiff15x <= 0) {
       setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
     } else {
       const hours = Math.floor(timeDiff15x / (1000 * 60 * 60))
@@ -1701,7 +1742,12 @@ function SessionView({ user, onBack }) {
     // Calculate 2x end time: accommodationStartTime + (regularDuration * 2)
     const endTime2x = new Date(accStartTime.getTime() + (regularDurationMinutes * 2 * 60 * 1000))
     const timeDiff2x = endTime2x - now
-    if (timeDiff2x <= 0) {
+    
+    // Check if all 2x rooms are completed
+    const has2xRooms = debouncedSession?.rooms?.some(room => roomHas2xAccommodation(room)) || false
+    if (all2xRoomsCompleted && has2xRooms) {
+      setTimeRemaining2x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    } else if (timeDiff2x <= 0) {
       setTimeRemaining2x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
     } else {
       const hours = Math.floor(timeDiff2x / (1000 * 60 * 60))
@@ -1709,7 +1755,13 @@ function SessionView({ user, onBack }) {
       const seconds = Math.floor((timeDiff2x % (1000 * 60)) / 1000)
       setTimeRemaining2x({ hours, minutes, seconds, isOver: false })
     }
-  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date])
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, debouncedSession?.rooms, all15xRoomsCompleted, all2xRoomsCompleted, roomHas15xAccommodation, roomHas2xAccommodation])
+
+  // Create a hash of room statuses to detect changes
+  const roomStatusHash = useMemo(() => {
+    if (!debouncedSession?.rooms) return ''
+    return debouncedSession.rooms.map(room => `${room._id}:${room.status}`).join('|')
+  }, [debouncedSession?.rooms])
 
   // Update accommodation time remaining every second
   useEffect(() => {
@@ -1723,7 +1775,7 @@ function SessionView({ user, onBack }) {
       setTimeRemaining15x(null)
       setTimeRemaining2x(null)
     }
-  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining])
+  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
 
   // Create a hash of section accommodations to detect changes
   const sectionAccommodationsHash = useMemo(() => {
