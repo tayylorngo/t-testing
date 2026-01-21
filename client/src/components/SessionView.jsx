@@ -2303,7 +2303,7 @@ function SessionView({ user, onBack }) {
                   }).map((room) => {
                     const roomTimeData = getRoomTimeRemaining(room)
                     const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
-                    const presentStudents = room.presentStudents || 0
+                    const presentStudents = room.status === 'completed' ? (room.presentStudents || 0) : 0
                     const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
 
                     return (
