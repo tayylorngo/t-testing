@@ -2234,19 +2234,19 @@ function SessionView({ user, onBack }) {
               </div>
 
               {/* Main Timer */}
-              <div className="text-center mb-8">
-                <div className="inline-block bg-white rounded-3xl px-16 py-10 shadow-2xl border border-gray-200">
-                  <p className="text-xl text-gray-500 mb-2">Estimated Time Remaining</p>
+              <div className="text-center mb-6">
+                <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
+                  <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
                   {timeRemaining ? (
                     timeRemaining.isOver ? (
-                      <div className="text-7xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                      <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
                     ) : (
-                      <div className="text-8xl font-mono font-bold text-green-600">
+                      <div className="text-4xl font-mono font-bold text-green-600">
                         {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
                       </div>
                     )
                   ) : (
-                    <div className="text-4xl text-gray-400">Loading...</div>
+                    <div className="text-xl text-gray-400">Loading...</div>
                   )}
                 </div>
               </div>
