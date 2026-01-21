@@ -2342,7 +2342,7 @@ function SessionView({ user, onBack }) {
                 <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
                   <p className="text-base text-gray-500 mb-2">Sections</p>
                   <p className="text-4xl font-bold text-indigo-600">
-                    {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.filter(s => s.status === 'completed').length || 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
+                    {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.status === 'completed' ? (room.sections?.length || 0) : 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
                   </p>
                 </div>
               </div>
