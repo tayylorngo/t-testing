@@ -126,7 +126,7 @@ function SessionView({ user, onBack }) {
 
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
-  const roomsPerPage = 20 // Show 20 rooms per page for better performance
+  const roomsPerPage = 50 // Show 50 rooms per page
 
   // Preset supplies options
   const PRESET_SUPPLIES = ['Pencils', 'Pens', 'Calculators', 'Protractor/Ruler', 'Compass']
@@ -2082,95 +2082,33 @@ function SessionView({ user, onBack }) {
           </p>
         </div>
 
-        {/* Testing In Progress with Circular Bars */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Testing In Progress</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="flex flex-col items-center">
-              <div className="relative w-24 h-24 mb-4">
-                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-gray-200"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-blue-600 transition-all duration-1000 ease-out"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeDasharray={`${(() => {
-                      if (!session || !session.rooms) return 0;
-                      const totalStudents = session.rooms.reduce((total, room) =>
-                        total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                        , 0);
-                      const remainingStudents = session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) =>
-                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                          , 0);
-                      return totalStudents > 0 ? (remainingStudents / totalStudents) * 100 : 0;
-                    })()} 100`}
-                    strokeLinecap="round"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
-                    {(() => {
-                      if (!session || !session.rooms) return 0;
-                      return session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) =>
-                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                          , 0)
-                    })()}
-                  </span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 text-center">Students Still Testing</p>
+        {/* Testing In Progress */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Testing In Progress</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Students Still Testing</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {(() => {
+                  if (!session || !session.rooms) return 0;
+                  return session.rooms
+                    .filter(room => room.status !== 'completed')
+                    .reduce((total, room) =>
+                      total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                      , 0)
+                })()}
+              </p>
             </div>
-            <div className="flex flex-col items-center">
-              <div className="relative w-24 h-24 mb-4">
-                <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-gray-200 dark:text-gray-700"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-green-600 transition-all duration-1000 ease-out"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeDasharray={`${(() => {
-                      if (!session || !session.rooms) return 0;
-                      const totalSections = session.rooms.reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0);
-                      const remainingSections = session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0);
-                      return totalSections > 0 ? (remainingSections / totalSections) * 100 : 0;
-                    })()} 100`}
-                    strokeLinecap="round"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-900 transition-all duration-1000 ease-out transform scale-100">
-                    {(() => {
-                      if (!session || !session.rooms) return 0;
-                      return session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
-                    })()}
-                  </span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 text-center">Sections Remaining</p>
+            <div className="bg-green-50 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Sections Remaining</p>
+              <p className="text-2xl font-bold text-green-600">
+                {(() => {
+                  if (!session || !session.rooms) return 0;
+                  return session.rooms
+                    .filter(room => room.status !== 'completed')
+                    .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
+                })()}
+              </p>
             </div>
           </div>
         </div>
@@ -2379,7 +2317,30 @@ function SessionView({ user, onBack }) {
                           }`}
                       >
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-bold text-gray-900 truncate flex-1">{room.name}</h3>
+                          <div className="flex flex-col gap-1 truncate flex-1">
+                            <h3 className="text-xl font-bold text-gray-900 truncate">{room.name}</h3>
+                            <div className="flex gap-1 flex-wrap">
+                              {getRoomAccommodationSummary(room) && (
+                                <>
+                                  {getRoomAccommodationSummary(room).includes('bilingual') && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      🌐 Bilingual
+                                    </span>
+                                  )}
+                                  {getRoomAccommodationSummary(room).includes('extra-time') && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                      ⏱️ Extra Time
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                              {room.notes && room.notes.trim() && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                                  📝 Notes
+                                </span>
+                              )}
+                            </div>
+                          </div>
                           <span className={`px-2 py-1 rounded text-xs font-semibold ml-2 ${room.status === 'completed'
                             ? 'bg-green-500 text-white'
                             : room.status === 'active'
@@ -2500,20 +2461,27 @@ function SessionView({ user, onBack }) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col gap-1">
                             <span className="text-sm font-medium text-gray-900">{room.name}</span>
-                            {getRoomAccommodationSummary(room) && (
-                              <div className="flex gap-1">
-                                {getRoomAccommodationSummary(room).includes('bilingual') && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                    🌐 Bilingual
-                                  </span>
-                                )}
-                                {getRoomAccommodationSummary(room).includes('extra-time') && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    ⏱️ Extra Time
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex gap-1 flex-wrap">
+                              {getRoomAccommodationSummary(room) && (
+                                <>
+                                  {getRoomAccommodationSummary(room).includes('bilingual') && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      🌐 Bilingual
+                                    </span>
+                                  )}
+                                  {getRoomAccommodationSummary(room).includes('extra-time') && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                      ⏱️ Extra Time
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                              {room.notes && room.notes.trim() && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                                  📝 Notes
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2852,20 +2820,27 @@ function SessionView({ user, onBack }) {
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-col gap-2">
                     <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
-                    {getRoomAccommodationSummary(room) && (
-                      <div className="flex gap-1">
-                        {getRoomAccommodationSummary(room).includes('bilingual') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            🌐 Bilingual
-                          </span>
-                        )}
-                        {getRoomAccommodationSummary(room).includes('extra-time') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                            ⏱️ Extra Time
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex gap-1 flex-wrap">
+                      {getRoomAccommodationSummary(room) && (
+                        <>
+                          {getRoomAccommodationSummary(room).includes('bilingual') && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              🌐 Bilingual
+                            </span>
+                          )}
+                          {getRoomAccommodationSummary(room).includes('extra-time') && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              ⏱️ Extra Time
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {room.notes && room.notes.trim() && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                          📝 Notes
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
