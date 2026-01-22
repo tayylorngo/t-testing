@@ -119,6 +119,7 @@ function SessionView({ user, onBack }) {
   const [sortBy, setSortBy] = useState('roomNumber') // roomNumber, status, studentCount
   const [sortDescending, setSortDescending] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sectionSearchQuery, setSectionSearchQuery] = useState('')
   const [isTableView, setIsTableView] = useState(true)
   const [isDisplayMode, setIsDisplayMode] = useState(false) // Large screen display mode
   const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
@@ -1424,146 +1425,6 @@ function SessionView({ user, onBack }) {
     return { number: 999, letter: '', full: roomName }
   }, [])
 
-  const getSortedRooms = useCallback(() => {
-    if (!debouncedSession || !debouncedSession.rooms) return []
-
-    let sortedRooms = [...debouncedSession.rooms]
-
-    // Filter by search query first
-    if (searchQuery.trim()) {
-      sortedRooms = sortedRooms.filter(room =>
-        room.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    return sortedRooms.sort((a, b) => {
-      let aValue, bValue
-      let comparison = 0
-
-      switch (sortBy) {
-        case 'roomNumber': {
-          const aKey = getRoomSortKey(a.name)
-          const bKey = getRoomSortKey(b.name)
-
-          // If both have numbers, sort by number first, then by letter
-          if (aKey.number !== 999 && bKey.number !== 999) {
-            if (aKey.number !== bKey.number) {
-              comparison = aKey.number - bKey.number
-            } else {
-              // Same number, sort by letter
-              comparison = aKey.letter.localeCompare(bKey.letter)
-            }
-          } else {
-            // If one has number and other doesn't, numbers come first
-            if (aKey.number !== 999 && bKey.number === 999) comparison = -1
-            else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
-            else {
-              // If neither has numbers, sort alphabetically
-              comparison = aKey.full.localeCompare(bKey.full)
-            }
-          }
-          break
-        }
-
-        case 'status':
-          aValue = a.status
-          bValue = b.status
-          comparison = aValue.localeCompare(bValue)
-
-          // If status is the same, sort by room number in ascending order
-          if (comparison === 0) {
-            const aKey = getRoomSortKey(a.name)
-            const bKey = getRoomSortKey(b.name)
-
-            // If both have numbers, sort by number first, then by letter
-            if (aKey.number !== 999 && bKey.number !== 999) {
-              if (aKey.number !== bKey.number) {
-                comparison = aKey.number - bKey.number
-              } else {
-                // Same number, sort by letter
-                comparison = aKey.letter.localeCompare(bKey.letter)
-              }
-            } else {
-              // If one has number and other doesn't, numbers come first
-              if (aKey.number !== 999 && bKey.number === 999) comparison = -1
-              else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
-              else {
-                // If neither has numbers, sort alphabetically
-                comparison = aKey.full.localeCompare(bKey.full)
-              }
-            }
-          }
-          break
-
-        case 'studentCount':
-          aValue = calculateTotalStudents(a.sections)
-          bValue = calculateTotalStudents(b.sections)
-          comparison = aValue - bValue
-          break
-
-        default: {
-          // Default to room number sorting
-          const aKeyDefault = getRoomSortKey(a.name)
-          const bKeyDefault = getRoomSortKey(b.name)
-          comparison = aKeyDefault.number - bKeyDefault.number
-          break
-        }
-      }
-
-      // Apply sort direction
-      return sortDescending ? -comparison : comparison
-    })
-  }, [debouncedSession?.rooms, searchQuery, sortBy, sortDescending])
-
-  // Get paginated rooms for better performance with large lists
-  const getPaginatedRooms = useCallback(() => {
-    const sortedRooms = getSortedRooms()
-    const startIndex = (currentPage - 1) * roomsPerPage
-    const endIndex = startIndex + roomsPerPage
-    return sortedRooms.slice(startIndex, endIndex)
-  }, [getSortedRooms, currentPage, roomsPerPage])
-
-  // Calculate total pages
-  const totalPages = useMemo(() => {
-    const sortedRooms = getSortedRooms()
-    return Math.ceil(sortedRooms.length / roomsPerPage)
-  }, [getSortedRooms, roomsPerPage])
-
-  // Reset pagination when search or sort changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, sortBy, sortDescending])
-
-  // Helper function to get accommodation summary for a room
-  const getRoomAccommodationSummary = useCallback((room) => {
-    if (!room.sections || room.sections.length === 0) {
-      return null
-    }
-
-    const accommodationTypes = new Set()
-
-    room.sections.forEach(section => {
-      if (section.accommodations && section.accommodations.length > 0) {
-        section.accommodations.forEach(acc => {
-          // Check for bilingual accommodations (case insensitive)
-          if (acc.toLowerCase().includes('bilingual')) {
-            accommodationTypes.add('bilingual')
-          }
-          // Check for extra time accommodations
-          else if (acc.includes('1.5x') || acc.includes('2x') ||
-            acc.includes('1.5×') || acc.includes('2×') ||
-            acc.toLowerCase().includes('extended time') ||
-            acc.toLowerCase().includes('double time') ||
-            acc.toLowerCase().includes('extra time')) {
-            accommodationTypes.add('extra-time')
-          }
-        })
-      }
-    })
-
-    return accommodationTypes.size > 0 ? Array.from(accommodationTypes) : null
-  }, [])
-
   // Calculate time multiplier for a room based on section accommodations
   const calculateRoomTimeMultiplier = useCallback((room) => {
     if (!room.sections || room.sections.length === 0) {
@@ -1656,6 +1517,265 @@ function SessionView({ user, onBack }) {
 
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
   }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
+
+  // Create a hash of section accommodations to detect changes (needed for roomTimeCalculations)
+  const sectionAccommodationsHash = useMemo(() => {
+    if (!debouncedSession?.rooms) return ''
+    return debouncedSession.rooms.map(room => 
+      room.sections?.map(section => 
+        `${section._id}:${JSON.stringify(section.accommodations || [])}`
+      ).join('|') || ''
+    ).join('||')
+  }, [debouncedSession?.rooms])
+
+  // Calculate time for all rooms - moved before getSortedRooms so it can be used in sorting
+  const roomTimeCalculations = useMemo(() => {
+    if (!debouncedSession?.rooms || !timeRemaining) return {}
+
+    const calculations = {}
+    // Calculate time for all rooms to ensure proper display
+    debouncedSession.rooms.forEach(room => {
+      const timeData = calculateRoomTimeRemaining(room)
+      if (timeData) {
+        calculations[room._id] = timeData
+      }
+    })
+    return calculations
+  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining, sectionAccommodationsHash])
+
+  const getSortedRooms = useCallback(() => {
+    if (!debouncedSession || !debouncedSession.rooms) return []
+
+    let sortedRooms = [...debouncedSession.rooms]
+
+    // Filter by room name search query
+    if (searchQuery.trim()) {
+      sortedRooms = sortedRooms.filter(room =>
+        room.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Filter by section number search query
+    if (sectionSearchQuery.trim()) {
+      const sectionNum = sectionSearchQuery.trim()
+      sortedRooms = sortedRooms.filter(room => {
+        if (!room.sections || room.sections.length === 0) return false
+        return room.sections.some(section => 
+          String(section.number || '').includes(sectionNum)
+        )
+      })
+    }
+
+    return sortedRooms.sort((a, b) => {
+      let aValue, bValue
+      let comparison = 0
+
+      switch (sortBy) {
+        case 'roomNumber': {
+          const aKey = getRoomSortKey(a.name)
+          const bKey = getRoomSortKey(b.name)
+
+          // If both have numbers, sort by number first, then by letter
+          if (aKey.number !== 999 && bKey.number !== 999) {
+            if (aKey.number !== bKey.number) {
+              comparison = aKey.number - bKey.number
+            } else {
+              // Same number, sort by letter
+              comparison = aKey.letter.localeCompare(bKey.letter)
+            }
+          } else {
+            // If one has number and other doesn't, numbers come first
+            if (aKey.number !== 999 && bKey.number === 999) comparison = -1
+            else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
+            else {
+              // If neither has numbers, sort alphabetically
+              comparison = aKey.full.localeCompare(bKey.full)
+            }
+          }
+          break
+        }
+
+        case 'status':
+          aValue = a.status
+          bValue = b.status
+          comparison = aValue.localeCompare(bValue)
+
+          // If status is the same, sort by room number in ascending order
+          if (comparison === 0) {
+            const aKey = getRoomSortKey(a.name)
+            const bKey = getRoomSortKey(b.name)
+
+            // If both have numbers, sort by number first, then by letter
+            if (aKey.number !== 999 && bKey.number !== 999) {
+              if (aKey.number !== bKey.number) {
+                comparison = aKey.number - bKey.number
+              } else {
+                // Same number, sort by letter
+                comparison = aKey.letter.localeCompare(bKey.letter)
+              }
+            } else {
+              // If one has number and other doesn't, numbers come first
+              if (aKey.number !== 999 && bKey.number === 999) comparison = -1
+              else if (aKey.number === 999 && bKey.number !== 999) comparison = 1
+              else {
+                // If neither has numbers, sort alphabetically
+                comparison = aKey.full.localeCompare(bKey.full)
+              }
+            }
+          }
+          break
+
+        case 'studentCount':
+          aValue = calculateTotalStudents(a.sections)
+          bValue = calculateTotalStudents(b.sections)
+          comparison = aValue - bValue
+          break
+
+        case 'present':
+          aValue = a.status === 'completed' ? (typeof a.presentStudents === 'number' ? a.presentStudents : 0) : 0
+          bValue = b.status === 'completed' ? (typeof b.presentStudents === 'number' ? b.presentStudents : 0) : 0
+          comparison = aValue - bValue
+          break
+
+        case 'absent': {
+          const aTotal = calculateTotalStudents(a.sections) || 0
+          const bTotal = calculateTotalStudents(b.sections) || 0
+          aValue = a.status === 'completed' && typeof a.presentStudents === 'number' ? Math.max(0, aTotal - a.presentStudents) : 0
+          bValue = b.status === 'completed' && typeof b.presentStudents === 'number' ? Math.max(0, bTotal - b.presentStudents) : 0
+          comparison = aValue - bValue
+          break
+        }
+
+        case 'sections': {
+          // Sort by first section number, or by count if no sections
+          const aSections = a.sections && a.sections.length > 0 
+            ? [...a.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+            : []
+          const bSections = b.sections && b.sections.length > 0
+            ? [...b.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+            : []
+          
+          if (aSections.length === 0 && bSections.length === 0) {
+            comparison = 0
+          } else if (aSections.length === 0) {
+            comparison = 1
+          } else if (bSections.length === 0) {
+            comparison = -1
+          } else {
+            // Compare by first section number
+            const aFirst = aSections[0].number || 0
+            const bFirst = bSections[0].number || 0
+            comparison = aFirst - bFirst
+          }
+          break
+        }
+
+        case 'timeRemaining': {
+          // Access roomTimeCalculations from closure (defined later in component)
+          // At runtime, it will be available since hooks are called in order
+          const timeCalcs = roomTimeCalculations || {}
+          const aTime = timeCalcs[a._id]
+          const bTime = timeCalcs[b._id]
+          
+          // Handle cases where time data is not available
+          if (!aTime && !bTime) {
+            // Both have no time data, sort by room number
+            const aKey = getRoomSortKey(a.name)
+            const bKey = getRoomSortKey(b.name)
+            comparison = aKey.number - bKey.number
+          } else if (!aTime) {
+            comparison = 1 // Rooms without time data go to end
+          } else if (!bTime) {
+            comparison = -1 // Rooms with time data come first
+          } else if (aTime.isOver && !bTime.isOver) {
+            comparison = 1 // Over rooms go to end
+          } else if (!aTime.isOver && bTime.isOver) {
+            comparison = -1 // Active rooms come first
+          } else if (aTime.isOver && bTime.isOver) {
+            comparison = 0 // Both over, equal
+          } else {
+            // Compare by total seconds remaining (least time first when ascending)
+            const aTotalSeconds = aTime.hours * 3600 + aTime.minutes * 60 + aTime.seconds
+            const bTotalSeconds = bTime.hours * 3600 + bTime.minutes * 60 + bTime.seconds
+            comparison = aTotalSeconds - bTotalSeconds
+          }
+          break
+        }
+
+        default: {
+          // Default to room number sorting
+          const aKeyDefault = getRoomSortKey(a.name)
+          const bKeyDefault = getRoomSortKey(b.name)
+          comparison = aKeyDefault.number - bKeyDefault.number
+          break
+        }
+      }
+
+      // Apply sort direction
+      return sortDescending ? -comparison : comparison
+    })
+  }, [debouncedSession?.rooms, searchQuery, sectionSearchQuery, sortBy, sortDescending, roomTimeCalculations])
+
+  // Handle table header click for sorting
+  const handleSort = useCallback((column) => {
+    if (sortBy === column) {
+      // Toggle sort direction if clicking the same column
+      setSortDescending(!sortDescending)
+    } else {
+      // Set new column and default to ascending
+      setSortBy(column)
+      setSortDescending(false)
+    }
+  }, [sortBy, sortDescending])
+
+  // Get paginated rooms for better performance with large lists
+  const getPaginatedRooms = useCallback(() => {
+    const sortedRooms = getSortedRooms()
+    const startIndex = (currentPage - 1) * roomsPerPage
+    const endIndex = startIndex + roomsPerPage
+    return sortedRooms.slice(startIndex, endIndex)
+  }, [getSortedRooms, currentPage, roomsPerPage])
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    const sortedRooms = getSortedRooms()
+    return Math.ceil(sortedRooms.length / roomsPerPage)
+  }, [getSortedRooms, roomsPerPage])
+
+  // Reset pagination when search or sort changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sectionSearchQuery, sortBy, sortDescending])
+
+  // Helper function to get accommodation summary for a room
+  const getRoomAccommodationSummary = useCallback((room) => {
+    if (!room.sections || room.sections.length === 0) {
+      return null
+    }
+
+    const accommodationTypes = new Set()
+
+    room.sections.forEach(section => {
+      if (section.accommodations && section.accommodations.length > 0) {
+        section.accommodations.forEach(acc => {
+          // Check for bilingual accommodations (case insensitive)
+          if (acc.toLowerCase().includes('bilingual')) {
+            accommodationTypes.add('bilingual')
+          }
+          // Check for extra time accommodations
+          else if (acc.includes('1.5x') || acc.includes('2x') ||
+            acc.includes('1.5×') || acc.includes('2×') ||
+            acc.toLowerCase().includes('extended time') ||
+            acc.toLowerCase().includes('double time') ||
+            acc.toLowerCase().includes('extra time')) {
+            accommodationTypes.add('extra-time')
+          }
+        })
+      }
+    })
+
+    return accommodationTypes.size > 0 ? Array.from(accommodationTypes) : null
+  }, [])
 
   // Calculate time remaining for 1.5x accommodations
   const [timeRemaining15x, setTimeRemaining15x] = useState(null)
@@ -1777,30 +1897,6 @@ function SessionView({ user, onBack }) {
     }
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
 
-  // Create a hash of section accommodations to detect changes
-  const sectionAccommodationsHash = useMemo(() => {
-    if (!debouncedSession?.rooms) return ''
-    return debouncedSession.rooms.map(room => 
-      room.sections?.map(section => 
-        `${section._id}:${JSON.stringify(section.accommodations || [])}`
-      ).join('|') || ''
-    ).join('||')
-  }, [debouncedSession?.rooms])
-
-  // Calculate time for all rooms - this is needed for proper display
-  const roomTimeCalculations = useMemo(() => {
-    if (!debouncedSession?.rooms || !timeRemaining) return {}
-
-    const calculations = {}
-    // Calculate time for all rooms to ensure proper display
-    debouncedSession.rooms.forEach(room => {
-      const timeData = calculateRoomTimeRemaining(room)
-      if (timeData) {
-        calculations[room._id] = timeData
-      }
-    })
-    return calculations
-  }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining, sectionAccommodationsHash])
 
   // Get time remaining for a room - always returns calculated value
   const getRoomTimeRemaining = useCallback((room) => {
@@ -2229,25 +2325,25 @@ function SessionView({ user, onBack }) {
             <div className="bg-blue-50 rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-1">Students Still Testing</p>
               <p className="text-2xl font-bold text-blue-600">
-                {(() => {
-                  if (!session || !session.rooms) return 0;
-                  return session.rooms
-                    .filter(room => room.status !== 'completed')
-                    .reduce((total, room) =>
-                      total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
-                      , 0)
-                })()}
+                    {(() => {
+                      if (!session || !session.rooms) return 0;
+                      return session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) =>
+                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                          , 0)
+                    })()}
               </p>
-            </div>
+                </div>
             <div className="bg-green-50 rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-1">Sections Remaining</p>
               <p className="text-2xl font-bold text-green-600">
-                {(() => {
-                  if (!session || !session.rooms) return 0;
-                  return session.rooms
-                    .filter(room => room.status !== 'completed')
-                    .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
-                })()}
+                    {(() => {
+                      if (!session || !session.rooms) return 0;
+                      return session.rooms
+                        .filter(room => room.status !== 'completed')
+                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
+                    })()}
               </p>
             </div>
           </div>
@@ -2256,50 +2352,34 @@ function SessionView({ user, onBack }) {
         {/* Sort Controls and Search */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            {/* Sort Criteria and Direction */}
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sort By
+            {/* Search Inputs */}
+            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+              <div className="flex-1 max-w-md">
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Search Rooms
                 </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                <input
+                  type="text"
+                  id="search"
+                  placeholder="Search by room number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="roomNumber">Room Number</option>
-                  <option value="status">Status</option>
-                  <option value="studentCount">Student Count</option>
-                </select>
+                />
               </div>
-
-              {/* Sort Direction Toggle Button */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sort Direction
+              <div className="flex-1 max-w-md">
+                <label htmlFor="sectionSearch" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Search Sections
                 </label>
-                <button
-                  onClick={() => setSortDescending(!sortDescending)}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200 flex items-center gap-2"
-                >
-                  {sortDescending ? 'Descending ↓' : 'Ascending ↑'}
-                </button>
+                <input
+                  type="text"
+                  id="sectionSearch"
+                  placeholder="Search by section number..."
+                  value={sectionSearchQuery}
+                  onChange={(e) => setSectionSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-            </div>
-
-            {/* Search Input */}
-            <div className="flex-1 max-w-md">
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Search Rooms
-              </label>
-              <input
-                type="text"
-                id="search"
-                placeholder="Search by room number..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
             </div>
 
             {/* View Toggle */}
@@ -2378,18 +2458,18 @@ function SessionView({ user, onBack }) {
                 <div className="flex flex-col md:flex-row gap-4 justify-center items-center flex-wrap">
                   <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
                     <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
-                    {timeRemaining ? (
-                      timeRemaining.isOver ? (
+                  {timeRemaining ? (
+                    timeRemaining.isOver ? (
                         <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
-                      ) : (
-                        <div className="text-4xl font-mono font-bold text-green-600">
-                          {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
-                        </div>
-                      )
                     ) : (
+                        <div className="text-4xl font-mono font-bold text-green-600">
+                        {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                      </div>
+                    )
+                  ) : (
                       <div className="text-xl text-gray-400">Loading...</div>
-                    )}
-                  </div>
+                  )}
+                </div>
                   
                   {/* 1.5x Time Remaining */}
                   {timeRemaining15x && (
@@ -2589,26 +2669,96 @@ function SessionView({ user, onBack }) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Room
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('roomNumber')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Room</span>
+                        {sortBy === 'roomNumber' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Status</span>
+                        {sortBy === 'status' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Students
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('studentCount')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Students</span>
+                        {sortBy === 'studentCount' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Present
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('present')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Present</span>
+                        {sortBy === 'present' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Absent
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('absent')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Absent</span>
+                        {sortBy === 'absent' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sections
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('sections')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Sections</span>
+                        {sortBy === 'sections' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Time Remaining
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('timeRemaining')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>Time Remaining</span>
+                        {sortBy === 'timeRemaining' && (
+                          <svg className={`w-4 h-4 ${sortDescending ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -2632,18 +2782,18 @@ function SessionView({ user, onBack }) {
                           <div className="flex flex-col gap-1">
                             <span className="text-sm font-medium text-gray-900">{room.name}</span>
                             <div className="flex gap-1 flex-wrap">
-                              {getRoomAccommodationSummary(room) && (
+                            {getRoomAccommodationSummary(room) && (
                                 <>
-                                  {getRoomAccommodationSummary(room).includes('bilingual') && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                      🌐 Bilingual
-                                    </span>
-                                  )}
-                                  {getRoomAccommodationSummary(room).includes('extra-time') && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                      ⏱️ Extra Time
-                                    </span>
-                                  )}
+                                {getRoomAccommodationSummary(room).includes('bilingual') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    🌐 Bilingual
+                                  </span>
+                                )}
+                                {getRoomAccommodationSummary(room).includes('extra-time') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    ⏱️ Extra Time
+                                  </span>
+                                )}
                                 </>
                               )}
                               {room.notes && room.notes.trim() && (
@@ -2685,7 +2835,12 @@ function SessionView({ user, onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900 dark:text-white">
-                            {room.sections ? room.sections.length : 0}
+                            {room.sections && room.sections.length > 0
+                              ? [...room.sections]
+                                  .sort((a, b) => (a.number || 0) - (b.number || 0))
+                                  .map(s => s.number)
+                                  .join(', ')
+                              : '—'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2998,18 +3153,18 @@ function SessionView({ user, onBack }) {
                   <div className="flex flex-col gap-2">
                     <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
                     <div className="flex gap-1 flex-wrap">
-                      {getRoomAccommodationSummary(room) && (
+                    {getRoomAccommodationSummary(room) && (
                         <>
-                          {getRoomAccommodationSummary(room).includes('bilingual') && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                              🌐 Bilingual
-                            </span>
-                          )}
-                          {getRoomAccommodationSummary(room).includes('extra-time') && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              ⏱️ Extra Time
-                            </span>
-                          )}
+                        {getRoomAccommodationSummary(room).includes('bilingual') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            🌐 Bilingual
+                          </span>
+                        )}
+                        {getRoomAccommodationSummary(room).includes('extra-time') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            ⏱️ Extra Time
+                          </span>
+                        )}
                         </>
                       )}
                       {room.notes && room.notes.trim() && (
