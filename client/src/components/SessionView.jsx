@@ -2616,7 +2616,26 @@ function SessionView({ user, onBack }) {
             <div className="flex-1 overflow-y-auto px-8 pb-8">
               <div className="max-w-full mx-auto">
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                  {debouncedSession?.rooms?.slice()
+                  {(() => {
+                    // Detect room number conflicts
+                    const roomNameCounts = {}
+                    debouncedSession?.rooms?.forEach(room => {
+                      const roomNum = parseInt(room.name?.match(/\d+/)?.[0]) || null
+                      if (roomNum !== null) {
+                        if (!roomNameCounts[roomNum]) {
+                          roomNameCounts[roomNum] = []
+                        }
+                        roomNameCounts[roomNum].push(room)
+                      }
+                    })
+                    const conflictRoomNumbers = new Set()
+                    Object.keys(roomNameCounts).forEach(num => {
+                      if (roomNameCounts[num].length > 1) {
+                        roomNameCounts[num].forEach(room => conflictRoomNumbers.add(room._id))
+                      }
+                    })
+                    
+                    return debouncedSession?.rooms?.slice()
                     .filter(room => {
                       // Apply status filter
                       if (displayFilterStatus !== 'all') {
@@ -2689,11 +2708,21 @@ function SessionView({ user, onBack }) {
                     const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
                     const presentStudents = room.status === 'completed' ? (room.presentStudents || 0) : 0
                     const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
+                    // Check for conflicts: room number conflicts OR sections with "Conflict" accommodation
+                    const hasRoomNumberConflict = conflictRoomNumbers.has(room._id)
+                    const hasSectionConflict = room.sections?.some(section => 
+                      section.accommodations?.some(acc => 
+                        acc.toLowerCase().includes('conflict')
+                      )
+                    ) || false
+                    const hasConflict = hasRoomNumberConflict || hasSectionConflict
 
                     return (
                       <div
                         key={room._id}
-                        className={`rounded-xl p-5 shadow-lg ${room.status === 'completed'
+                        className={`rounded-xl p-5 shadow-lg ${hasConflict
+                          ? 'bg-yellow-50 border-2 border-yellow-500'
+                          : room.status === 'completed'
                           ? 'bg-green-50 border-2 border-green-500'
                           : room.status === 'active'
                             ? 'bg-blue-50 border-2 border-blue-500'
@@ -2742,7 +2771,7 @@ function SessionView({ user, onBack }) {
                           </div>
                           {roomTimeData && !roomTimeData.isOver && (
                             <div className="flex justify-between">
-                              <span>Time Left:</span>
+                              <span>{hasConflict && <span className="mr-1">⚠️</span>}Time Left:</span>
                               <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-orange-600' : 'text-green-600'}`}>
                                 {String(roomTimeData.hours).padStart(2, '0')}:{String(roomTimeData.minutes).padStart(2, '0')}:{String(roomTimeData.seconds).padStart(2, '0')}
                                 {roomTimeData.multiplier > 1 && <span className="text-xs ml-1">({roomTimeData.multiplier}x)</span>}
@@ -2805,7 +2834,8 @@ function SessionView({ user, onBack }) {
                         )}
                       </div>
                     )
-                  })}
+                  })
+                  })()}
                 </div>
               </div>
 
