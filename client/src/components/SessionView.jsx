@@ -1891,6 +1891,7 @@ function SessionView({ user, onBack }) {
   // Update accommodation time remaining every second
   useEffect(() => {
     if (memoizedSession && memoizedSession.accommodationStartTime) {
+      // Immediate update when dependencies change
       updateAccommodationTimeRemaining()
       const timer = setInterval(() => {
         updateAccommodationTimeRemaining()
@@ -1901,6 +1902,13 @@ function SessionView({ user, onBack }) {
       setTimeRemaining2x(null)
     }
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
+  
+  // Also update immediately when completion status changes
+  useEffect(() => {
+    if (memoizedSession && memoizedSession.accommodationStartTime) {
+      updateAccommodationTimeRemaining()
+    }
+  }, [all15xRoomsCompleted, all2xRoomsCompleted, updateAccommodationTimeRemaining, memoizedSession?.accommodationStartTime])
 
 
   // Get time remaining for a room - always returns calculated value
