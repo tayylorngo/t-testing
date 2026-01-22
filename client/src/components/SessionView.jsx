@@ -124,6 +124,11 @@ function SessionView({ user, onBack }) {
   const [isDisplayMode, setIsDisplayMode] = useState(false) // Large screen display mode
   const [expandedRooms, setExpandedRooms] = useState(new Set()) // Track which rooms are expanded
   const [expandedCards, setExpandedCards] = useState(new Set())
+  
+  // Display mode filters
+  const [displayFilterStatus, setDisplayFilterStatus] = useState('all') // all, not-started, active, completed
+  const [displayFilterAccommodation, setDisplayFilterAccommodation] = useState('all') // all, bilingual, 1.5x, 2x
+  const [displaySortBy, setDisplaySortBy] = useState('roomNumber') // roomNumber, sectionNumber
 
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
@@ -1862,7 +1867,7 @@ function SessionView({ user, onBack }) {
     // Calculate 2x end time: accommodationStartTime + (regularDuration * 2)
     const endTime2x = new Date(accStartTime.getTime() + (regularDurationMinutes * 2 * 60 * 1000))
     const timeDiff2x = endTime2x - now
-    
+
     // Check if all 2x rooms are completed
     const has2xRooms = debouncedSession?.rooms?.some(room => roomHas2xAccommodation(room)) || false
     if (all2xRoomsCompleted && has2xRooms) {
@@ -2354,18 +2359,18 @@ function SessionView({ user, onBack }) {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Search Inputs */}
             <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <div className="flex-1 max-w-md">
-                <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Search Rooms
-                </label>
-                <input
-                  type="text"
-                  id="search"
-                  placeholder="Search by room number..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+            <div className="flex-1 max-w-md">
+              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search Rooms
+              </label>
+              <input
+                type="text"
+                id="search"
+                placeholder="Search by room number..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
               </div>
               <div className="flex-1 max-w-md">
                 <label htmlFor="sectionSearch" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -2424,11 +2429,11 @@ function SessionView({ user, onBack }) {
             </button>
 
             {/* Fixed Header Section */}
-            <div className="flex-shrink-0 p-8 pb-4">
+            <div className="flex-shrink-0 p-6 pb-3">
               {/* Header */}
-              <div className="text-center mb-8">
-                <h1 className="text-5xl font-bold text-gray-900 mb-4">{session?.name}</h1>
-                <p className="text-2xl text-gray-600">
+              <div className="text-center mb-5">
+                <h1 className="text-4xl font-bold text-gray-900 mb-3">{session?.name}</h1>
+                <p className="text-xl text-gray-600">
                   {session?.date && new Date(session.date).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -2451,13 +2456,27 @@ function SessionView({ user, onBack }) {
                     return `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
                   })()}
                 </p>
+                {session?.accommodationStartTime && (
+                  <p className="text-base text-blue-600 mt-2 font-medium">
+                    Accommodation Start: {(() => {
+                      const formatTime = (time) => {
+                        const [hours, minutes] = time.split(':')
+                        const hour = parseInt(hours)
+                        const ampm = hour >= 12 ? 'PM' : 'AM'
+                        const hour12 = hour % 12 || 12
+                        return `${hour12}:${minutes} ${ampm}`
+                      }
+                      return formatTime(session.accommodationStartTime)
+                    })()}
+                  </p>
+                )}
               </div>
 
               {/* Main Timer */}
-              <div className="text-center mb-6">
-                <div className="flex flex-col md:flex-row gap-4 justify-center items-center flex-wrap">
-                  <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-gray-200">
-                    <p className="text-base text-gray-500 mb-2">Estimated Time Remaining</p>
+              <div className="text-center mb-4">
+                <div className="flex flex-col md:flex-row gap-3 justify-center items-center flex-wrap">
+                  <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-gray-200">
+                    <p className="text-sm text-gray-500 mb-2">Estimated Time Remaining</p>
                   {timeRemaining ? (
                     timeRemaining.isOver ? (
                         <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
@@ -2473,8 +2492,8 @@ function SessionView({ user, onBack }) {
                   
                   {/* 1.5x Time Remaining */}
                   {timeRemaining15x && (
-                    <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-orange-200">
-                      <p className="text-base text-gray-500 mb-2">1.5x Time Remaining</p>
+                    <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-orange-200">
+                      <p className="text-sm text-gray-500 mb-2">1.5x Time Remaining</p>
                       {timeRemaining15x.isOver ? (
                         <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
                       ) : (
@@ -2487,8 +2506,8 @@ function SessionView({ user, onBack }) {
                   
                   {/* 2x Time Remaining */}
                   {timeRemaining2x && (
-                    <div className="inline-block bg-white rounded-2xl px-8 py-6 shadow-lg border border-purple-200">
-                      <p className="text-base text-gray-500 mb-2">2x Time Remaining</p>
+                    <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-purple-200">
+                      <p className="text-sm text-gray-500 mb-2">2x Time Remaining</p>
                       {timeRemaining2x.isOver ? (
                         <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
                       ) : (
@@ -2502,54 +2521,169 @@ function SessionView({ user, onBack }) {
               </div>
 
               {/* Stats Row */}
-              <div className="grid grid-cols-6 gap-4 max-w-7xl mx-auto">
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Progress</p>
-                  <p className="text-4xl font-bold text-blue-600">{progress}%</p>
+              <div className="grid grid-cols-6 gap-3 max-w-7xl mx-auto">
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Progress</p>
+                  <p className="text-3xl font-bold text-blue-600">{progress}%</p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Total Students</p>
-                  <p className="text-4xl font-bold text-gray-900">
-                    {calculateTotalPresentStudents()}/{calculateTotalStudentsInSession()}
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Total Students</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {calculateTotalStudentsInSession()}
                   </p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Present</p>
-                  <p className="text-4xl font-bold text-green-600">{calculateTotalPresentStudents()}</p>
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Present</p>
+                  <p className="text-3xl font-bold text-green-600">{calculateTotalPresentStudents()}</p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Absent</p>
-                  <p className="text-4xl font-bold text-red-600">{calculateTotalAbsentStudents()}</p>
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Absent</p>
+                  <p className="text-3xl font-bold text-red-600">{calculateTotalAbsentStudents()}</p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Rooms</p>
-                  <p className="text-4xl font-bold text-purple-600">
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Rooms</p>
+                  <p className="text-3xl font-bold text-purple-600">
                     {debouncedSession?.rooms?.filter(r => r.status === 'completed').length || 0}/{debouncedSession?.rooms?.length || 0}
                   </p>
                 </div>
-                <div className="bg-white rounded-2xl p-6 text-center shadow-lg border border-gray-200">
-                  <p className="text-base text-gray-500 mb-2">Sections</p>
-                  <p className="text-4xl font-bold text-indigo-600">
+                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
+                  <p className="text-sm text-gray-500 mb-1">Sections</p>
+                  <p className="text-3xl font-bold text-indigo-600">
                     {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.status === 'completed' ? (room.sections?.length || 0) : 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
                   </p>
                 </div>
               </div>
 
-              {/* Testing Rooms Title - Fixed, not scrollable */}
-              <h2 className="text-3xl font-bold text-gray-900 mt-6 text-left px-8">Testing Rooms</h2>
+              {/* Testing Rooms Title and Filters - Fixed, not scrollable */}
+              <div className="mt-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-3xl font-bold text-gray-900">Testing Rooms</h2>
+                <div className="flex flex-wrap gap-3">
+                  {/* Status Filter */}
+                  <div>
+                    <label htmlFor="displayStatusFilter" className="block text-xs font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      id="displayStatusFilter"
+                      value={displayFilterStatus}
+                      onChange={(e) => setDisplayFilterStatus(e.target.value)}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                  
+                  {/* Accommodation Filter */}
+                  <div>
+                    <label htmlFor="displayAccommodationFilter" className="block text-xs font-medium text-gray-700 mb-1">
+                      Accommodation
+                    </label>
+                    <select
+                      id="displayAccommodationFilter"
+                      value={displayFilterAccommodation}
+                      onChange={(e) => setDisplayFilterAccommodation(e.target.value)}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value="all">All Rooms</option>
+                      <option value="bilingual">Bilingual</option>
+                      <option value="1.5x">1.5x</option>
+                      <option value="2x">2x</option>
+                    </select>
+                  </div>
+                  
+                  {/* Sort By */}
+                  <div>
+                    <label htmlFor="displaySortBy" className="block text-xs font-medium text-gray-700 mb-1">
+                      Sort By
+                    </label>
+                    <select
+                      id="displaySortBy"
+                      value={displaySortBy}
+                      onChange={(e) => setDisplaySortBy(e.target.value)}
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    >
+                      <option value="roomNumber">Room Number</option>
+                      <option value="sectionNumber">Section Number</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Scrollable Rooms Section */}
             <div className="flex-1 overflow-y-auto px-8 pb-8">
               <div className="max-w-full mx-auto">
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                  {debouncedSession?.rooms?.slice().sort((a, b) => {
-                    // Extract numbers from room names for natural sorting
+                  {debouncedSession?.rooms?.slice()
+                    .filter(room => {
+                      // Apply status filter
+                      if (displayFilterStatus !== 'all') {
+                        if (displayFilterStatus === 'not-started' && room.status !== 'not-started') return false
+                        if (displayFilterStatus === 'active' && room.status !== 'active') return false
+                        if (displayFilterStatus === 'completed' && room.status !== 'completed') return false
+                      }
+                      
+                      // Apply accommodation filter
+                      if (displayFilterAccommodation !== 'all') {
+                        const accommodations = getRoomAccommodationSummary(room)
+                        if (displayFilterAccommodation === 'bilingual' && (!accommodations || !accommodations.includes('bilingual'))) return false
+                        if (displayFilterAccommodation === '1.5x') {
+                          // Check if room has 1.5x accommodation
+                          const has15x = room.sections?.some(section => 
+                            section.accommodations?.some(acc => 
+                              acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time')
+                            )
+                          )
+                          if (!has15x) return false
+                        }
+                        if (displayFilterAccommodation === '2x') {
+                          // Check if room has 2x accommodation
+                          const has2x = room.sections?.some(section => 
+                            section.accommodations?.some(acc => 
+                              acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
+                            )
+                          )
+                          if (!has2x) return false
+                        }
+                      }
+                      
+                      return true
+                    })
+                    .sort((a, b) => {
+                      if (displaySortBy === 'sectionNumber') {
+                        // Sort by first section number
+                        const aSections = a.sections && a.sections.length > 0 
+                          ? [...a.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+                          : []
+                        const bSections = b.sections && b.sections.length > 0
+                          ? [...b.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+                          : []
+                        
+                        if (aSections.length === 0 && bSections.length === 0) {
+                          // Both have no sections, sort by room number
+                          const numA = parseInt(a.name?.match(/\d+/)?.[0]) || 0
+                          const numB = parseInt(b.name?.match(/\d+/)?.[0]) || 0
+                          return numA - numB
+                        } else if (aSections.length === 0) {
+                          return 1 // Rooms without sections go to end
+                        } else if (bSections.length === 0) {
+                          return -1 // Rooms with sections come first
+                        } else {
+                          // Compare by first section number
+                          const aFirst = aSections[0].number || 0
+                          const bFirst = bSections[0].number || 0
+                          return aFirst - bFirst
+                        }
+                      } else {
+                        // Sort by room number (default)
                     const numA = parseInt(a.name?.match(/\d+/)?.[0]) || 0
                     const numB = parseInt(b.name?.match(/\d+/)?.[0]) || 0
                     if (numA !== numB) return numA - numB
                     // Fallback to alphabetical if no numbers or same number
                     return (a.name || '').localeCompare(b.name || '')
+                      }
                   }).map((room) => {
                     const roomTimeData = getRoomTimeRemaining(room)
                     const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
@@ -2606,10 +2740,6 @@ function SessionView({ user, onBack }) {
                             <span>Students:</span>
                             <span className="font-semibold text-gray-900">{presentStudents} / {totalStudents}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Sections:</span>
-                            <span className="font-semibold text-gray-900">{room.sections?.length || 0}</span>
-                          </div>
                           {roomTimeData && !roomTimeData.isOver && (
                             <div className="flex justify-between">
                               <span>Time Left:</span>
@@ -2626,19 +2756,40 @@ function SessionView({ user, onBack }) {
 
                         {sortedSections.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="text-xs font-semibold text-gray-700 mb-2">Sections</div>
-                            <div className="max-h-28 overflow-y-auto pr-1 space-y-2">
-                              {sortedSections.map((section) => (
-                                <div key={section._id} className="text-xs">
+                            <div className="text-sm font-semibold text-gray-700 mb-3">Sections</div>
+                            <div className="max-h-40 overflow-y-auto pr-1 space-y-3">
+                              {sortedSections.map((section) => {
+                                // Sort accommodations: time accommodations first, then others
+                                const sortedAccommodations = Array.isArray(section.accommodations) && section.accommodations.length > 0
+                                  ? [...section.accommodations].sort((a, b) => {
+                                      const aIsTime = a.includes('1.5x') || a.includes('2x') || 
+                                        a.includes('1.5×') || a.includes('2×') ||
+                                        a.toLowerCase().includes('extended time') || 
+                                        a.toLowerCase().includes('double time') ||
+                                        a.toLowerCase().includes('extra time')
+                                      const bIsTime = b.includes('1.5x') || b.includes('2x') || 
+                                        b.includes('1.5×') || b.includes('2×') ||
+                                        b.toLowerCase().includes('extended time') || 
+                                        b.toLowerCase().includes('double time') ||
+                                        b.toLowerCase().includes('extra time')
+                                      
+                                      if (aIsTime && !bIsTime) return -1 // a comes first
+                                      if (!aIsTime && bIsTime) return 1  // b comes first
+                                      return a.localeCompare(b) // Both same type, sort alphabetically
+                                    })
+                                  : []
+                                
+                                return (
+                                  <div key={section._id} className="text-sm">
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                    <span className="font-semibold text-gray-900">#{section.number}</span>
-                                    <span className="text-gray-500">({section.studentCount || 0})</span>
-                                    {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
+                                      <span className="font-semibold text-gray-900 text-base">#{section.number}</span>
+                                      <span className="text-gray-600 text-sm">({section.studentCount || 0})</span>
+                                      {sortedAccommodations.length > 0 && (
                                       <div className="flex flex-wrap gap-1">
-                                        {section.accommodations.map((acc, index) => (
+                                          {sortedAccommodations.map((acc, index) => (
                                           <span
                                             key={`${section._id}-acc-${index}`}
-                                            className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[10px]"
+                                              className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs"
                                           >
                                             {acc}
                                           </span>
@@ -2647,7 +2798,8 @@ function SessionView({ user, onBack }) {
                                     )}
                                   </div>
                                 </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </div>
                         )}
@@ -2801,7 +2953,7 @@ function SessionView({ user, onBack }) {
                                   📝 Notes
                                 </span>
                               )}
-                            </div>
+                              </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -3172,7 +3324,7 @@ function SessionView({ user, onBack }) {
                           📝 Notes
                         </span>
                       )}
-                    </div>
+                      </div>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(room.status)}`}>
                     {getStatusText(room.status)}
