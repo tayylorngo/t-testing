@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
@@ -20,6 +20,8 @@ function SessionDetail({ onBack }) {
   const [showImportResultModal, setShowImportResultModal] = useState(false)
   const [importResult, setImportResult] = useState({ isSuccess: false, message: '', details: '' })
   const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState({ phase: 'idle', current: 0, total: 0, message: '' })
+  const isImportingRef = useRef(false)
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomSupplies, setNewRoomSupplies] = useState({})
   const [newSectionNumber, setNewSectionNumber] = useState('')
@@ -199,10 +201,15 @@ function SessionDetail({ onBack }) {
           }
         }, [session])
 
+  // Keep ref in sync so real-time handler (which may have stale closure) always sees current value
+  useEffect(() => {
+    isImportingRef.current = isImporting
+  }, [isImporting])
+
   // Handle real-time updates from other users
   const handleRealTimeUpdate = (update) => {
-    // Skip real-time updates during import to prevent blinking
-    if (isImporting) {
+    // Skip real-time updates during import to prevent blinking (use ref so handler sees current value)
+    if (isImportingRef.current) {
       console.log('Skipping real-time update during import:', update.type)
       return
     }
@@ -254,9 +261,10 @@ function SessionDetail({ onBack }) {
     }
   }
 
-  const fetchSessionData = async () => {
+  const fetchSessionData = async (options = {}) => {
+    const silent = options.silent === true
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const sessionData = await testingAPI.getSession(sessionId)
       
       console.log('Session data received:', sessionData.session)
@@ -285,7 +293,7 @@ function SessionDetail({ onBack }) {
     } catch (error) {
       console.error('Error fetching session data:', error)
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -498,91 +506,43 @@ function SessionDetail({ onBack }) {
   }
 
   const handleExcelImport = async (importData) => {
+    const totalSections = importData.sections?.length ?? 0;
+    const totalRooms = importData.rooms?.length ?? 0;
+    const totalSteps = 1 + totalSections + totalRooms + 1; // clear + sections + rooms + finalize
+
     try {
-      // Set loading state and prevent real-time updates during import
       setIsImporting(true);
+      setImportProgress({ phase: 'clearing', message: 'Clearing existing data...', current: 0, total: totalSteps });
       console.log('Starting Excel import process...');
-      
-      // Temporarily clear the session state to prevent blinking during import
-      console.log('Clearing existing session data...');
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: [],
-        sections: []
-      }));
-      
-      // Clear session data using bulk clearing functions
-      console.log('Clearing session data...');
-      
-      // Clear all rooms from session in one operation
+
       if (session.rooms && session.rooms.length > 0) {
         try {
-          console.log(`Clearing ${session.rooms.length} rooms from session`);
-          const roomClearResult = await testingAPI.clearAllRoomsFromSession(sessionId);
-          console.log(`Successfully cleared ${roomClearResult.clearedCount} rooms from session`);
+          await testingAPI.clearAllRoomsFromSession(sessionId);
         } catch (error) {
           console.error('Error clearing rooms from session:', error);
-          // Continue with import even if room clearing fails
         }
       }
-      
-      // Clear all sections from session in one operation
       if (session.sections && session.sections.length > 0) {
         try {
-          console.log(`Clearing ${session.sections.length} sections from session`);
-          const sectionClearResult = await testingAPI.clearAllSectionsFromSession(sessionId);
-          console.log(`Successfully cleared ${sectionClearResult.clearedCount} sections from session`);
+          await testingAPI.clearAllSectionsFromSession(sessionId);
         } catch (error) {
           console.error('Error clearing sections from session:', error);
-          // Continue with import even if section clearing fails
         }
       }
-      
-      console.log('Session cleared successfully');
-      
-      // Refresh session data to ensure deletions are complete before proceeding
-      await fetchSessionData();
-      console.log('Session refreshed after clearing');
-      
-      // If there are still rooms or sections remaining, we need to handle this differently
-      const currentSession = session; // Get the refreshed session data
-      if (currentSession.rooms && currentSession.rooms.length > 0) {
-        console.warn(`Warning: ${currentSession.rooms.length} rooms still exist in session after clearing attempt`);
-        console.log('Remaining rooms:', currentSession.rooms.map(r => r.name));
-      }
-      if (currentSession.sections && currentSession.sections.length > 0) {
-        console.warn(`Warning: ${currentSession.sections.length} sections still exist in session after clearing attempt`);
-        console.log('Remaining sections:', currentSession.sections.map(s => s.number));
-        
-        // If sections still exist, we need to use different section numbers
-        console.log('Will use higher section numbers to avoid conflicts with existing sections');
-        
-        // Force clear the session arrays if deletions failed
-        console.log('Force clearing session arrays due to deletion failures...');
-        setSession(prevSession => ({
-          ...prevSession,
-          rooms: [],
-          sections: []
-        }));
-      }
+
+      setImportProgress({ phase: 'clearing', message: 'Verifying...', current: 1, total: totalSteps });
+      await fetchSessionData({ silent: true });
 
       const createdRooms = [];
       const createdSections = [];
       const usedExistingSections = [];
-      
-      // Get existing sections in the session to avoid duplicates (should be empty now)
-      const existingSections = [];
-      console.log('Existing sections in session after clearing:', existingSections);
-      
-      // For new sessions, we need to generate unique section numbers since the backend
-      // doesn't allow duplicate section numbers globally
-      
-      // Always use the original section numbers from Excel, regardless of existing sections
-      // The deletion process should have cleared everything, so we can use original numbers
+
       console.log('Using original section numbers from Excel file');
 
       // Create sections with original numbers from Excel file
-      for (const sectionData of importData.sections) {
+      for (let sIdx = 0; sIdx < importData.sections.length; sIdx++) {
+        const sectionData = importData.sections[sIdx];
+        setImportProgress({ phase: 'sections', message: `Creating sections ${sIdx + 1} of ${totalSections}...`, current: 1 + sIdx, total: totalSteps });
         try {
           // Always create new sections with original numbers from Excel
           const sectionNumber = sectionData.number;
@@ -593,7 +553,7 @@ function SessionDetail({ onBack }) {
             number: sectionNumber,
             studentCount: sectionData.studentCount,
             description: '',
-            accommodations: [],
+            accommodations: Array.isArray(sectionData.accommodations) ? sectionData.accommodations : [],
             notes: '',
             sessionId: sessionId // Pass sessionId for session-specific uniqueness
           });
@@ -670,7 +630,10 @@ function SessionDetail({ onBack }) {
       console.log('Final sectionsByRoom:', sectionsByRoom);
       
       // Create rooms with their sections
-      for (const roomData of importData.rooms) {
+      const roomList = importData.rooms;
+      for (let rIdx = 0; rIdx < roomList.length; rIdx++) {
+        const roomData = roomList[rIdx];
+        setImportProgress({ phase: 'rooms', message: `Creating rooms ${rIdx + 1} of ${roomList.length}...`, current: 1 + totalSections + rIdx, total: totalSteps });
         try {
           const sectionIds = sectionsByRoom.get(roomData.name) || [];
           console.log(`Creating room ${roomData.name} with sections:`, sectionIds);
@@ -706,15 +669,15 @@ function SessionDetail({ onBack }) {
       const successMessage = `Successfully imported ${createdRooms.length} rooms and ${newSections.length} sections`;
       const detailsMessage = `All existing session data was cleared and replaced with the imported data.`;
       
+      setImportProgress({ phase: 'finalizing', message: 'Finalizing...', current: totalSteps, total: totalSteps });
+      await fetchSessionData({ silent: true });
+
       setImportResult({
         isSuccess: true,
         message: successMessage,
         details: detailsMessage
       });
       setShowImportResultModal(true);
-      
-      // Refresh session data
-      fetchSessionData();
       
     } catch (error) {
       console.error('Error importing Excel data:', error);
@@ -737,8 +700,8 @@ function SessionDetail({ onBack }) {
       }
       setShowImportResultModal(true);
     } finally {
-      // Always reset loading state
       setIsImporting(false);
+      setImportProgress({ phase: 'idle', current: 0, total: 0, message: '' });
     }
   };
 
@@ -1198,25 +1161,13 @@ function SessionDetail({ onBack }) {
     return { number: 999, letter: '', full: roomName }
   }
 
-  if (isLoading) {
+  // Only show full-page loading when not importing (during import we keep modal + progress visible)
+  if (isLoading && !isImporting) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading session details...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Import loading overlay
-  if (isImporting) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Importing Excel data...</p>
-          <p className="text-sm text-gray-500 mt-2">Please wait while we process your file</p>
         </div>
       </div>
     )
@@ -2884,6 +2835,8 @@ function SessionDetail({ onBack }) {
         onClose={() => setShowExcelImportModal(false)}
         onImport={handleExcelImport}
         sessionId={sessionId}
+        isImporting={isImporting}
+        importProgress={importProgress}
       />
 
       {/* Import Result Modal */}

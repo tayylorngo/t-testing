@@ -1,18 +1,77 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { parseExcelFile, validateImportData } from '../utils/excelImport';
 
-function ExcelImportModal({ isOpen, onClose, onImport }) {
+// Flatten rooms+sections to one row per section for editing
+function flattenToRows(importData) {
+  if (!importData?.rooms) return [];
+  return importData.rooms.flatMap((room) =>
+    (room.sections || []).map((s) => ({
+      room: room.name,
+      section: s.number,
+      studentCount: s.studentCount ?? 0,
+      accommodations: Array.isArray(s.accommodations) ? [...s.accommodations] : []
+    }))
+  );
+}
+
+// Parse accommodations string (comma or / separated) into array
+function parseAccommodationsInput(str) {
+  if (!str || typeof str !== 'string') return [];
+  return str.split(/[,\/]/).map((s) => s.trim()).filter(Boolean);
+}
+
+// Build import payload from editable rows (group by room)
+function buildImportDataFromRows(rows) {
+  const toAcc = (r) => Array.isArray(r.accommodations) ? r.accommodations : parseAccommodationsInput(String(r.accommodationsText || ''));
+  const sections = rows.map((r) => ({
+    number: r.section,
+    studentCount: Number(r.studentCount) || 1,
+    accommodations: toAcc(r)
+  }));
+  const roomOrder = [];
+  const roomSections = new Map();
+  rows.forEach((r) => {
+    const name = String(r.room).trim();
+    if (!name) return;
+    if (!roomSections.has(name)) {
+      roomOrder.push(name);
+      roomSections.set(name, []);
+    }
+    roomSections.get(name).push({
+      number: r.section,
+      studentCount: Number(r.studentCount) || 1,
+      accommodations: toAcc(r)
+    });
+  });
+  const rooms = roomOrder.map((name) => ({
+    name,
+    sections: roomSections.get(name) || [],
+    supplies: []
+  }));
+  const totalStudents = sections.reduce((sum, s) => sum + (s.studentCount || 0), 0);
+  return { rooms, sections, summary: { totalRooms: rooms.length, totalSections: sections.length, totalStudents } };
+}
+
+function ExcelImportModal({ isOpen, onClose, onImport, isImporting = false, importProgress = {} }) {
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState(null);
+  const [editableRows, setEditableRows] = useState([]);
   const [validationResult, setValidationResult] = useState(null);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (importData?.rooms) {
+      setEditableRows(flattenToRows(importData));
+    } else {
+      setEditableRows([]);
+    }
+  }, [importData]);
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
       setError('Please select a valid Excel file (.xlsx or .xls)');
       return;
@@ -22,39 +81,51 @@ function ExcelImportModal({ isOpen, onClose, onImport }) {
     setError('');
     setImportData(null);
     setValidationResult(null);
+    setEditableRows([]);
 
     try {
-      console.log('Starting Excel file parsing...');
-      // Parse the Excel file
       const parsedData = await parseExcelFile(file);
-      console.log('Parsed data:', parsedData);
-      
-      // Validate the data
       const validation = validateImportData(parsedData);
-      console.log('Validation result:', validation);
-      
       setImportData(parsedData);
       setValidationResult(validation);
-      
       if (!validation.isValid) {
         setError(`The Excel file contains errors: ${validation.errors.join(', ')}`);
       } else {
-        setError(''); // Clear any previous errors
+        setError('');
       }
     } catch (err) {
-      console.error('Excel parsing error:', err);
       setError(err.message || 'Error parsing Excel file');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleImport = async () => {
-    if (!importData || !validationResult?.isValid) return;
+  const updateRow = (index, field, value) => {
+    setEditableRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        if (field === 'section') return { ...row, section: parseInt(value, 10) || value };
+        if (field === 'studentCount') return { ...row, studentCount: Math.max(0, parseInt(value, 10) || 0) };
+        return { ...row, [field]: value };
+      })
+    );
+  };
 
+  const removeRow = (index) => {
+    setEditableRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImport = async () => {
+    const built = buildImportDataFromRows(editableRows);
+    if (!built.rooms.length || !built.sections.length) {
+      setError('Add at least one room and one section.');
+      return;
+    }
+    setError('');
     try {
       setIsLoading(true);
-      await onImport(importData);
+      setError('');
+      await onImport(built);
       handleClose();
     } catch (err) {
       setError(err.message || 'Error importing data');
@@ -64,32 +135,48 @@ function ExcelImportModal({ isOpen, onClose, onImport }) {
   };
 
   const handleClose = () => {
+    if (isImporting) return;
     setImportData(null);
+    setEditableRows([]);
     setValidationResult(null);
     setError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     onClose();
   };
 
   if (!isOpen) return null;
 
+  const progressPct = importProgress?.total > 0 ? Math.round((importProgress.current / importProgress.total) * 100) : 0;
+
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
+      <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden border border-gray-200 flex flex-col">
+        <div className="p-6 flex-shrink-0">
+          <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Import Excel Data</h2>
             <button
+              type="button"
               onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              disabled={isImporting}
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ×
             </button>
           </div>
 
-          {!importData ? (
+          {isImporting ? (
+            <div className="py-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 text-center">Importing…</h3>
+              <p className="text-sm text-gray-600 text-center mb-4">{importProgress?.message || 'Please wait...'}</p>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-500 text-center mt-2">{progressPct}%</p>
+            </div>
+          ) : !importData ? (
             <div className="space-y-6">
               {/* Warning about clearing existing data */}
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -148,132 +235,149 @@ function ExcelImportModal({ isOpen, onClose, onImport }) {
                   <li>• <strong>Section</strong> - Section number</li>
                   <li>• <strong>Student Count</strong> - Number of students in the section</li>
                 </ul>
+                <p className="text-blue-800 text-sm mt-2 mb-1">
+                  Optional column:
+                </p>
+                <ul className="text-blue-800 text-sm space-y-1">
+                  <li>• <strong>Accommodations</strong> - List accommodations for the section. Separate multiple items with <strong>/</strong> or <strong>w/</strong> (e.g. <code className="bg-blue-100 px-1 rounded">1.5x w/ reader</code> or <code className="bg-blue-100 px-1 rounded">2x/reader/comp</code>). &quot;ISS/ELL&quot; is kept as one accommodation.</li>
+                </ul>
                 <p className="text-blue-700 text-xs mt-2">
                   Each row represents one section. Multiple sections can belong to the same room.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Import Preview</h3>
-                
-                {/* Summary */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Rooms:</span>
-                      <span className="ml-2 font-medium">{importData.summary.totalRooms}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Sections:</span>
-                      <span className="ml-2 font-medium">{importData.summary.totalSections}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Total Students:</span>
-                      <span className="ml-2 font-medium">{importData.summary.totalStudents}</span>
-                    </div>
-                  </div>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Import Preview — edit as needed</h3>
+
+              {validationResult?.errors?.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <h4 className="font-medium text-red-900 mb-1 text-sm">Errors:</h4>
+                  <ul className="text-red-800 text-sm space-y-0.5">
+                    {validationResult.errors.map((err, i) => (
+                      <li key={i}>• {err}</li>
+                    ))}
+                  </ul>
                 </div>
+              )}
+              {validationResult?.warnings?.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <h4 className="font-medium text-yellow-900 mb-1 text-sm">Warnings:</h4>
+                  <ul className="text-yellow-800 text-sm space-y-0.5">
+                    {validationResult.warnings.map((w, i) => (
+                      <li key={i}>• {w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-                {/* Validation Results */}
-                {validationResult && (
-                  <div className="mb-4">
-                    {validationResult.errors.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-3">
-                        <h4 className="font-medium text-red-900 mb-2">Errors:</h4>
-                        <ul className="text-red-800 text-sm space-y-1">
-                          {validationResult.errors.map((error, index) => (
-                            <li key={index}>• {error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    {validationResult.warnings.length > 0 && (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-3">
-                        <h4 className="font-medium text-yellow-900 mb-2">Warnings:</h4>
-                        <ul className="text-yellow-800 text-sm space-y-1">
-                          {validationResult.warnings.map((warning, index) => (
-                            <li key={index}>• {warning}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+              {/* Summary from current editable rows */}
+              {(() => {
+                const built = editableRows.length ? buildImportDataFromRows(editableRows) : null;
+                if (!built) return null;
+                return (
+                  <div className="bg-gray-50 rounded-lg p-3 flex flex-wrap gap-4 text-sm">
+                    <span><strong>Rooms:</strong> {built.summary.totalRooms}</span>
+                    <span><strong>Sections:</strong> {built.summary.totalSections}</span>
+                    <span><strong>Total students:</strong> {built.summary.totalStudents}</span>
                   </div>
-                )}
+                );
+              })()}
 
-                {/* Room Preview */}
-                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Room</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sections</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
+              {/* Full editable table — one row per section */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden flex-1 min-h-0 overflow-y-auto max-h-[50vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Room</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase w-24">Section</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase w-28">Count</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Accommodations</th>
+                      <th className="px-3 py-2 w-10" />
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {editableRows.map((row, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-1">
+                          <input
+                            type="text"
+                            value={row.room}
+                            onChange={(e) => updateRow(index, 'room', e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-1">
+                          <input
+                            type="number"
+                            min={1}
+                            value={row.section}
+                            onChange={(e) => updateRow(index, 'section', e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-1">
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.studentCount}
+                            onChange={(e) => updateRow(index, 'studentCount', e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-3 py-1">
+                          <input
+                            type="text"
+                            value={Array.isArray(row.accommodations) ? row.accommodations.join(', ') : ''}
+                            onChange={(e) => updateRow(index, 'accommodations', parseAccommodationsInput(e.target.value))}
+                            placeholder="e.g. 1.5x, reader"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                          />
+                        </td>
+                        <td className="px-2 py-1">
+                          <button
+                            type="button"
+                            onClick={() => removeRow(index)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                            title="Remove row"
+                          >
+                            ✕
+                          </button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {importData.rooms.slice(0, 10).map((room, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-2 text-sm font-medium text-gray-900">{room.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
-                            {room.sections.map(s => s.number).join(', ')}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-600">
-                            {room.sections.reduce((sum, s) => sum + (s.studentCount || 0), 0)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {importData.rooms.length > 10 && (
-                    <div className="px-4 py-2 text-sm text-gray-500 text-center bg-gray-50">
-                      ... and {importData.rooms.length - 10} more rooms
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
               <p className="text-red-800 text-sm">{error}</p>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 mt-4 pt-4 border-t border-gray-200">
             <button
+              type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition duration-200"
-              disabled={isLoading}
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading || isImporting}
             >
               Cancel
             </button>
-            
-            {importData && validationResult?.isValid && (
+            {editableRows.length > 0 && !isImporting && (
               <button
+                type="button"
                 onClick={handleImport}
                 disabled={isLoading}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 flex items-center space-x-2 disabled:opacity-50"
               >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Importing...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                    </svg>
-                    <span>Import Data</span>
-                  </>
-                )}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                <span>Import Data</span>
               </button>
             )}
           </div>

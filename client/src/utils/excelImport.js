@@ -65,34 +65,47 @@ const parseExcelData = (jsonData) => {
   }
   
   // Find the header row (look for common column headers)
+  // Prefer a row that includes "accommodation" so we don't stop at an earlier row that only has Room/Section/Count
   let headerRowIndex = -1;
   let headers = [];
+  let fallbackHeaderRowIndex = -1;
+  let fallbackHeaders = [];
   
   console.log('Looking for header row...');
   for (let i = 0; i < Math.min(jsonData.length, 10); i++) { // Only check first 10 rows
     const row = jsonData[i];
     console.log(`Row ${i}:`, row);
-    if (row && row.length > 0) {
-      // Look for common headers in any column, not just the first
-      const headerTexts = row.map(h => h?.toString().toLowerCase().trim() || '');
+    if (row && Array.isArray(row) && row.length > 0) {
+      const headerTexts = row.map(h => (h != null && h !== '') ? h.toString().toLowerCase().trim() : '');
       console.log(`Row ${i} header texts:`, headerTexts);
       
-      // Check if any column contains room, section, or student keywords
-      const hasRoomKeyword = headerTexts.some(h => h.includes('room'));
-      const hasSectionKeyword = headerTexts.some(h => h.includes('section'));
-      const hasStudentKeyword = headerTexts.some(h => h.includes('student'));
+      const hasRoomKeyword = headerTexts.some(h => h && h.includes('room'));
+      const hasSectionKeyword = headerTexts.some(h => h && h.includes('section'));
+      const hasStudentKeyword = headerTexts.some(h => h && h.includes('student'));
+      const hasAccommodationKeyword = headerTexts.some(h => h && h.includes('accommodation'));
       
-      console.log(`Row ${i} keywords found:`, { hasRoomKeyword, hasSectionKeyword, hasStudentKeyword });
+      console.log(`Row ${i} keywords found:`, { hasRoomKeyword, hasSectionKeyword, hasStudentKeyword, hasAccommodationKeyword });
       
       if (hasRoomKeyword || hasSectionKeyword || hasStudentKeyword) {
-        headerRowIndex = i;
-        headers = headerTexts;
-        console.log('Found header row at index:', headerRowIndex);
-        console.log('Headers:', headers);
-        break;
+        if (fallbackHeaderRowIndex === -1) {
+          fallbackHeaderRowIndex = i;
+          fallbackHeaders = headerTexts;
+        }
+        if (hasAccommodationKeyword) {
+          headerRowIndex = i;
+          headers = headerTexts;
+          console.log('Found header row with accommodations at index:', headerRowIndex);
+          break;
+        }
       }
     }
   }
+  if (headerRowIndex === -1 && fallbackHeaderRowIndex >= 0) {
+    headerRowIndex = fallbackHeaderRowIndex;
+    headers = fallbackHeaders;
+    console.log('Using fallback header row at index:', headerRowIndex);
+  }
+  console.log('Headers:', headers);
   
   if (headerRowIndex === -1) {
     console.log('No header row found. Available data:');
@@ -147,21 +160,23 @@ const parseExcelData = (jsonData) => {
       
       // Check if section already exists in this room
       const existingSection = room.sections.find(s => s.number === rowData.section);
+      const accommodations = Array.isArray(rowData.accommodations) ? rowData.accommodations : [];
       if (existingSection) {
-        console.log(`Section ${rowData.section} already exists in room ${rowData.room}, updating student count`);
+        console.log(`Section ${rowData.section} already exists in room ${rowData.room}, updating student count and accommodations`);
         existingSection.studentCount = rowData.studentCount;
+        existingSection.accommodations = accommodations;
       } else {
         // Add new section
         const section = {
           number: rowData.section,
           studentCount: rowData.studentCount,
-          accommodations: [],
+          accommodations,
           notes: ''
         };
         
         room.sections.push(section);
         sections.push(section);
-        console.log(`Added new section ${rowData.section} with ${rowData.studentCount} students to room ${rowData.room}`);
+        console.log(`Added new section ${rowData.section} with ${rowData.studentCount} students and accommodations [${accommodations.join(', ')}] to room ${rowData.room}`);
       }
     } else {
       console.log(`Row ${i} missing required data:`, {
@@ -187,6 +202,29 @@ const parseExcelData = (jsonData) => {
   };
 };
 
+const ISS_ELL_PLACEHOLDER = '{{ISS_ELL}}';
+
+/**
+ * Parse accommodations string: split by " w/" and by "/", but keep "ISS/ELL" as one accommodation.
+ * e.g. "1.5x w/ reader" -> ["1.5x", "reader"]; "2x/reader/comp" -> ["2x", "reader", "comp"];
+ * "ISS/ELL - spanish" stays one item; "ISS/ELL - bengali w/ reader" -> ["ISS/ELL - bengali", "reader"]
+ * @param {string} str - Raw accommodations cell value
+ * @returns {string[]} - Array of trimmed accommodation strings
+ */
+const parseAccommodationsString = (str) => {
+  if (!str || typeof str !== 'string') return [];
+  const trimmed = str.trim();
+  if (!trimmed) return [];
+  // 1) Normalize " w/" (with optional spaces) to "/" so "1.5x w/ reader" becomes "1.5x/reader"
+  let normalized = trimmed.replace(/\s*w\/\s*/gi, '/');
+  // 2) Protect "ISS/ELL" so we don't split on that slash (it's one accommodation name)
+  normalized = normalized.replace(/\bISS\/ELL\b/gi, ISS_ELL_PLACEHOLDER);
+  return normalized
+    .split('/')
+    .map(s => s.trim().replace(ISS_ELL_PLACEHOLDER, 'ISS/ELL'))
+    .filter(Boolean);
+};
+
 /**
  * Map column headers to data fields
  * @param {Array} headers - Column headers from Excel
@@ -197,7 +235,8 @@ const mapColumns = (headers) => {
   const mapping = {
     room: -1,
     section: -1,
-    studentCount: -1
+    studentCount: -1,
+    accommodations: -1
   };
   
   headers.forEach((header, index) => {
@@ -221,6 +260,11 @@ const mapColumns = (headers) => {
              (h.includes('count') && !h.includes('room'))) {
       mapping.studentCount = index;
       console.log(`Found student count column at index ${index}`);
+    }
+    // Accommodations column (accommodation, accommodations, or common abbreviations)
+    else if (h.includes('accommodation') || h === 'acc' || h === 'accom' || h.startsWith('accom')) {
+      mapping.accommodations = index;
+      console.log(`Found accommodations column at index ${index}`);
     }
   });
   
@@ -280,6 +324,21 @@ const parseDataRow = (row, columnMap) => {
     }
   } else {
     console.log('No student count found. Column index:', columnMap.studentCount, 'Value:', row[columnMap.studentCount]);
+  }
+  
+  // Extract accommodations (optional column): split by "/" and " w/"
+  const accommodationsCol = columnMap.accommodations;
+  const accommodationsCell = accommodationsCol >= 0 && row[accommodationsCol] != null ? row[accommodationsCol] : null;
+  if (accommodationsCol >= 0 && accommodationsCell !== '' && accommodationsCell !== null && accommodationsCell !== undefined) {
+    const raw = accommodationsCell.toString().trim();
+    if (raw) {
+      data.accommodations = parseAccommodationsString(raw);
+      console.log('Parsed accommodations:', data.accommodations);
+    } else {
+      data.accommodations = [];
+    }
+  } else {
+    data.accommodations = [];
   }
   
   console.log('Final parsed data:', data);
