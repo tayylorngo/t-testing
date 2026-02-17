@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { testingAPI, apiUtils } from '../services/api'
+import { testingAPI, apiUtils, authAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
 import InviteUsersModal from './InviteUsersModal'
 import ManageCollaboratorsModal from './ManageCollaboratorsModal'
 import PendingInvitationsModal from './PendingInvitationsModal'
 
-function Dashboard({ user, onLogout, onViewSession }) {
+function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
   const { isConnected, reconnect } = useRealTime()
   const [sessions, setSessions] = useState([])
   const [showArchived, setShowArchived] = useState(false)
@@ -52,6 +52,13 @@ function Dashboard({ user, onLogout, onViewSession }) {
   const [removeCollaboratorModal, setRemoveCollaboratorModal] = useState({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })
   const [errorModal, setErrorModal] = useState({ show: false, title: '', message: '' })
 
+  // Profile modal state
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', username: '', email: '', currentPassword: '', password: '', confirmPassword: '' })
+  const [profileErrors, setProfileErrors] = useState({})
+  const [profileMessage, setProfileMessage] = useState('')
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
+
   useEffect(() => {
     fetchSessions()
   }, [])
@@ -83,6 +90,73 @@ function Dashboard({ user, onLogout, onViewSession }) {
       console.error('Error fetching sessions:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Profile handlers
+  const handleOpenProfile = () => {
+    if (user) {
+      setProfileForm({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        username: user.username || '',
+        email: user.email || '',
+        currentPassword: '',
+        password: '',
+        confirmPassword: ''
+      })
+      setProfileErrors({})
+      setProfileMessage('')
+      setShowProfileModal(true)
+    }
+  }
+
+  const validateProfileForm = () => {
+    const newErrors = {}
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!profileForm.firstName.trim()) newErrors.firstName = 'First name is required'
+    else if (profileForm.firstName.trim().length < 2) newErrors.firstName = 'First name must be at least 2 characters'
+    if (!profileForm.lastName.trim()) newErrors.lastName = 'Last name is required'
+    else if (profileForm.lastName.trim().length < 2) newErrors.lastName = 'Last name must be at least 2 characters'
+    if (!profileForm.username) newErrors.username = 'Username is required'
+    else if (profileForm.username.length < 3) newErrors.username = 'Username must be at least 3 characters'
+    else if (profileForm.username.length > 30) newErrors.username = 'Username must be less than 30 characters'
+    if (!profileForm.email.trim()) newErrors.email = 'Email is required'
+    else if (!emailRegex.test(profileForm.email.trim())) newErrors.email = 'Please enter a valid email'
+    if (profileForm.password) {
+      if (!profileForm.currentPassword.trim()) newErrors.currentPassword = 'Enter your current password to change it'
+      if (profileForm.password.length < 8) newErrors.password = 'Password must be at least 8 characters'
+      else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(profileForm.password)) newErrors.password = 'Password must contain uppercase, lowercase, and a number'
+      if (profileForm.password !== profileForm.confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
+    }
+    setProfileErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault()
+    setProfileMessage('')
+    if (!validateProfileForm()) return
+    setIsProfileLoading(true)
+    try {
+      const updateData = {
+        firstName: profileForm.firstName.trim(),
+        lastName: profileForm.lastName.trim(),
+        username: profileForm.username,
+        email: profileForm.email.trim().toLowerCase()
+      }
+      if (profileForm.password) {
+        updateData.currentPassword = profileForm.currentPassword
+        updateData.password = profileForm.password
+      }
+      const response = await authAPI.updateProfile(updateData)
+      if (onUserUpdated && response.user) onUserUpdated(response.user)
+      setProfileMessage('Profile updated successfully')
+      setProfileForm(prev => ({ ...prev, currentPassword: '', password: '', confirmPassword: '' }))
+    } catch (error) {
+      setProfileMessage(error.message || 'Failed to update profile')
+    } finally {
+      setIsProfileLoading(false)
     }
   }
 
@@ -499,6 +573,16 @@ function Dashboard({ user, onLogout, onViewSession }) {
                   </button>
                 )}
               </div>
+              <button
+                onClick={handleOpenProfile}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition duration-200"
+                title="Edit Profile"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Profile
+              </button>
               <button
                 onClick={() => setShowPendingInvitationsModal(true)}
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
@@ -1220,6 +1304,120 @@ function Dashboard({ user, onLogout, onViewSession }) {
           fetchSessions()
         }}
       />
+
+      {/* Profile Modal */}
+      {showProfileModal && user && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h2>
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.firstName}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                    disabled={isProfileLoading}
+                  />
+                  {profileErrors.firstName && <span className="text-red-500 text-sm">{profileErrors.firstName}</span>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.lastName}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                    disabled={isProfileLoading}
+                  />
+                  {profileErrors.lastName && <span className="text-red-500 text-sm">{profileErrors.lastName}</span>}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <input
+                  type="text"
+                  value={profileForm.username}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, username: e.target.value }))}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.username ? 'border-red-500' : 'border-gray-300'}`}
+                  disabled={isProfileLoading}
+                />
+                {profileErrors.username && <span className="text-red-500 text-sm">{profileErrors.username}</span>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                  disabled={isProfileLoading}
+                />
+                {profileErrors.email && <span className="text-red-500 text-sm">{profileErrors.email}</span>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Current Password <span className="text-gray-500">(required to change password)</span></label>
+                <input
+                  type="password"
+                  value={profileForm.currentPassword}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter current password to change it"
+                  disabled={isProfileLoading}
+                />
+                {profileErrors.currentPassword && <span className="text-red-500 text-sm">{profileErrors.currentPassword}</span>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password <span className="text-gray-500">(optional)</span></label>
+                <input
+                  type="password"
+                  value={profileForm.password}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, password: e.target.value }))}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.password ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Leave blank to keep current"
+                  disabled={isProfileLoading}
+                />
+                {profileErrors.password && <span className="text-red-500 text-sm">{profileErrors.password}</span>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={profileForm.confirmPassword}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Confirm new password"
+                  disabled={isProfileLoading}
+                />
+                {profileErrors.confirmPassword && <span className="text-red-500 text-sm">{profileErrors.confirmPassword}</span>}
+              </div>
+              {profileMessage && (
+                <div className={`p-3 rounded-lg text-sm ${profileMessage.includes('success') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                  {profileMessage}
+                </div>
+              )}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowProfileModal(false); setProfileMessage(''); }}
+                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProfileLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  {isProfileLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Leave Session Confirmation Modal */}
       {leaveSessionModal.show && (
