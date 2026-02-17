@@ -7,6 +7,7 @@ import { body, validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
@@ -292,6 +293,13 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: 3,
     maxlength: 30
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
@@ -609,6 +617,7 @@ const initializeDemoData = async () => {
         firstName: 'Admin',
         lastName: 'User',
         username: 'admin',
+        email: 'admin@example.com',
         password: hashedPassword,
         verified: true
       });
@@ -695,12 +704,58 @@ const validateRegistration = [
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name must be at least 2 characters'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters'),
   body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters'),
+  body('email').trim().isEmail().withMessage('Please enter a valid email address'),
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
 ];
 
 const validateLogin = [
   body('username').trim().notEmpty().withMessage('Username is required'),
   body('password').notEmpty().withMessage('Password is required')
+];
+
+// In-memory store for password reset codes: email -> { code, expiresAt }
+const passwordResetCodes = new Map();
+const RESET_CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+
+function generateResetCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendResetCodeEmail(email, code) {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: 'Elmira – Your password reset code',
+      text: `Your password reset code is: ${code}\n\nThis code expires in 15 minutes. If you didn't request this, you can ignore this email.`,
+      html: `<p>Your password reset code is: <strong>${code}</strong></p><p>This code expires in 15 minutes. If you didn't request this, you can ignore this email.</p>`
+    });
+  } else {
+    console.log('[Forgot password] No SMTP configured. Reset code for', email, ':', code);
+  }
+}
+
+const validateProfileUpdate = [
+  body('firstName').optional().trim().isLength({ min: 2 }).withMessage('First name must be at least 2 characters'),
+  body('lastName').optional().trim().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters'),
+  body('username').optional().trim().isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters'),
+  body('email').optional().trim().isEmail().withMessage('Please enter a valid email address'),
+  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('confirmPassword').optional().custom((value, { req }) => {
+    if (req.body.password && value !== req.body.password) {
+      throw new Error('Passwords do not match');
+    }
+    return true;
+  })
 ];
 
 // Authentication middleware
@@ -802,12 +857,16 @@ app.post('/api/register', validateRegistration, async (req, res) => {
       });
     }
 
-    const { firstName, lastName, username, password } = req.body;
+    const { firstName, lastName, username, email, password } = req.body;
+    const normalizedEmail = email.trim().toLowerCase();
 
     // Check if user already exists
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ $or: [{ username }, { email: normalizedEmail }] });
     if (existingUser) {
-      return res.status(400).json({ message: 'Username already exists' });
+      if (existingUser.username === username) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      return res.status(400).json({ message: 'Email already registered' });
     }
 
     // Hash password
@@ -819,6 +878,7 @@ app.post('/api/register', validateRegistration, async (req, res) => {
       firstName,
       lastName,
       username,
+      email: normalizedEmail,
       password: hashedPassword
     });
 
@@ -836,7 +896,7 @@ app.post('/api/register', validateRegistration, async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'Username already exists' });
+      return res.status(400).json({ message: 'Username or email already exists' });
     }
     res.status(500).json({ message: 'Internal server error' });
   }
@@ -913,6 +973,142 @@ app.get('/api/verify', authenticateToken, async (req, res) => {
 // Logout (client-side token removal)
 app.post('/api/logout', authenticateToken, (req, res) => {
   res.json({ message: 'Logged out successfully' });
+});
+
+// Forgot password – send reset code to email on file
+app.post('/api/forgot-password', [
+  body('email').trim().isEmail().withMessage('Please enter a valid email address')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+    const email = req.body.email.trim().toLowerCase();
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({ message: 'If an account exists with this email, you will receive a reset code shortly.' });
+    }
+    const code = generateResetCode();
+    passwordResetCodes.set(email, {
+      code,
+      expiresAt: Date.now() + RESET_CODE_EXPIRY_MS
+    });
+    await sendResetCodeEmail(user.email, code);
+    res.status(200).json({ message: 'If an account exists with this email, you will receive a reset code shortly.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Unable to send reset code. Please try again later.' });
+  }
+});
+
+// Reset password with code from email
+app.post('/api/reset-password', [
+  body('email').trim().isEmail().withMessage('Please enter a valid email address'),
+  body('code').trim().notEmpty().withMessage('Reset code is required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+    const { email, code, newPassword } = req.body;
+    const normalizedEmail = email.trim().toLowerCase();
+    const stored = passwordResetCodes.get(normalizedEmail);
+    if (!stored || stored.code !== code.trim()) {
+      return res.status(400).json({ message: 'Invalid or expired reset code.' });
+    }
+    if (Date.now() > stored.expiresAt) {
+      passwordResetCodes.delete(normalizedEmail);
+      return res.status(400).json({ message: 'Invalid or expired reset code.' });
+    }
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      passwordResetCodes.delete(normalizedEmail);
+      return res.status(400).json({ message: 'Invalid or expired reset code.' });
+    }
+    const saltRounds = 10;
+    user.password = await bcrypt.hash(newPassword, saltRounds);
+    await user.save();
+    passwordResetCodes.delete(normalizedEmail);
+    res.status(200).json({ message: 'Password has been reset. You can sign in with your new password.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Unable to reset password. Please try again.' });
+  }
+});
+
+// Update user profile
+app.put('/api/profile', authenticateToken, validateProfileUpdate, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { firstName, lastName, username, email, password } = req.body;
+    const updateData = {};
+
+    if (firstName !== undefined) updateData.firstName = firstName.trim();
+    if (lastName !== undefined) updateData.lastName = lastName.trim();
+    if (username !== undefined) updateData.username = username.trim();
+    if (email !== undefined) updateData.email = email.trim().toLowerCase();
+
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check for duplicate username (if changing)
+    if (username && username.trim() !== currentUser.username) {
+      const existingUsername = await User.findOne({ username: username.trim() });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+    }
+
+    // Check for duplicate email (if changing)
+    if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (normalizedEmail !== (currentUser.email || '')) {
+        const existingEmail = await User.findOne({ email: normalizedEmail });
+        if (existingEmail) {
+          return res.status(400).json({ message: 'Email already registered' });
+        }
+      }
+    }
+
+    if (password) {
+      const currentPassword = req.body.currentPassword;
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to set a new password' });
+      }
+      const isMatch = await bcrypt.compare(currentPassword, currentUser.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+      const saltRounds = 10;
+      updateData.password = await bcrypt.hash(password, saltRounds);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.json({ message: 'Profile updated successfully', user: updatedUser.toObject() });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Username or email already exists' });
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
 // Get all rooms

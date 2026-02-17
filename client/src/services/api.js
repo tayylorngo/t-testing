@@ -74,6 +74,44 @@ export const authAPI = {
     });
     return handleResponse(response);
   },
+
+  // Forgot password – request reset code to email
+  forgotPassword: async (email) => {
+    const response = await fetch(`${API_BASE_URL}/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse(response);
+  },
+
+  // Reset password with code from email
+  resetPassword: async (email, code, newPassword) => {
+    const response = await fetch(`${API_BASE_URL}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+    return handleResponse(response);
+  },
+
+  // Update profile
+  updateProfile: async (profileData) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No token found');
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/profile`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profileData),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Testing sessions API calls

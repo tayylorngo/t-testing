@@ -6,6 +6,7 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
     firstName: '',
     lastName: '',
     username: '',
+    email: '',
     password: '',
     confirmPassword: ''
   })
@@ -53,6 +54,14 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
     } else if (formData.username.length > 30) {
       newErrors.username = 'Username must be less than 30 characters'
     }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!emailRegex.test(formData.email.trim())) {
+      newErrors.email = 'Please enter a valid email address'
+    }
     
     // Password validation
     if (!formData.password) {
@@ -89,6 +98,7 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         username: formData.username,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password
       }
       
@@ -179,25 +189,48 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
               </div>
             </div>
             
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
-              </label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                  errors.username ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Choose a username"
-                disabled={isLoading}
-              />
-              {errors.username && (
-                <span className="text-red-500 text-sm mt-1 block">{errors.username}</span>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.username ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Choose a username"
+                  disabled={isLoading}
+                />
+                {errors.username && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.username}</span>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                    errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your email"
+                  disabled={isLoading}
+                />
+                {errors.email && (
+                  <span className="text-red-500 text-sm mt-1 block">{errors.email}</span>
+                )}
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
