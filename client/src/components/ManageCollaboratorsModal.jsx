@@ -23,6 +23,7 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
     if (isOpen) {
       fetchCollaborators()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchCollaborators stable, run when modal opens
   }, [isOpen, sessionId])
 
   useEffect(() => {
@@ -57,6 +58,7 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
       window.removeEventListener('collaboratorRemoved', handleCollaboratorRemoved)
       window.removeEventListener('confirmRemoveCollaborator', handleConfirmRemoveCollaborator)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: event listeners for this sessionId only
   }, [sessionId])
 
   const fetchCollaborators = async () => {

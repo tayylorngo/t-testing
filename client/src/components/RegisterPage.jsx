@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { authAPI } from '../services/api'
 
 function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({

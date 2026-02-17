@@ -15,6 +15,7 @@ function SessionView({ user, onBack }) {
   const [timeRemaining, setTimeRemaining] = useState(null)
 
   // Memoize session data to prevent unnecessary re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: stable ref by key fields only
   const memoizedSession = useMemo(() => session, [session?._id, session?.status, session?.rooms?.length, session?.startTime, session?.endTime, session?.accommodationStartTime, session?.date])
 
   // Debounced session update to prevent rapid successive updates
@@ -96,6 +97,7 @@ function SessionView({ user, onBack }) {
       memoizedSession.collaborators?.some(collab =>
         collab.userId._id === user._id && (collab.permissions.edit || collab.permissions.manage)
       )
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- compare by id only to avoid unnecessary updates
   }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
 
@@ -104,6 +106,7 @@ function SessionView({ user, onBack }) {
     if (memoizedSession.createdBy._id === user._id) return false // Owner has full access
     const collaborator = memoizedSession.collaborators?.find(collab => collab.userId._id === user._id)
     return collaborator && collaborator.permissions.view && !collaborator.permissions.edit && !collaborator.permissions.manage
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- compare by id only
   }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
   const getSessionRole = useCallback(() => {
@@ -118,6 +121,7 @@ function SessionView({ user, onBack }) {
       return `Collaborator (${permissions.join(', ')})`
     }
     return 'Unknown'
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- compare by id only
   }, [memoizedSession?.createdBy?._id, memoizedSession?.collaborators, user?._id])
 
   // Sort state
@@ -258,12 +262,14 @@ function SessionView({ user, onBack }) {
       // Don't leave session here as it can cause connection issues
       // The RealTimeContext will handle session management
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- register handler when session loads
   }, [sessionId, isConnected, session])
 
   // Fetch session data when component mounts or sessionId changes
   useEffect(() => {
     console.log('📥 SessionView useEffect - Fetching session data for session:', sessionId)
     fetchSessionData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on sessionId only
   }, [sessionId])
 
   // Debug session state changes
@@ -571,6 +577,7 @@ function SessionView({ user, onBack }) {
       const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
       setTimeRemaining({ hours, minutes, seconds, isOver: false })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- time calc from session times only
   }, [memoizedSession?.date, memoizedSession?.endTime])
 
   useEffect(() => {
@@ -583,7 +590,8 @@ function SessionView({ user, onBack }) {
       }, 1000)
       return () => clearInterval(timer)
     }
-  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, updateTimeRemaining]) // Depend on session properties that affect time calculation
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- updateTimeRemaining depends on memoizedSession
+  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, updateTimeRemaining])
 
   const calculateProgress = useCallback(() => {
     if (!debouncedSession || !debouncedSession.rooms) return 0
@@ -593,6 +601,7 @@ function SessionView({ user, onBack }) {
 
     const completedRooms = debouncedSession.rooms.filter(room => room.status === 'completed').length
     return Math.round((completedRooms / totalRooms) * 100)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debouncedSession is source of truth
   }, [debouncedSession?.rooms])
 
   const handleMarkRoomComplete = useCallback((roomId) => {
@@ -808,7 +817,7 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error marking room complete:', error)
     }
-  }, [roomToComplete, presentStudentsCount, sectionPresentCounts, sessionId, calculateTotalStudents])
+  }, [roomToComplete, presentStudentsCount, sectionPresentCounts, calculateTotalStudents])
 
   const handleMarkRoomIncomplete = useCallback((roomId) => {
     setRoomToMarkIncomplete(roomId)
@@ -1357,6 +1366,7 @@ function SessionView({ user, onBack }) {
     } catch (error) {
       console.error('Error moving students:', error)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- session.rooms is the source list
   }, [moveFromRoom, studentMoveData, session?.rooms])
 
   const formatTime = useCallback((timeString) => {
@@ -1603,6 +1613,7 @@ function SessionView({ user, onBack }) {
     const seconds = Math.floor((roomTimeDiff % (1000 * 60)) / 1000)
 
     return { hours, minutes, seconds, isOver: false, multiplier: timeMultiplier }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- memoizedSession fields sufficient
   }, [memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, memoizedSession?.date, timeRemaining, calculateRoomTimeMultiplier])
 
   // Create a hash of section accommodations to detect changes (needed for roomTimeCalculations)
@@ -1628,6 +1639,7 @@ function SessionView({ user, onBack }) {
       }
     })
     return calculations
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sectionAccommodationsHash derived from rooms
   }, [debouncedSession?.rooms, timeRemaining, calculateRoomTimeRemaining, sectionAccommodationsHash])
 
   const getSortedRooms = useCallback(() => {
@@ -1801,6 +1813,7 @@ function SessionView({ user, onBack }) {
       // Apply sort direction
       return sortDescending ? -comparison : comparison
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getRoomSortKey/calculateTotalStudents are stable
   }, [debouncedSession?.rooms, searchQuery, sectionSearchQuery, sortBy, sortDescending, roomTimeCalculations])
 
   // Handle table header click for sorting
@@ -1962,6 +1975,7 @@ function SessionView({ user, onBack }) {
       const seconds = Math.floor((timeDiff2x % (1000 * 60)) / 1000)
       setTimeRemaining2x({ hours, minutes, seconds, isOver: false })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- accommodation timer update
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, debouncedSession?.rooms, all15xRoomsCompleted, all2xRoomsCompleted, roomHas15xAccommodation, roomHas2xAccommodation])
 
   // Create a hash of room statuses to detect changes
@@ -1983,6 +1997,7 @@ function SessionView({ user, onBack }) {
       setTimeRemaining15x(null)
       setTimeRemaining2x(null)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- interval for accommodation timer
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
   
   // Also update immediately when completion status changes
@@ -1990,6 +2005,7 @@ function SessionView({ user, onBack }) {
     if (memoizedSession && memoizedSession.accommodationStartTime) {
       updateAccommodationTimeRemaining()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when completion status changes
   }, [all15xRoomsCompleted, all2xRoomsCompleted, updateAccommodationTimeRemaining, memoizedSession?.accommodationStartTime])
 
 

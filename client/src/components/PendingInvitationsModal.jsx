@@ -33,6 +33,7 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
       }, 100)
       return () => clearTimeout(timer)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restoreTabState reads from localStorage
   }, [isOpen, activeTab])
   
   // Check and restore tab state after invitation state changes
@@ -40,6 +41,7 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
     if (isOpen && (invitations.length > 0 || sentInvitations.length > 0)) {
       restoreTabState()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- restore when invitation counts change
   }, [invitations.length, sentInvitations.length, isOpen])
 
   useEffect(() => {
@@ -47,7 +49,8 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
       console.log('Modal opened, fetching invitations, current activeTab:', activeTab)
       fetchInvitations()
     }
-  }, [isOpen]) // Only depend on isOpen, not on activeTab
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch only when modal opens
+  }, [isOpen])
 
   const fetchInvitations = async () => {
     setIsLoading(true)

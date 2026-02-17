@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { testingAPI, apiUtils, authAPI } from '../services/api'
+import { testingAPI, authAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
 import InviteUsersModal from './InviteUsersModal'
 import ManageCollaboratorsModal from './ManageCollaboratorsModal'
@@ -61,6 +61,7 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
   useEffect(() => {
     fetchSessions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   useEffect(() => {
@@ -72,6 +73,7 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
     return () => {
       window.removeEventListener('collaboratorRemoved', handleCollaboratorRemoved)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: setup listener once
   }, [])
 
   // Ensure WebSocket connection is maintained when Dashboard is active
@@ -200,13 +202,14 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
           comparison = aValue.getTime() - bValue.getTime()
           break
           
-        case 'status':
+        case 'status': {
           // Sort by status (planned, active, completed, cancelled)
           const statusOrder = { 'planned': 1, 'active': 2, 'completed': 3, 'cancelled': 4 }
           aValue = statusOrder[a.status] || 5
           bValue = statusOrder[b.status] || 5
           comparison = aValue - bValue
           break
+        }
           
         case 'roomCount':
           // Sort by number of rooms

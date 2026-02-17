@@ -51,7 +51,7 @@ function InviteUsersModal({ sessionId, isOpen, onClose, onInvitationSent, onShow
     } else {
       setSearchResults([])
     }
-  }, [searchQuery])
+  }, [searchQuery, sessionId])
 
   const handleUserSelect = (user) => {
     // Check if user is already selected

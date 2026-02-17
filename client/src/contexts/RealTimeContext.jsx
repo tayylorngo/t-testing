@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 
 const RealTimeContext = createContext();
 
+/* eslint-disable react-refresh/only-export-components */
 export const useRealTime = () => {
   const context = useContext(RealTimeContext);
   if (!context) {
@@ -171,6 +172,7 @@ export const RealTimeProvider = ({ children }) => {
         socket.close();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init once on mount
   }, []);
 
   // Internal function to join session (used after connection is established)

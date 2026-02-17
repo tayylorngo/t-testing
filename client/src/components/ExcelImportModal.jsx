@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { parseExcelFile, validateImportData } from '../utils/excelImport';
 
-function ExcelImportModal({ isOpen, onClose, onImport, sessionId }) {
+function ExcelImportModal({ isOpen, onClose, onImport }) {
   const [isLoading, setIsLoading] = useState(false);
   const [importData, setImportData] = useState(null);
   const [validationResult, setValidationResult] = useState(null);

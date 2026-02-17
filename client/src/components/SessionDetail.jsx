@@ -182,6 +182,7 @@ function SessionDetail({ onBack }) {
       cleanup()
       leaveSession()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- join/leave and handler tied to sessionId only
   }, [sessionId])
 
   // Update page title when session loads
@@ -579,8 +580,7 @@ function SessionDetail({ onBack }) {
       // Always use the original section numbers from Excel, regardless of existing sections
       // The deletion process should have cleared everything, so we can use original numbers
       console.log('Using original section numbers from Excel file');
-      let nextSectionNumber = 1;
-      
+
       // Create sections with original numbers from Excel file
       for (const sectionData of importData.sections) {
         try {

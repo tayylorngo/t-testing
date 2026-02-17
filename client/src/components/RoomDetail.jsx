@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import { useRealTime } from '../contexts/RealTimeContext'
 
-const RoomDetail = ({ user }) => {
+const RoomDetail = () => {
   const { sessionId, roomId } = useParams()
   const navigate = useNavigate()
   const { isConnected, joinSession, onSessionUpdate, leaveSession } = useRealTime()
@@ -101,7 +101,7 @@ const RoomDetail = ({ user }) => {
 
     const updateTime = () => {
       const now = new Date()
-      const [startHour, startMinute] = session.startTime.split(':')
+      const [_startHour, _startMinute] = session.startTime.split(':')
       const [endHour, endMinute] = session.endTime.split(':')
       const sessionDate = new Date(session.date)
       // Extract UTC date parts (since date is stored at UTC midnight)
@@ -110,7 +110,6 @@ const RoomDetail = ({ user }) => {
       const day = sessionDate.getUTCDate()
       
       // Create local times with the correct date and user-entered times
-      const startTime = new Date(year, month, day, parseInt(startHour), parseInt(startMinute), 0)
       const endTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
       
       const timeDiff = endTime - now

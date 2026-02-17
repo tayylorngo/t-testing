@@ -240,14 +240,6 @@ export const exportSessionToExcel = (session, filename = 'testing-session') => {
 };
 
 /**
- * Calculate total students across all sections in a session
- */
-const calculateTotalStudents = (session) => {
-  if (!session.sections) return 0;
-  return session.sections.reduce((total, section) => total + (section.studentCount || 0), 0);
-};
-
-/**
  * Calculate total students in a room
  */
 const calculateRoomTotalStudents = (room) => {
