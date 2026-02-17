@@ -69,6 +69,11 @@ function SessionView({ user, onBack }) {
   const [showRoomNotesModal, setShowRoomNotesModal] = useState(false)
   const [selectedRoomForNotes, setSelectedRoomForNotes] = useState(null)
   const [roomNotes, setRoomNotes] = useState('')
+  const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
+  const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
+  const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
+  const [showMarkRoomCompleteModal, setShowMarkRoomCompleteModal] = useState(false)
+  const [selectedRoomForComplete, setSelectedRoomForComplete] = useState(null)
 
 
 
@@ -611,6 +616,83 @@ function SessionView({ user, onBack }) {
 
     setShowPresentStudentsModal(true)
   }, [session?.rooms])
+
+  // Build flat list of sections from non-completed rooms for Quick Complete
+  const sectionsAvailableForQuickComplete = useMemo(() => {
+    if (!session?.rooms) return []
+    const items = []
+    session.rooms
+      .filter(room => room.status !== 'completed')
+      .forEach(room => {
+        (room.sections || []).forEach(section => {
+          items.push({ section, room })
+        })
+      })
+    return items.sort((a, b) => (a.section.number || 0) - (b.section.number || 0))
+  }, [session?.rooms])
+
+  const handleQuickCompleteBySection = useCallback(async () => {
+    if (!quickCompleteSection) return
+
+    const { section, room } = quickCompleteSection
+    const presentCount = parseInt(quickCompleteStudentsPresent, 10)
+
+    if (isNaN(presentCount) || presentCount < 0 || presentCount > section.studentCount) {
+      setAttendanceError(`Please enter a valid number between 0 and ${section.studentCount} for Section ${section.number}`)
+      setShowAttendanceErrorModal(true)
+      return
+    }
+
+    try {
+      // Single-section room: complete directly
+      if (!room.sections || room.sections.length <= 1) {
+        const updateData = {
+          status: 'completed',
+          presentStudents: presentCount
+        }
+        if (room.sections?.length === 1) {
+          updateData.sectionAttendance = { [section._id]: presentCount }
+        }
+
+        await testingAPI.updateRoom(room._id, updateData)
+
+        setSession(prevSession => {
+          const updatedSession = {
+            ...prevSession,
+            rooms: prevSession.rooms.map(r =>
+              r._id === room._id
+                ? { ...r, status: 'completed', presentStudents: presentCount, sectionAttendance: updateData.sectionAttendance || {} }
+                : r
+            )
+          }
+          const allRoomsCompleted = updatedSession.rooms.every(r => r.status === 'completed')
+          if (allRoomsCompleted && updatedSession.status !== 'completed') {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
+          }
+          return updatedSession
+        })
+
+        setShowQuickCompleteModal(false)
+        setQuickCompleteSection(null)
+        setQuickCompleteStudentsPresent('')
+      } else {
+        // Multi-section room: open full modal with this section pre-filled
+        setRoomToComplete(room)
+        const initialCounts = {}
+        room.sections.forEach(s => {
+          initialCounts[s._id] = s._id === section._id ? String(presentCount) : ''
+        })
+        setSectionPresentCounts(initialCounts)
+        setPresentStudentsCount('')
+        setShowQuickCompleteModal(false)
+        setQuickCompleteSection(null)
+        setQuickCompleteStudentsPresent('')
+        setShowPresentStudentsModal(true)
+      }
+    } catch (error) {
+      console.error('Error in quick complete by section:', error)
+    }
+  }, [quickCompleteSection, quickCompleteStudentsPresent])
 
   const calculateTotalStudents = useCallback((sections) => {
     if (!sections || sections.length === 0) return 0
@@ -2400,7 +2482,7 @@ function SessionView({ user, onBack }) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 View Mode
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setIsTableView(!isTableView)}
                   className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
@@ -2420,6 +2502,43 @@ function SessionView({ user, onBack }) {
               </div>
             </div>
           </div>
+
+          {/* Mark Room Complete / Mark Section Complete - bottom row, right-aligned */}
+          {canEditSession() && (session?.rooms?.some(r => r.status !== 'completed') || sectionsAvailableForQuickComplete.length > 0) && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+              {session?.rooms?.some(r => r.status !== 'completed') && (
+                <button
+                  onClick={() => {
+                    setSelectedRoomForComplete(null)
+                    setShowMarkRoomCompleteModal(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-2"
+                  title="Mark a room as complete"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Mark Room Complete
+                </button>
+              )}
+              {sectionsAvailableForQuickComplete.length > 0 && (
+                <button
+                  onClick={() => {
+                    setQuickCompleteSection(null)
+                    setQuickCompleteStudentsPresent('')
+                    setShowQuickCompleteModal(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-2"
+                  title="Mark a section as complete"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Mark Section Complete
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Large Screen Display Mode */}
@@ -4199,6 +4318,154 @@ function SessionView({ user, onBack }) {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Room Complete Modal */}
+      {showMarkRoomCompleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Room
+                </label>
+                <select
+                  value={selectedRoomForComplete?._id || ''}
+                  onChange={(e) => {
+                    const roomId = e.target.value
+                    if (!roomId) {
+                      setSelectedRoomForComplete(null)
+                      return
+                    }
+                    const room = session?.rooms?.find(r => r._id === roomId)
+                    setSelectedRoomForComplete(room || null)
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Choose a room...</option>
+                  {session?.rooms
+                    ?.filter(room => room.status !== 'completed')
+                    ?.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                    ?.map(room => (
+                      <option key={room._id} value={room._id}>
+                        {room.name} ({room.sections?.length || 0} section{room.sections?.length !== 1 ? 's' : ''})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowMarkRoomCompleteModal(false)
+                    setSelectedRoomForComplete(null)
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedRoomForComplete) {
+                      setShowMarkRoomCompleteModal(false)
+                      handleMarkRoomComplete(selectedRoomForComplete._id)
+                      setSelectedRoomForComplete(null)
+                    }
+                  }}
+                  disabled={!selectedRoomForComplete}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Section Complete Modal */}
+      {showQuickCompleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Section Complete</h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Section
+                </label>
+                <select
+                  value={quickCompleteSection ? `${quickCompleteSection.room._id}-${quickCompleteSection.section._id}` : ''}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (!val) {
+                      setQuickCompleteSection(null)
+                      setQuickCompleteStudentsPresent('')
+                      return
+                    }
+                    const [roomId, sectionId] = val.split('-')
+                    const item = sectionsAvailableForQuickComplete.find(
+                      x => x.room._id === roomId && x.section._id === sectionId
+                    )
+                    setQuickCompleteSection(item || null)
+                    setQuickCompleteStudentsPresent('')
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Choose a section...</option>
+                  {sectionsAvailableForQuickComplete.map(({ section, room }) => (
+                      <option key={`${room._id}-${section._id}`} value={`${room._id}-${section._id}`}>
+                        Section {section.number} – {room.name} ({section.studentCount} students)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {quickCompleteSection && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Students Present (Section {quickCompleteSection.section.number})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={quickCompleteSection.section.studentCount}
+                    value={quickCompleteStudentsPresent}
+                    onChange={(e) => setQuickCompleteStudentsPresent(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                    placeholder={`Enter 0–${quickCompleteSection.section.studentCount}`}
+                    autoFocus
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Max: {quickCompleteSection.section.studentCount} students
+                  </p>
+                </div>
+              )}
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  onClick={() => {
+                    setShowQuickCompleteModal(false)
+                    setQuickCompleteSection(null)
+                    setQuickCompleteStudentsPresent('')
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleQuickCompleteBySection}
+                  disabled={!quickCompleteSection || !quickCompleteStudentsPresent || isNaN(parseInt(quickCompleteStudentsPresent))}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                >
+                  Mark Section Complete
+                </button>
+              </div>
             </div>
           </div>
         </div>
