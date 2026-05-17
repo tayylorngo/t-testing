@@ -139,6 +139,11 @@ function SessionView({ user, onBack }) {
   const [displayFilterAccommodation, setDisplayFilterAccommodation] = useState('all') // all, bilingual, 1.5x, 2x
   const [displaySortBy, setDisplaySortBy] = useState('roomNumber') // roomNumber, sectionNumber
 
+  // Exam return tracking (used in Display Mode)
+  const [returnEntry, setReturnEntry] = useState(null) // { roomId, sectionId, sectionNumber, roomName, studentCount }
+  const [returnEntryValue, setReturnEntryValue] = useState(0)
+  const [returnEntrySaving, setReturnEntrySaving] = useState(false)
+
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
   const roomsPerPage = 50 // Show 50 rooms per page
@@ -707,6 +712,66 @@ function SessionView({ user, onBack }) {
     if (!sections || sections.length === 0) return 0
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
   }, [])
+
+  // --- Exam return tracking helpers (Display Mode) ---
+  const getSectionReturned = useCallback((room, sectionId) => {
+    const val = room?.sectionReturns ? room.sectionReturns[sectionId] : 0
+    return Number(val) || 0
+  }, [])
+
+  const getRoomReturnedTotal = useCallback((room) => {
+    if (!room?.sections) return 0
+    return room.sections.reduce((sum, s) => sum + getSectionReturned(room, s._id), 0)
+  }, [getSectionReturned])
+
+  const openReturnEntry = useCallback((room, section) => {
+    if (!canEditSession()) return
+    setReturnEntry({
+      roomId: room._id,
+      sectionId: section._id,
+      sectionNumber: section.number,
+      roomName: room.name,
+      studentCount: section.studentCount || 0,
+    })
+    setReturnEntryValue(getSectionReturned(room, section._id))
+  }, [canEditSession, getSectionReturned])
+
+  const closeReturnEntry = useCallback(() => {
+    setReturnEntry(null)
+    setReturnEntryValue(0)
+    setReturnEntrySaving(false)
+  }, [])
+
+  const adjustReturnEntry = useCallback((delta) => {
+    setReturnEntryValue(prev => {
+      const max = returnEntry?.studentCount ?? 0
+      const next = (Number(prev) || 0) + delta
+      return Math.min(Math.max(next, 0), max)
+    })
+  }, [returnEntry])
+
+  const handleSaveReturnEntry = useCallback(async () => {
+    if (!returnEntry) return
+    setReturnEntrySaving(true)
+    try {
+      const value = Math.min(
+        Math.max(Math.round(Number(returnEntryValue) || 0), 0),
+        returnEntry.studentCount
+      )
+      const result = await testingAPI.updateSectionReturns(returnEntry.roomId, returnEntry.sectionId, value)
+      if (result?.room) {
+        setSession(prev => prev ? {
+          ...prev,
+          rooms: prev.rooms.map(r => r._id === returnEntry.roomId ? result.room : r)
+        } : prev)
+        addUpdateAnimation(returnEntry.roomId, 'room-updated')
+      }
+      closeReturnEntry()
+    } catch (error) {
+      console.error('Failed to update section returns:', error)
+      setReturnEntrySaving(false)
+    }
+  }, [returnEntry, returnEntryValue, closeReturnEntry, addUpdateAnimation])
 
   const handleConfirmRoomComplete = useCallback(async () => {
     if (!roomToComplete) return
@@ -2663,39 +2728,75 @@ function SessionView({ user, onBack }) {
                 </div>
               </div>
 
-              {/* Stats Row */}
-              <div className="grid grid-cols-6 gap-3 max-w-7xl mx-auto">
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Progress</p>
-                  <p className="text-3xl font-bold text-brand-600">{progress}%</p>
-                </div>
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Total Students</p>
-                  <p className="text-3xl font-bold text-slate-900">
-                    {calculateTotalStudentsInSession()}
-                  </p>
-                </div>
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Present</p>
-                  <p className="text-3xl font-bold text-emerald-600">{calculateTotalPresentStudents()}</p>
-                </div>
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Absent</p>
-                  <p className="text-3xl font-bold text-rose-600">{calculateTotalAbsentStudents()}</p>
-                </div>
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Rooms</p>
-                  <p className="text-3xl font-bold text-brand-600">
-                    {debouncedSession?.rooms?.filter(r => r.status === 'completed').length || 0}/{debouncedSession?.rooms?.length || 0}
-                  </p>
-                </div>
-                <div className="el-card p-4 text-center">
-                  <p className="text-sm text-slate-500 mb-1">Sections</p>
-                  <p className="text-3xl font-bold text-brand-600">
-                    {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.status === 'completed' ? (room.sections?.length || 0) : 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
-                  </p>
-                </div>
-              </div>
+              {/* Exam-return progress + stats */}
+              {(() => {
+                const rooms = debouncedSession?.rooms || []
+                const totalStudents = rooms.reduce(
+                  (sum, room) => sum + (room.sections?.reduce((s, sec) => s + (sec.studentCount || 0), 0) || 0),
+                  0
+                )
+                const totalReturned = rooms.reduce((sum, room) => sum + getRoomReturnedTotal(room), 0)
+                const returnPct = totalStudents > 0 ? Math.round((totalReturned / totalStudents) * 100) : 0
+                let sectionsTotal = 0
+                let sectionsReturned = 0
+                rooms.forEach(room => {
+                  (room.sections || []).forEach(sec => {
+                    sectionsTotal += 1
+                    if ((sec.studentCount || 0) > 0 && getSectionReturned(room, sec._id) >= sec.studentCount) {
+                      sectionsReturned += 1
+                    }
+                  })
+                })
+                const roomsCompleted = rooms.filter(r => r.status === 'completed').length
+
+                return (
+                  <div className="max-w-7xl mx-auto">
+                    {/* Headline returns progress bar */}
+                    <div className="el-card p-4 mb-3">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <span className="text-base font-bold uppercase tracking-wide text-slate-700">
+                          Exams Returned
+                        </span>
+                        <span className="text-2xl font-bold text-emerald-600">
+                          {totalReturned}
+                          <span className="text-lg font-semibold text-slate-400"> / {totalStudents}</span>
+                          <span className="ml-2 text-lg font-semibold text-slate-500">({returnPct}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-4 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${returnPct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Supporting stats */}
+                    <div className="grid grid-cols-5 gap-3">
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Sections Returned</p>
+                        <p className="text-3xl font-bold text-emerald-600">{sectionsReturned}/{sectionsTotal}</p>
+                      </div>
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Rooms Completed</p>
+                        <p className="text-3xl font-bold text-brand-600">{roomsCompleted}/{rooms.length}</p>
+                      </div>
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Total Students</p>
+                        <p className="text-3xl font-bold text-slate-900">{calculateTotalStudentsInSession()}</p>
+                      </div>
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Present</p>
+                        <p className="text-3xl font-bold text-emerald-600">{calculateTotalPresentStudents()}</p>
+                      </div>
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Absent</p>
+                        <p className="text-3xl font-bold text-rose-600">{calculateTotalAbsentStudents()}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Testing Rooms Title and Filters - Fixed, not scrollable */}
               <div className="mt-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -2849,12 +2950,15 @@ function SessionView({ user, onBack }) {
                   }).map((room) => {
                     const roomTimeData = getRoomTimeRemaining(room)
                     const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
-                    const presentStudents = room.status === 'completed' ? (room.presentStudents || 0) : 0
+                    const roomReturned = getRoomReturnedTotal(room)
+                    const roomReturnPct = totalStudents > 0 ? Math.round((roomReturned / totalStudents) * 100) : 0
+                    const roomFullyReturned = totalStudents > 0 && roomReturned >= totalStudents
                     const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
+                    const canEdit = canEditSession()
                     // Check for conflicts: room number conflicts OR sections with "Conflict" accommodation
                     const hasRoomNumberConflict = conflictRoomNumbers.has(room._id)
-                    const hasSectionConflict = room.sections?.some(section => 
-                      section.accommodations?.some(acc => 
+                    const hasSectionConflict = room.sections?.some(section =>
+                      section.accommodations?.some(acc =>
                         acc.toLowerCase().includes('conflict')
                       )
                     ) || false
@@ -2863,41 +2967,34 @@ function SessionView({ user, onBack }) {
                     return (
                       <div
                         key={room._id}
-                        className={`rounded-xl p-5 shadow-sm border ${hasConflict
+                        className={`flex flex-col rounded-xl p-4 shadow-sm border ${hasConflict
                           ? 'bg-amber-50 border-amber-300'
-                          : room.status === 'completed'
+                          : roomFullyReturned
                           ? 'bg-emerald-50 border-emerald-300'
-                          : room.status === 'active'
-                            ? 'bg-blue-50 border-blue-300'
-                            : 'bg-white border-slate-200'
+                          : 'bg-white border-slate-200'
                           }`}
                       >
-                        <div className="flex justify-between items-start mb-3">
+                        {/* Room header */}
+                        <div className="flex justify-between items-start mb-3 gap-2">
                           <div className="flex flex-col gap-1 truncate flex-1">
                             <h3 className="text-xl font-bold text-slate-900 truncate">{room.name}</h3>
                             <div className="flex gap-1 flex-wrap">
                               {getRoomAccommodationSummary(room) && (
                                 <>
                                   {getRoomAccommodationSummary(room).includes('bilingual') && (
-                                    <span className="el-badge el-badge-blue">
-                                      🌐 Bilingual
-                                    </span>
+                                    <span className="el-badge el-badge-blue">🌐 Bilingual</span>
                                   )}
                                   {getRoomAccommodationSummary(room).includes('extra-time') && (
-                                    <span className="el-badge el-badge-green">
-                                      ⏱️ Extra Time
-                                    </span>
+                                    <span className="el-badge el-badge-green">⏱️ Extra Time</span>
                                   )}
                                 </>
                               )}
                               {room.notes && room.notes.trim() && (
-                                <span className="el-badge el-badge-amber" title={room.notes}>
-                                  📝 Notes
-                                </span>
+                                <span className="el-badge el-badge-amber" title={room.notes}>📝 Notes</span>
                               )}
                             </div>
                           </div>
-                          <span className={`px-2 py-1 rounded-md text-xs font-semibold ml-2 ${room.status === 'completed'
+                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${room.status === 'completed'
                             ? 'bg-emerald-500 text-white'
                             : room.status === 'active'
                               ? 'bg-blue-500 text-white'
@@ -2907,69 +3004,116 @@ function SessionView({ user, onBack }) {
                           </span>
                         </div>
 
-                        <div className="space-y-2 text-slate-600">
-                          <div className="flex justify-between">
-                            <span>Students:</span>
-                            <span className="font-semibold text-slate-900">{presentStudents} / {totalStudents}</span>
+                        {/* Room-level return progress */}
+                        <div className="mb-2">
+                          <div className="flex items-baseline justify-between mb-1">
+                            <span className="text-sm font-semibold text-slate-600">Returned</span>
+                            <span className="text-lg font-bold text-slate-900">
+                              {roomReturned}<span className="text-sm font-semibold text-slate-400"> / {totalStudents}</span>
+                            </span>
                           </div>
-                          {roomTimeData && !roomTimeData.isOver && (
-                            <div className="flex justify-between">
-                              <span>{hasConflict && <span className="mr-1">⚠️</span>}Time Left:</span>
-                              <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                {String(roomTimeData.hours).padStart(2, '0')}:{String(roomTimeData.minutes).padStart(2, '0')}:{String(roomTimeData.seconds).padStart(2, '0')}
-                                {roomTimeData.multiplier > 1 && <span className="text-xs ml-1">({roomTimeData.multiplier}x)</span>}
-                              </span>
-                            </div>
-                          )}
-                          {roomTimeData?.isOver && (
-                            <div className="text-rose-600 font-semibold text-center mt-2">TIME UP</div>
-                          )}
+                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${roomFullyReturned ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                              style={{ width: `${roomReturnPct}%` }}
+                            />
+                          </div>
                         </div>
 
+                        {/* Time left */}
+                        {roomTimeData && !roomTimeData.isOver && (
+                          <div className="flex justify-between text-sm text-slate-600 mb-1">
+                            <span>{hasConflict && <span className="mr-1">⚠️</span>}Time Left</span>
+                            <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                              {String(roomTimeData.hours).padStart(2, '0')}:{String(roomTimeData.minutes).padStart(2, '0')}:{String(roomTimeData.seconds).padStart(2, '0')}
+                              {roomTimeData.multiplier > 1 && <span className="text-xs ml-1">({roomTimeData.multiplier}x)</span>}
+                            </span>
+                          </div>
+                        )}
+                        {roomTimeData?.isOver && (
+                          <div className="text-rose-600 font-semibold text-center text-sm mb-1">TIME UP</div>
+                        )}
+
+                        {/* Sections — tap to record returns */}
                         {sortedSections.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-slate-200">
-                            <div className="text-sm font-semibold text-slate-700 mb-3">Sections</div>
-                            <div className="max-h-40 overflow-y-auto pr-1 space-y-3">
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Sections</span>
+                              {canEdit && (
+                                <span className="text-[11px] text-slate-400">Tap to record returns</span>
+                              )}
+                            </div>
+                            <div className="max-h-56 overflow-y-auto pr-1 space-y-2">
                               {sortedSections.map((section) => {
-                                // Sort accommodations: time accommodations first, then others
+                                const count = section.studentCount || 0
+                                const returned = getSectionReturned(room, section._id)
+                                const pct = count > 0 ? Math.round((returned / count) * 100) : 0
+                                const done = count > 0 && returned >= count
+                                const started = returned > 0
                                 const sortedAccommodations = Array.isArray(section.accommodations) && section.accommodations.length > 0
                                   ? [...section.accommodations].sort((a, b) => {
-                                      const aIsTime = a.includes('1.5x') || a.includes('2x') || 
+                                      const aIsTime = a.includes('1.5x') || a.includes('2x') ||
                                         a.includes('1.5×') || a.includes('2×') ||
-                                        a.toLowerCase().includes('extended time') || 
+                                        a.toLowerCase().includes('extended time') ||
                                         a.toLowerCase().includes('double time') ||
                                         a.toLowerCase().includes('extra time')
-                                      const bIsTime = b.includes('1.5x') || b.includes('2x') || 
+                                      const bIsTime = b.includes('1.5x') || b.includes('2x') ||
                                         b.includes('1.5×') || b.includes('2×') ||
-                                        b.toLowerCase().includes('extended time') || 
+                                        b.toLowerCase().includes('extended time') ||
                                         b.toLowerCase().includes('double time') ||
                                         b.toLowerCase().includes('extra time')
-                                      
-                                      if (aIsTime && !bIsTime) return -1 // a comes first
-                                      if (!aIsTime && bIsTime) return 1  // b comes first
-                                      return a.localeCompare(b) // Both same type, sort alphabetically
+                                      if (aIsTime && !bIsTime) return -1
+                                      if (!aIsTime && bIsTime) return 1
+                                      return a.localeCompare(b)
                                     })
                                   : []
-                                
+
                                 return (
-                                  <div key={section._id} className="text-sm">
-                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                      <span className="font-semibold text-slate-900 text-base">#{section.number}</span>
-                                      <span className="text-slate-600 text-sm">({section.studentCount || 0})</span>
-                                      {sortedAccommodations.length > 0 && (
-                                      <div className="flex flex-wrap gap-1">
-                                          {sortedAccommodations.map((acc, index) => (
+                                  <button
+                                    key={section._id}
+                                    type="button"
+                                    onClick={() => openReturnEntry(room, section)}
+                                    disabled={!canEdit}
+                                    className={`w-full rounded-lg border p-2.5 text-left transition ${
+                                      done
+                                        ? 'border-emerald-300 bg-emerald-50'
+                                        : started
+                                          ? 'border-amber-300 bg-amber-50'
+                                          : 'border-slate-200 bg-slate-50'
+                                    } ${canEdit ? 'cursor-pointer hover:ring-2 hover:ring-brand-300' : 'cursor-default'}`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                                        {done && (
+                                          <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        )}
+                                        Section #{section.number}
+                                      </span>
+                                      <span className={`text-sm font-bold ${done ? 'text-emerald-700' : started ? 'text-amber-700' : 'text-slate-500'}`}>
+                                        {returned}/{count}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                    {sortedAccommodations.length > 0 && (
+                                      <div className="mt-1.5 flex flex-wrap gap-1">
+                                        {sortedAccommodations.map((acc, index) => (
                                           <span
                                             key={`${section._id}-acc-${index}`}
-                                              className="px-2 py-1 bg-brand-100 text-brand-700 rounded text-xs"
+                                            className="rounded bg-brand-100 px-1.5 py-0.5 text-[11px] font-medium text-brand-700"
                                           >
                                             {acc}
                                           </span>
                                         ))}
                                       </div>
                                     )}
-                                  </div>
-                                </div>
+                                  </button>
                                 )
                               })}
                             </div>
@@ -2983,6 +3127,124 @@ function SessionView({ user, onBack }) {
               </div>
 
             </div>
+
+            {/* Return-entry popup */}
+            {returnEntry && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4">
+                <div className="el-card el-fade-up w-full max-w-md p-6">
+                  <div className="mb-4 flex items-start justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Record Exam Returns</h3>
+                      <p className="text-sm text-slate-500">
+                        Section #{returnEntry.sectionNumber} · {returnEntry.roomName}
+                      </p>
+                    </div>
+                    <button onClick={closeReturnEntry} className="el-icon-btn" aria-label="Close">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Big count + progress */}
+                  {(() => {
+                    const value = Math.min(Math.max(Number(returnEntryValue) || 0, 0), returnEntry.studentCount)
+                    const pct = returnEntry.studentCount > 0 ? Math.round((value / returnEntry.studentCount) * 100) : 0
+                    const done = returnEntry.studentCount > 0 && value >= returnEntry.studentCount
+                    return (
+                      <>
+                        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                          <p className="text-5xl font-bold text-slate-900">
+                            {value}
+                            <span className="text-2xl font-semibold text-slate-400"> / {returnEntry.studentCount}</span>
+                          </p>
+                          <p className={`mt-1 text-sm font-semibold ${done ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {done ? 'All exams returned' : `${pct}% returned`}
+                          </p>
+                          <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${done ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Quick tally */}
+                        <div className="mb-4 flex items-center justify-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => adjustReturnEntry(-1)}
+                            disabled={value <= 0}
+                            className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-200 text-2xl font-bold text-slate-700 transition hover:bg-slate-300 disabled:opacity-40"
+                            aria-label="Decrease"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min={0}
+                            max={returnEntry.studentCount}
+                            value={returnEntryValue}
+                            onChange={(e) => {
+                              const n = parseInt(e.target.value, 10)
+                              if (Number.isNaN(n)) { setReturnEntryValue(0); return }
+                              setReturnEntryValue(Math.min(Math.max(n, 0), returnEntry.studentCount))
+                            }}
+                            className="el-input w-24 text-center text-2xl font-bold"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => adjustReturnEntry(1)}
+                            disabled={value >= returnEntry.studentCount}
+                            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white transition hover:bg-brand-700 disabled:opacity-40"
+                            aria-label="Increase"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Shortcuts */}
+                        <div className="mb-5 flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setReturnEntryValue(0)}
+                            className="el-btn el-btn-secondary el-btn-sm"
+                          >
+                            None
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReturnEntryValue(returnEntry.studentCount)}
+                            className="el-btn el-btn-secondary el-btn-sm"
+                          >
+                            All {returnEntry.studentCount}
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closeReturnEntry}
+                      disabled={returnEntrySaving}
+                      className="el-btn el-btn-secondary flex-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveReturnEntry}
+                      disabled={returnEntrySaving}
+                      className="el-btn el-btn-primary flex-1"
+                    >
+                      {returnEntrySaving ? 'Saving…' : 'Save Returns'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

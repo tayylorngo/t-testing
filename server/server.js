@@ -377,6 +377,11 @@ const roomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
+  // Per-section count of exams returned, keyed by section id: { sectionId: returnedCount }
+  sectionReturns: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   notes: {
     type: String,
     trim: true
@@ -1235,6 +1240,67 @@ app.post('/api/rooms', authenticateToken, async (req, res) => {
   }
 });
 
+// Update the number of returned exams for a single section within a room
+app.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { sectionId, returned } = req.body;
+
+    if (!sectionId) {
+      return res.status(400).json({ message: 'sectionId is required' });
+    }
+    const returnedNum = Number(returned);
+    if (!Number.isFinite(returnedNum) || returnedNum < 0) {
+      return res.status(400).json({ message: 'returned must be a non-negative number' });
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // The section must belong to this room
+    const belongsToRoom = (room.sections || []).some(s => s.toString() === sectionId);
+    if (!belongsToRoom) {
+      return res.status(400).json({ message: 'Section does not belong to this room' });
+    }
+
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: 'Section not found' });
+    }
+
+    // Clamp between 0 and the section's student count
+    const cap = section.studentCount || 0;
+    const clamped = Math.min(Math.max(Math.round(returnedNum), 0), cap);
+
+    const sectionReturns = { ...(room.sectionReturns || {}) };
+    sectionReturns[sectionId] = clamped;
+
+    const updatedRoom = await Room.findByIdAndUpdate(
+      roomId,
+      { sectionReturns, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    ).populate('sections', 'number studentCount accommodations notes');
+
+    const roomResponse = updatedRoom.toObject();
+    if (!roomResponse.sectionReturns) roomResponse.sectionReturns = {};
+
+    const session = await Session.findOne({ rooms: roomId });
+    if (session) {
+      const user = await User.findById(req.user.id);
+      const action = `${user.firstName} ${user.lastName} recorded ${clamped}/${cap} exams returned for section ${section.number} in ${room.name}`;
+      const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
+      emitSessionUpdate(session._id, 'room-updated', { roomId, room: roomResponse }, user, logEntry);
+    }
+
+    res.json({ message: 'Section returns updated successfully', room: roomResponse });
+  } catch (error) {
+    console.error('Update section returns error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Update room
 app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
@@ -1528,7 +1594,7 @@ app.get('/api/sessions', authenticateToken, async (req, res) => {
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents sectionAttendance notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
@@ -1572,7 +1638,7 @@ app.put('/api/sessions/:id/archive', authenticateToken, checkSessionPermission('
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1624,7 +1690,7 @@ app.put('/api/sessions/:id/unarchive', authenticateToken, checkSessionPermission
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1687,7 +1753,7 @@ app.post('/api/sessions', authenticateToken, async (req, res) => {
     const populatedSession = await Session.findById(newSession._id)
       .populate({
         path: 'rooms',
-        select: 'name supplies status presentStudents notes proctors',
+        select: 'name supplies status presentStudents sectionReturns notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1717,7 +1783,7 @@ app.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'), 
     }).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1779,7 +1845,7 @@ app.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), 
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents notes proctors',
+        select: 'name supplies status presentStudents sectionReturns notes proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -1939,7 +2005,7 @@ app.post('/api/sessions/:id/duplicate', authenticateToken, checkSessionPermissio
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents sectionAttendance notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
