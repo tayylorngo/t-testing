@@ -1142,11 +1142,11 @@ function SessionDetail({ onBack }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'planned': return 'bg-blue-100 text-blue-800'
-      case 'active': return 'bg-green-100 text-green-800'
-      case 'completed': return 'bg-gray-100 text-gray-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'planned': return 'el-badge-slate'
+      case 'active': return 'el-badge-blue'
+      case 'completed': return 'el-badge-green'
+      case 'cancelled': return 'el-badge-rose'
+      default: return 'el-badge-slate'
     }
   }
 
@@ -1164,10 +1164,10 @@ function SessionDetail({ onBack }) {
   // Only show full-page loading when not importing (during import we keep modal + progress visible)
   if (isLoading && !isImporting) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session details...</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="el-spinner h-9 w-9" />
+          <p className="text-sm text-slate-500">Loading session details…</p>
         </div>
       </div>
     )
@@ -1175,13 +1175,13 @@ function SessionDetail({ onBack }) {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Session Not Found</h2>
-          <p className="text-gray-600 mb-6">The session you're looking for doesn't exist or you don't have permission to view it.</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="el-card el-fade-up p-8 max-w-md w-full text-center">
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Session Not Found</h2>
+          <p className="text-slate-600 mb-6">The session you're looking for doesn't exist or you don't have permission to view it.</p>
           <button
             onClick={onBack}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+            className="el-btn el-btn-primary"
           >
             Back to Dashboard
           </button>
@@ -1191,138 +1191,139 @@ function SessionDetail({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="el-app-bg pb-12">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex justify-between items-center gap-4 py-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={onBack}
-                className="text-gray-600 hover:text-gray-800 transition duration-200"
+                className="el-icon-btn"
+                title="Back to Dashboard"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{session.name}</h1>
-                <p className="text-gray-600">Session Management</p>
+              <div className="leading-tight">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">{session.name}</h1>
+                <p className="text-xs text-slate-400">Session Management</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(session.status)}`}>
+            <div className="flex items-center gap-2">
+              <span className={`el-badge ${getStatusColor(session.status)}`}>
                 {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
               </span>
               {/* Real-time connection status */}
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-xs text-gray-500">
-                  {isConnected ? 'Live' : 'Offline'}
-                </span>
-              </div>
+              <span className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline-flex ${
+                isConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+                {isConnected ? 'Live' : 'Offline'}
+              </span>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Session Information */}
           <div className="xl:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Session Information</h2>
-              
+            <div className="el-card el-fade-up p-6">
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">Session Information</h2>
+
               <form onSubmit={handleUpdateSession} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Session Name
                   </label>
                   <input
                     type="text"
                     value={sessionUpdates.name}
                     onChange={(e) => setSessionUpdates({...sessionUpdates, name: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     required
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Description
                   </label>
                   <textarea
                     value={sessionUpdates.description}
                     onChange={(e) => setSessionUpdates({...sessionUpdates, description: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     rows="3"
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Date
                   </label>
                   <input
                     type="date"
                     value={sessionUpdates.date}
                     onChange={(e) => setSessionUpdates({...sessionUpdates, date: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     required
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="el-label">
                       Start Time
                     </label>
                     <input
                       type="time"
                       value={sessionUpdates.startTime}
                       onChange={(e) => setSessionUpdates({...sessionUpdates, startTime: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="el-input"
                       required
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="el-label">
                       End Time
                     </label>
                     <input
                       type="time"
                       value={sessionUpdates.endTime}
                       onChange={(e) => setSessionUpdates({...sessionUpdates, endTime: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="el-input"
                       required
                     />
                   </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Accommodation Start Time (for Extra Time)
                   </label>
                   <input
                     type="time"
                     value={sessionUpdates.accommodationStartTime}
                     onChange={(e) => setSessionUpdates({...sessionUpdates, accommodationStartTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     placeholder="Optional - for students with extra time accommodations"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Leave empty to use regular start time</p>
+                  <p className="mt-1 text-xs text-slate-400">Leave empty to use regular start time</p>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Status
                   </label>
                   <select
                     value={sessionUpdates.status}
                     onChange={(e) => setSessionUpdates({...sessionUpdates, status: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                   >
                     <option value="planned">Planned</option>
                     <option value="active">Active</option>
@@ -1330,10 +1331,10 @@ function SessionDetail({ onBack }) {
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
-                
+
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary w-full"
                 >
                   Update Session
                 </button>
@@ -1343,31 +1344,31 @@ function SessionDetail({ onBack }) {
 
           {/* Rooms Management */}
           <div className="xl:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Session Rooms</h2>
-                <div className="flex items-center gap-2">
+            <div className="el-card el-fade-up p-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+                <h2 className="text-lg font-semibold text-slate-900">Session Rooms</h2>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handleDeleteSelectedRooms}
                     disabled={selectedRoomIds.length === 0}
-                    className={`bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 ${selectedRoomIds.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className="el-btn el-btn-danger el-btn-sm"
                   >
                     Delete Selected
                   </button>
                   <button
                     onClick={() => setShowAddRoomModal(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                    className="el-btn el-btn-success el-btn-sm"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                     Add Room
                   </button>
                   <button
                     onClick={() => setShowExcelImportModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                    className="el-btn el-btn-primary el-btn-sm"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>
                     Import Excel
@@ -1378,7 +1379,7 @@ function SessionDetail({ onBack }) {
               <div className="mb-4">
                 <button
                   onClick={() => setRoomSortDescending(v => !v)}
-                  className="px-2 py-1 text-xs font-medium rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
+                  className="el-btn el-btn-secondary el-btn-sm"
                 >
                   Sort: {roomSortDescending ? '↓' : '↑'}
                 </button>
@@ -1403,7 +1404,7 @@ function SessionDetail({ onBack }) {
                     // If neither has numbers, sort alphabetically
                     return roomSortDescending ? bKey.full.localeCompare(aKey.full) : aKey.full.localeCompare(bKey.full)
                   }).map((room) => (
-                    <div key={room._id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={room._id} className="rounded-lg border border-slate-200 bg-white p-4">
                       <div className="flex items-center mb-2">
                         <input
                           type="checkbox"
@@ -1415,17 +1416,17 @@ function SessionDetail({ onBack }) {
                               setSelectedRoomIds(selectedRoomIds.filter(id => id !== room._id))
                             }
                           }}
-                          className="mr-2 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                          className="mr-2 h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
                         />
-                        <span className="text-xs text-gray-500">Select</span>
+                        <span className="text-xs text-slate-400">Select</span>
                       </div>
                       <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-semibold text-gray-900 flex-1">Room {room.name}</h3>
-                        
-                        <div className="flex space-x-2">
+                        <h3 className="font-semibold text-slate-900 flex-1">Room {room.name}</h3>
+
+                        <div className="flex gap-0.5">
                           <button
                             onClick={() => handleStartEditRoom(room)}
-                            className="text-blue-500 hover:text-blue-700 transition duration-200"
+                            className="el-icon-btn"
                             title="Edit Room Name"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1434,7 +1435,7 @@ function SessionDetail({ onBack }) {
                           </button>
                           <button
                             onClick={() => handleOpenAddSectionToRoom(room)}
-                            className="text-purple-500 hover:text-purple-700 transition duration-200"
+                            className="el-icon-btn"
                             title="Add Section to Room"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1443,7 +1444,7 @@ function SessionDetail({ onBack }) {
                           </button>
                           <button
                             onClick={() => handleManageProctors(room)}
-                            className="text-green-500 hover:text-green-700 transition duration-200"
+                            className="el-icon-btn"
                             title="Manage Proctors"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1452,7 +1453,7 @@ function SessionDetail({ onBack }) {
                           </button>
                           <button
                             onClick={() => handleRemoveRoom(room._id)}
-                            className="text-red-500 hover:text-red-700 transition duration-200"
+                            className="el-icon-btn hover:bg-rose-50 hover:text-rose-600"
                             title="Remove Room"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1461,31 +1462,31 @@ function SessionDetail({ onBack }) {
                           </button>
                         </div>
                       </div>
-                      
-                      <div className="space-y-2 text-sm text-gray-600">
+
+                      <div className="space-y-2 text-sm text-slate-600">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className="text-sm font-medium text-slate-700">
                             {room.sections?.length || 0} sections • {calculateTotalStudents(room.sections)} students
                           </span>
                         </div>
-                        
+
                         {room.sections && room.sections.length > 0 && (
                           <div>
-                            <span className="font-medium">Sections:</span>
+                            <span className="font-medium text-slate-700">Sections:</span>
                             <div className="flex flex-wrap gap-2 mt-1">
                                                              {room.sections.map((section) => (
-                                 <div key={section._id} className="flex items-center space-x-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                 <div key={section._id} className="el-badge el-badge-blue">
                                    <span>Section {section.number}</span>
-                                   <span className="text-blue-600">({section.studentCount})</span>
+                                   <span className="text-blue-500">({section.studentCount})</span>
                                    {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                     <span className="text-purple-600 ml-1">• {section.accommodations.join(', ')}</span>
+                                     <span className="text-brand-600 ml-1">• {section.accommodations.join(', ')}</span>
                                    )}
                                    {section.notes && (
-                                     <span className="text-blue-600 ml-1">• {section.notes}</span>
+                                     <span className="text-blue-500 ml-1">• {section.notes}</span>
                                    )}
                                    <button
                                      onClick={() => handleRemoveSectionFromRoom(room._id, section._id)}
-                                     className="text-red-500 hover:text-red-700 ml-1"
+                                     className="text-rose-500 hover:text-rose-700 ml-1"
                                      title="Remove Section"
                                    >
                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1497,28 +1498,28 @@ function SessionDetail({ onBack }) {
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Proctors */}
                         {room.proctors && room.proctors.length > 0 && (
                           <div>
-                            <span className="font-medium">Proctors:</span>
+                            <span className="font-medium text-slate-700">Proctors:</span>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {room.proctors.map((proctor, index) => (
-                                <div key={index} className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                <div key={index} className="el-badge el-badge-green">
                                   <span>{proctor.name || `${proctor.firstName} ${proctor.lastName}`}</span>
-                                  <span className="text-green-600">({proctor.startTime} - {proctor.endTime})</span>
+                                  <span className="text-emerald-500">({proctor.startTime} - {proctor.endTime})</span>
                                   {proctor.email && (
-                                    <span className="text-green-600 ml-1">• {proctor.email}</span>
+                                    <span className="text-emerald-500 ml-1">• {proctor.email}</span>
                                   )}
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-                        
+
                         {room.supplies && room.supplies.length > 0 && (
                           <div>
-                            <span className="font-medium">Supplies:</span>
+                            <span className="font-medium text-slate-700">Supplies:</span>
                             
                             {/* Initial Supplies */}
                             {(() => {
@@ -1532,10 +1533,10 @@ function SessionDetail({ onBack }) {
                                 
                                 return (
                                   <div className="mt-1">
-                                    <span className="text-xs text-gray-600 font-medium">Initial:</span>
+                                    <span className="text-xs text-slate-500 font-medium">Initial:</span>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {Object.entries(initialSupplyCounts).map(([supplyName, count], index) => (
-                                        <span key={`initial-${index}`} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                        <span key={`initial-${index}`} className="el-badge el-badge-green">
                                           {supplyName} ({count})
                                         </span>
                                       ))}
@@ -1557,10 +1558,10 @@ function SessionDetail({ onBack }) {
                                 
                                 return (
                                   <div className="mt-2">
-                                    <span className="text-xs text-gray-600 font-medium">Added:</span>
+                                    <span className="text-xs text-slate-500 font-medium">Added:</span>
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {Object.entries(addedSupplyCounts).map(([supplyName, count], index) => (
-                                        <span key={`added-${index}`} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                        <span key={`added-${index}`} className="el-badge el-badge-blue">
                                           {supplyName} ({count})
                                         </span>
                                       ))}
@@ -1578,14 +1579,14 @@ function SessionDetail({ onBack }) {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Rooms Added</h3>
-                  <p className="text-gray-600 mb-4">Add rooms to this session</p>
+                  <h3 className="text-base font-semibold text-slate-900 mb-2">No Rooms Added</h3>
+                  <p className="text-slate-500 mb-4">Add rooms to this session</p>
                   <button
                     onClick={() => setShowAddRoomModal(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    className="el-btn el-btn-success"
                   >
                     Add First Room
                   </button>
@@ -1596,22 +1597,22 @@ function SessionDetail({ onBack }) {
 
           {/* Sections Management */}
           <div className="xl:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Session Sections</h2>
-                <div className="flex items-center gap-2">
+            <div className="el-card el-fade-up p-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+                <h2 className="text-lg font-semibold text-slate-900">Session Sections</h2>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handleDeleteSelectedSections}
                     disabled={selectedSectionIds.length === 0}
-                    className={`bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 ${selectedSectionIds.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className="el-btn el-btn-danger el-btn-sm"
                   >
                     Delete Selected
                   </button>
                   <button
                     onClick={() => setShowAddSectionModal(true)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
+                    className="el-btn el-btn-primary el-btn-sm"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                     Add Section
@@ -1622,7 +1623,7 @@ function SessionDetail({ onBack }) {
               <div className="mb-4">
                 <button
                   onClick={() => setSectionSortDescending(v => !v)}
-                  className="px-2 py-1 text-xs font-medium rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
+                  className="el-btn el-btn-secondary el-btn-sm"
                 >
                   Sort: {sectionSortDescending ? '↓' : '↑'}
                 </button>
@@ -1631,7 +1632,7 @@ function SessionDetail({ onBack }) {
               {session.sections && session.sections.length > 0 ? (
                 <div className="space-y-4">
                   {[...session.sections].sort((a, b) => sectionSortDescending ? b.number - a.number : a.number - b.number).map((section) => (
-                    <div key={section._id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={section._id} className="rounded-lg border border-slate-200 bg-white p-4">
                       <div className="flex items-center mb-2">
                         <input
                           type="checkbox"
@@ -1643,18 +1644,18 @@ function SessionDetail({ onBack }) {
                               setSelectedSectionIds(selectedSectionIds.filter(id => id !== section._id))
                             }
                           }}
-                          className="mr-2 h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                          className="mr-2 h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
                         />
-                        <span className="text-xs text-gray-500">Select</span>
+                        <span className="text-xs text-slate-400">Select</span>
                       </div>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">Section {section.number}</h3>
-                          <p className="text-sm text-gray-600">{section.studentCount} students</p>
+                          <h3 className="font-semibold text-slate-900">Section {section.number}</h3>
+                          <p className="text-sm text-slate-600">{section.studentCount} students</p>
                           {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
                             <div className="mt-1">
-                              <span className="text-xs font-medium text-purple-700">Accommodations:</span>
-                              <ul className="list-disc list-inside text-xs text-gray-700 mt-1">
+                              <span className="text-xs font-medium text-brand-700">Accommodations:</span>
+                              <ul className="list-disc list-inside text-xs text-slate-700 mt-1">
                                 {section.accommodations.map(acc => (
                                   <li key={acc}>{acc}</li>
                                 ))}
@@ -1662,15 +1663,15 @@ function SessionDetail({ onBack }) {
                             </div>
                           )}
                           {section.notes && (
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-xs text-slate-400 mt-1">
                               <span className="font-medium">Notes:</span> {section.notes}
                             </div>
                           )}
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex gap-0.5">
                           <button
                             onClick={() => handleStartEditSection(section)}
-                            className="text-purple-500 hover:text-purple-700 transition duration-200"
+                            className="el-icon-btn"
                             title="Edit Section"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1679,7 +1680,7 @@ function SessionDetail({ onBack }) {
                           </button>
                           <button
                             onClick={() => handleRemoveSection(section._id)}
-                            className="text-red-500 hover:text-red-700 transition duration-200"
+                            className="el-icon-btn hover:bg-rose-50 hover:text-rose-600"
                             title="Remove Section"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1693,14 +1694,14 @@ function SessionDetail({ onBack }) {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Sections Added</h3>
-                  <p className="text-gray-600 mb-4">Add numbered sections to this session</p>
+                  <h3 className="text-base font-semibold text-slate-900 mb-2">No Sections Added</h3>
+                  <p className="text-slate-500 mb-4">Add numbered sections to this session</p>
                   <button
                     onClick={() => setShowAddSectionModal(true)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                    className="el-btn el-btn-primary"
                   >
                     Add First Section
                   </button>
@@ -1713,36 +1714,36 @@ function SessionDetail({ onBack }) {
 
       {/* Add Room Modal */}
       {showAddRoomModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Room</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Create New Room</h2>
+
             <div className="space-y-6">
               {/* Room Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Room Name *
                   </label>
                   <input
                     type="text"
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     placeholder="Enter room name"
                     autoFocus
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Initial Supplies (Optional)
                   </label>
-                  <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="max-h-40 overflow-y-auto border border-slate-300 rounded-lg p-3">
                     <div className="grid grid-cols-1 gap-2">
                       {PRESET_SUPPLIES.slice(0, 8).map((supply) => (
                         <div key={supply} className="flex items-center space-x-2 py-1">
-                          <label className="flex-1 text-sm text-gray-700 min-w-0">
+                          <label className="flex-1 text-sm text-slate-700 min-w-0">
                             <span className="truncate">{supply}</span>
                           </label>
                           <input
@@ -1750,7 +1751,7 @@ function SessionDetail({ onBack }) {
                             min="0"
                             value={newRoomSupplies[supply] || ''}
                             onChange={(e) => updateSupplyQuantity(supply, parseInt(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            className="el-input w-16 px-2 py-1"
                             placeholder="0"
                           />
                         </div>
@@ -1759,29 +1760,29 @@ function SessionDetail({ onBack }) {
                   </div>
                 </div>
               </div>
-              
+
               {/* Create New Sections */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Sections for This Room</h3>
-                
-                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-base font-semibold text-slate-900 mb-4">Create New Sections for This Room</h3>
+
+                <div className="bg-slate-50 p-4 rounded-lg space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="el-label">
                         Section Number(s) *
                       </label>
                       <input
                         type="text"
                         value={newRoomSectionNumber}
                         onChange={(e) => setNewRoomSectionNumber(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        className="el-input"
                         placeholder="e.g. 25 or 20-30"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Single number or range</p>
+                      <p className="text-xs text-slate-400 mt-1">Single number or range</p>
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="el-label">
                         Student Count *
                       </label>
                       <input
@@ -1789,40 +1790,40 @@ function SessionDetail({ onBack }) {
                         min="1"
                         value={newRoomSectionStudentCount}
                         onChange={(e) => setNewRoomSectionStudentCount(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        className="el-input"
                         placeholder="Number of students"
                       />
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="el-label">
                         Description (Optional)
                       </label>
                       <input
                         type="text"
                         value={newRoomSectionDescription}
                         onChange={(e) => setNewRoomSectionDescription(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        className="el-input"
                         placeholder="Section description"
                       />
                     </div>
                   </div>
-                  
+
                   {/* Accommodations */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="el-label">
                       Accommodations (Optional)
                     </label>
-                    <div className="space-y-2 border border-gray-300 rounded-lg p-3">
+                    <div className="space-y-2 border border-slate-300 rounded-lg p-3">
                       {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                        <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                        <div key={category} className="border-b border-slate-200 last:border-b-0 pb-2 last:pb-0">
                           <button
                             type="button"
                             onClick={() => toggleCategory(category)}
-                            className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                            className="w-full flex items-center justify-between text-sm font-semibold text-slate-800 py-2 hover:text-brand-600 transition-colors"
                           >
                             <span>{category}</span>
-                            <span className="text-gray-500">
+                            <span className="text-slate-400">
                               {expandedCategories[category] ? '▼' : '▶'}
                             </span>
                           </button>
@@ -1834,9 +1835,9 @@ function SessionDetail({ onBack }) {
                                     type="checkbox"
                                     checked={newRoomSectionAccommodations.includes(accommodation)}
                                     onChange={() => toggleRoomSectionAccommodation(accommodation)}
-                                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                    className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
                                   />
-                                  <span className="text-sm text-gray-700">{accommodation}</span>
+                                  <span className="text-sm text-slate-700">{accommodation}</span>
                                 </label>
                               ))}
                             </div>
@@ -1845,38 +1846,38 @@ function SessionDetail({ onBack }) {
                       ))}
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={addRoomSection}
                     disabled={!newRoomSectionNumber.trim() || !newRoomSectionStudentCount.trim()}
-                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                    className="el-btn el-btn-primary w-full"
                   >
                     Add Section to Room
                   </button>
                 </div>
-                
+
                 {/* List of sections to be created */}
                 {roomSectionsToCreate.length > 0 && (
                   <div className="mt-4">
-                    <h4 className="text-md font-medium text-gray-900 mb-3">Sections to be created:</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Sections to be created:</h4>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {roomSectionsToCreate.map((section, index) => (
-                        <div key={index} className="flex items-center justify-between bg-purple-50 p-3 rounded-lg">
+                        <div key={index} className="flex items-center justify-between bg-brand-50 p-3 rounded-lg">
                           <div>
-                            <span className="font-medium text-purple-900">Section {section.number}</span>
-                            <span className="text-sm text-purple-700 ml-2">({section.studentCount} students)</span>
+                            <span className="font-medium text-brand-800">Section {section.number}</span>
+                            <span className="text-sm text-brand-700 ml-2">({section.studentCount} students)</span>
                             {section.description && (
-                              <div className="text-xs text-purple-600 mt-1">{section.description}</div>
+                              <div className="text-xs text-brand-600 mt-1">{section.description}</div>
                             )}
                             {section.accommodations.length > 0 && (
-                              <div className="text-xs text-purple-600 mt-1">
+                              <div className="text-xs text-brand-600 mt-1">
                                 Accommodations: {section.accommodations.join(', ')}
                               </div>
                             )}
                           </div>
                           <button
                             onClick={() => removeRoomSection(index)}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-rose-500 hover:text-rose-700 p-1"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1888,22 +1889,22 @@ function SessionDetail({ onBack }) {
                   </div>
                 )}
               </div>
-              
+
               {/* Select Existing Sections */}
               {session.sections && session.sections.length > 0 && (
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Existing Sections (Optional)</h3>
-                  <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                <div className="border-t border-slate-200 pt-6">
+                  <h3 className="text-base font-semibold text-slate-900 mb-4">Assign Existing Sections (Optional)</h3>
+                  <div className="max-h-48 overflow-y-auto border border-slate-300 rounded-lg p-3">
                     {session.sections
                       .filter(section => {
                         // Filter out sections that are already assigned to other rooms
-                        const isAssignedToOtherRoom = session.rooms?.some(room => 
+                        const isAssignedToOtherRoom = session.rooms?.some(room =>
                           room.sections?.some(roomSection => roomSection._id === section._id)
                         );
                         return !isAssignedToOtherRoom;
                       })
                       .map((section) => (
-                        <label key={section._id} className="flex items-center space-x-3 py-2 hover:bg-gray-50 rounded px-2">
+                        <label key={section._id} className="flex items-center space-x-3 py-2 hover:bg-slate-50 rounded px-2">
                           <input
                             type="checkbox"
                             checked={selectedSectionsForRoom.includes(section._id)}
@@ -1914,36 +1915,36 @@ function SessionDetail({ onBack }) {
                                 setSelectedSectionsForRoom(selectedSectionsForRoom.filter(id => id !== section._id))
                               }
                             }}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
                           />
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-slate-900">
                             <div>Section {section.number} ({section.studentCount} students)</div>
                             {section.description && (
-                              <div className="text-xs text-gray-500 mt-1">{section.description}</div>
+                              <div className="text-xs text-slate-400 mt-1">{section.description}</div>
                             )}
                           </div>
                         </label>
                       ))}
                   </div>
                   {selectedSectionsForRoom.length > 0 && (
-                    <p className="text-sm text-gray-600 mt-2">
+                    <p className="text-sm text-slate-600 mt-2">
                       Selected: {selectedSectionsForRoom.length} existing section(s)
                     </p>
                   )}
                   {session.sections.filter(section => {
-                    const isAssignedToOtherRoom = session.rooms?.some(room => 
+                    const isAssignedToOtherRoom = session.rooms?.some(room =>
                       room.sections?.some(roomSection => roomSection._id === section._id)
                     );
                     return isAssignedToOtherRoom;
                   }).length > 0 && (
-                    <p className="text-sm text-gray-500 mt-2">
+                    <p className="text-sm text-slate-400 mt-2">
                       Some sections are already assigned to other rooms and cannot be selected.
                     </p>
                   )}
                 </div>
               )}
-              
-              <div className="flex space-x-4 pt-4 border-t">
+
+              <div className="flex space-x-4 pt-4 border-t border-slate-200">
                 <button
                   onClick={() => {
                     setShowAddRoomModal(false)
@@ -1956,14 +1957,14 @@ function SessionDetail({ onBack }) {
                     setNewRoomSectionDescription('')
                     setNewRoomSectionAccommodations([])
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddRoom}
                   disabled={!newRoomName.trim()}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="el-btn el-btn-success flex-1"
                 >
                   Create Room
                 </button>
@@ -1975,29 +1976,29 @@ function SessionDetail({ onBack }) {
 
       {/* Add Section Modal */}
       {showAddSectionModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Section</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Create New Section</h2>
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Section Number(s)
                   </label>
                   <input
                     type="text"
                     value={newSectionNumber}
                     onChange={(e) => setNewSectionNumber(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="el-input"
                     placeholder="e.g. 25 or 20-30"
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 mt-1">Enter single number (1-99) or range (e.g. 20-30)</p>
+                  <p className="text-xs text-slate-400 mt-1">Enter single number (1-99) or range (e.g. 20-30)</p>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Student Count
                   </label>
                   <input
@@ -2005,27 +2006,27 @@ function SessionDetail({ onBack }) {
                     min="1"
                     value={newSectionStudentCount}
                     onChange={(e) => setNewSectionStudentCount(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="el-input"
                     placeholder="Enter number of students"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Accommodations
                 </label>
-                <div className="border border-gray-300 rounded-lg p-3">
+                <div className="border border-slate-300 rounded-lg p-3">
                   <div className="space-y-2">
                     {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                      <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                      <div key={category} className="border-b border-slate-200 last:border-b-0 pb-2 last:pb-0">
                         <button
                           type="button"
                           onClick={() => toggleCategory(category)}
-                          className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                          className="w-full flex items-center justify-between text-sm font-semibold text-slate-800 py-2 hover:text-brand-600 transition-colors"
                         >
                           <span>{category}</span>
-                          <span className="text-gray-500">
+                          <span className="text-slate-400">
                             {expandedCategories[category] ? '▼' : '▶'}
                           </span>
                         </button>
@@ -2043,9 +2044,9 @@ function SessionDetail({ onBack }) {
                                       setSelectedAccommodations(selectedAccommodations.filter(acc => acc !== accommodation))
                                     }
                                   }}
-                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                 />
-                                <span className="text-sm text-gray-700">{accommodation}</span>
+                                <span className="text-sm text-slate-700">{accommodation}</span>
                               </label>
                             ))}
                           </div>
@@ -2054,7 +2055,7 @@ function SessionDetail({ onBack }) {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Custom Accommodation Input */}
                 <div className="mt-3">
                   <div className="flex space-x-2">
@@ -2068,35 +2069,35 @@ function SessionDetail({ onBack }) {
                           addCustomAccommodation(customAccommodation, false)
                         }
                       }}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      className="el-input flex-1"
                       placeholder="Add custom accommodation..."
                     />
                     <button
                       type="button"
                       onClick={() => addCustomAccommodation(customAccommodation, false)}
                       disabled={!customAccommodation.trim()}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition duration-200"
+                      className="el-btn el-btn-primary el-btn-sm"
                     >
                       Add
                     </button>
                   </div>
                 </div>
-                
+
                 {/* Selected Accommodations Display */}
                 {selectedAccommodations.length > 0 && (
                   <div className="mt-3">
-                    <div className="text-xs font-medium text-gray-700 mb-2">Selected Accommodations:</div>
+                    <div className="text-xs font-medium text-slate-700 mb-2">Selected Accommodations:</div>
                     <div className="flex flex-wrap gap-2">
                       {selectedAccommodations.map((accommodation) => (
                         <span
                           key={accommodation}
-                          className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                          className="el-badge el-badge-brand"
                         >
                           {accommodation}
                           <button
                             type="button"
                             onClick={() => removeAccommodation(accommodation, false)}
-                            className="ml-1 text-purple-600 hover:text-purple-800"
+                            className="ml-1 text-brand-600 hover:text-brand-800"
                           >
                             ×
                           </button>
@@ -2108,18 +2109,18 @@ function SessionDetail({ onBack }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Notes (Optional)
                 </label>
                 <textarea
                   value={newSectionNotes}
                   onChange={(e) => setNewSectionNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="el-input"
                   placeholder="Add any notes for this section (optional)"
                   rows="3"
                 />
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -2130,14 +2131,14 @@ function SessionDetail({ onBack }) {
                     setCustomAccommodation('')
                     setNewSectionNotes('')
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddSection}
                   disabled={!newSectionNumber.trim() || !newSectionStudentCount.trim()}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Create Section(s)
                 </button>
@@ -2149,23 +2150,23 @@ function SessionDetail({ onBack }) {
 
       {/* Add Section to Room Modal */}
       {showAddSectionToRoomModal && selectedRoomForSection && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Sections to Room</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-lg">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Add Sections to Room</h2>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Room: {selectedRoomForSection.name}
                 </label>
                 {availableSections.length > 0 ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="el-label">
                       Select Sections (Multiple Selection)
                     </label>
-                    <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
+                    <div className="max-h-60 overflow-y-auto border border-slate-300 rounded-lg p-3 space-y-2">
                       {availableSections.map(section => (
-                        <label key={section._id} className="flex items-center space-x-3 py-2 hover:bg-gray-50 rounded px-2 cursor-pointer">
+                        <label key={section._id} className="flex items-center space-x-3 py-2 hover:bg-slate-50 rounded px-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selectedSectionsToAdd.includes(section._id)}
@@ -2176,15 +2177,15 @@ function SessionDetail({ onBack }) {
                                 setSelectedSectionsToAdd(selectedSectionsToAdd.filter(id => id !== section._id))
                               }
                             }}
-                            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
                           />
-                          <div className="text-sm text-gray-900">
+                          <div className="text-sm text-slate-900">
                             <div>Section {section.number} ({section.studentCount} students)</div>
                             {section.description && (
-                              <div className="text-xs text-gray-500 mt-1">{section.description}</div>
+                              <div className="text-xs text-slate-400 mt-1">{section.description}</div>
                             )}
                             {section.accommodations && section.accommodations.length > 0 && (
-                              <div className="text-xs text-blue-600 mt-1">
+                              <div className="text-xs text-brand-600 mt-1">
                                 Accommodations: {section.accommodations.join(', ')}
                               </div>
                             )}
@@ -2193,16 +2194,16 @@ function SessionDetail({ onBack }) {
                       ))}
                     </div>
                     {selectedSectionsToAdd.length > 0 && (
-                      <p className="text-sm text-gray-600 mt-2">
+                      <p className="text-sm text-slate-600 mt-2">
                         Selected: {selectedSectionsToAdd.length} section(s)
                       </p>
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-600">No available sections to add to this room.</p>
+                  <p className="text-slate-600">No available sections to add to this room.</p>
                 )}
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
@@ -2211,14 +2212,14 @@ function SessionDetail({ onBack }) {
                     setAvailableSections([])
                     setSelectedSectionsToAdd([])
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddSectionToRoom}
                   disabled={selectedSectionsToAdd.length === 0}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Add {selectedSectionsToAdd.length > 0 ? `${selectedSectionsToAdd.length} ` : ''}Section{selectedSectionsToAdd.length !== 1 ? 's' : ''}
                 </button>
@@ -2230,31 +2231,31 @@ function SessionDetail({ onBack }) {
 
       {/* Delete Room Confirmation Modal */}
       {showDeleteRoomModal && itemToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Room</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Delete Room</h2>
+
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-slate-700">
                 Are you sure you want to remove <span className="font-semibold">{itemToDelete.name}</span> from this session?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This action cannot be undone.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
                     setShowDeleteRoomModal(false)
                     setItemToDelete(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteRoom}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Delete Room
                 </button>
@@ -2266,31 +2267,31 @@ function SessionDetail({ onBack }) {
 
       {/* Delete Section Confirmation Modal */}
       {showDeleteSectionModal && itemToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Section</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Delete Section</h2>
+
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-slate-700">
                 Are you sure you want to delete <span className="font-semibold">{itemToDelete.name}</span>?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This will remove the section from all rooms and sessions. This action cannot be undone.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
                     setShowDeleteSectionModal(false)
                     setItemToDelete(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteSection}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Delete Section
                 </button>
@@ -2302,31 +2303,31 @@ function SessionDetail({ onBack }) {
 
       {/* Delete Selected Sections Confirmation Modal */}
       {showDeleteSelectedSectionsModal && itemToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Selected Sections</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Delete Selected Sections</h2>
+
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-slate-700">
                 Are you sure you want to delete <span className="font-semibold">{itemToDelete.count} section(s)</span>?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This will remove the sections from all rooms and sessions. This action cannot be undone.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
                     setShowDeleteSelectedSectionsModal(false)
                     setItemToDelete(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteSelectedSections}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Delete Sections
                 </button>
@@ -2338,31 +2339,31 @@ function SessionDetail({ onBack }) {
 
       {/* Delete Selected Rooms Confirmation Modal */}
       {showDeleteSelectedRoomsModal && itemToDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Delete Selected Rooms</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Delete Selected Rooms</h2>
+
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-slate-700">
                 Are you sure you want to delete <span className="font-semibold">{itemToDelete.count} room(s)</span>?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This action cannot be undone.
               </p>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => {
                     setShowDeleteSelectedRoomsModal(false)
                     setItemToDelete(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteSelectedRooms}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Delete Rooms
                 </button>
@@ -2374,33 +2375,33 @@ function SessionDetail({ onBack }) {
 
       {/* Edit Room Modal */}
       {showEditRoomModal && itemToEdit && itemToEdit.type === 'room' && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Room</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Edit Room</h2>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Room Name
                 </label>
                 <input
                   type="text"
                   value={editRoomName}
                   onChange={(e) => setEditRoomName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="el-input"
                   placeholder="Enter room name"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Initial Supplies
                 </label>
-                <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                <div className="max-h-60 overflow-y-auto border border-slate-300 rounded-lg p-3">
                   <div className="grid grid-cols-1 gap-2">
                     {PRESET_SUPPLIES.map((supply) => (
                       <div key={supply} className="flex items-center space-x-2 py-1">
-                        <label className="flex-1 text-sm text-gray-700 min-w-0">
+                        <label className="flex-1 text-sm text-slate-700 min-w-0">
                           <span className="truncate">{supply}</span>
                         </label>
                         <input
@@ -2408,29 +2409,29 @@ function SessionDetail({ onBack }) {
                           min="0"
                           value={editRoomSupplies[supply] || ''}
                           onChange={(e) => updateEditRoomSupplyQuantity(supply, parseInt(e.target.value) || 0)}
-                          className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="el-input w-16 px-2 py-1"
                           placeholder="0"
                         />
                       </div>
                     ))}
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Edit initial supplies for this room. Additional supplies can be added later in the room view.
                 </p>
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={handleCancelEdit}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveRoomName}
                   disabled={!editRoomName.trim()}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Save Changes
                 </button>
@@ -2442,14 +2443,14 @@ function SessionDetail({ onBack }) {
 
       {/* Edit Section Modal */}
       {showEditSectionModal && itemToEdit && itemToEdit.type === 'section' && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Section</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">Edit Section</h2>
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Section Number
                   </label>
                   <input
@@ -2458,12 +2459,12 @@ function SessionDetail({ onBack }) {
                     max="99"
                     value={editSectionNumber}
                     onChange={(e) => setEditSectionNumber(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="el-input"
                     placeholder="Enter section number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Student Count
                   </label>
                   <input
@@ -2471,27 +2472,27 @@ function SessionDetail({ onBack }) {
                     min="1"
                     value={editSectionStudentCount}
                     onChange={(e) => setEditSectionStudentCount(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="el-input"
                     placeholder="Enter student count"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Accommodations
                 </label>
-                <div className="border border-gray-300 rounded-lg p-3">
+                <div className="border border-slate-300 rounded-lg p-3">
                   <div className="space-y-2">
                     {Object.entries(getAccommodationGroups()).map(([category, accommodations]) => (
-                      <div key={category} className="border-b border-gray-200 last:border-b-0 pb-2 last:pb-0">
+                      <div key={category} className="border-b border-slate-200 last:border-b-0 pb-2 last:pb-0">
                         <button
                           type="button"
                           onClick={() => toggleCategory(category)}
-                          className="w-full flex items-center justify-between text-sm font-semibold text-gray-800 py-2 hover:text-purple-600 transition-colors"
+                          className="w-full flex items-center justify-between text-sm font-semibold text-slate-800 py-2 hover:text-brand-600 transition-colors"
                         >
                           <span>{category}</span>
-                          <span className="text-gray-500">
+                          <span className="text-slate-400">
                             {expandedCategories[category] ? '▼' : '▶'}
                           </span>
                         </button>
@@ -2509,9 +2510,9 @@ function SessionDetail({ onBack }) {
                                       setEditSectionAccommodations(editSectionAccommodations.filter(acc => acc !== accommodation))
                                     }
                                   }}
-                                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                 />
-                                <span className="text-sm text-gray-700">{accommodation}</span>
+                                <span className="text-sm text-slate-700">{accommodation}</span>
                               </label>
                             ))}
                           </div>
@@ -2520,7 +2521,7 @@ function SessionDetail({ onBack }) {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Custom Accommodation Input */}
                 <div className="mt-3">
                   <div className="flex space-x-2">
@@ -2534,35 +2535,35 @@ function SessionDetail({ onBack }) {
                           addCustomAccommodation(editCustomAccommodation, true)
                         }
                       }}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      className="el-input flex-1"
                       placeholder="Add custom accommodation..."
                     />
                     <button
                       type="button"
                       onClick={() => addCustomAccommodation(editCustomAccommodation, true)}
                       disabled={!editCustomAccommodation.trim()}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-lg transition duration-200"
+                      className="el-btn el-btn-primary el-btn-sm"
                     >
                       Add
                     </button>
                   </div>
                 </div>
-                
+
                 {/* Selected Accommodations Display */}
                 {editSectionAccommodations.length > 0 && (
                   <div className="mt-3">
-                    <div className="text-xs font-medium text-gray-700 mb-2">Selected Accommodations:</div>
+                    <div className="text-xs font-medium text-slate-700 mb-2">Selected Accommodations:</div>
                     <div className="flex flex-wrap gap-2">
                       {editSectionAccommodations.map((accommodation) => (
                         <span
                           key={accommodation}
-                          className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                          className="el-badge el-badge-brand"
                         >
                           {accommodation}
                           <button
                             type="button"
                             onClick={() => removeAccommodation(accommodation, true)}
-                            className="ml-1 text-purple-600 hover:text-purple-800"
+                            className="ml-1 text-brand-600 hover:text-brand-800"
                           >
                             ×
                           </button>
@@ -2574,29 +2575,29 @@ function SessionDetail({ onBack }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Notes (Optional)
                 </label>
                 <textarea
                   value={editSectionNotes}
                   onChange={(e) => setEditSectionNotes(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="el-input"
                   placeholder="Add any notes for this section (optional)"
                   rows="3"
                 />
               </div>
-              
+
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={handleCancelEditSection}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveSectionNumber}
                   disabled={!editSectionNumber.trim() || !editSectionStudentCount.trim()}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Save Changes
                 </button>
@@ -2608,78 +2609,78 @@ function SessionDetail({ onBack }) {
 
       {/* Proctor Management Modal */}
       {showProctorModal && selectedRoomForProctors && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-6">
               Manage Proctors - Room {selectedRoomForProctors.name}
             </h2>
-            
+
             {/* Current Proctors */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Current Proctors</h3>
+              <h3 className="text-base font-semibold text-slate-800 mb-3">Current Proctors</h3>
               {proctors.length > 0 ? (
                 <div className="space-y-2">
                   {proctors.map((proctor, index) => (
-                    <div key={index} className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div key={index} className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                       {editingIndex === index ? (
                         // Edit mode
                         <div className="space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="el-label">
                                 First Name *
                               </label>
                               <input
                                 type="text"
                                 value={editingProctor.firstName}
                                 onChange={(e) => setEditingProctor({...editingProctor, firstName: e.target.value})}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                className="el-input px-2 py-1"
                                 placeholder="First name"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="el-label">
                                 Last Name *
                               </label>
                               <input
                                 type="text"
                                 value={editingProctor.lastName}
                                 onChange={(e) => setEditingProctor({...editingProctor, lastName: e.target.value})}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                className="el-input px-2 py-1"
                                 placeholder="Last name"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="el-label">
                                 Start Time *
                               </label>
                               <input
                                 type="time"
                                 value={editingProctor.startTime}
                                 onChange={(e) => setEditingProctor({...editingProctor, startTime: e.target.value})}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                className="el-input px-2 py-1"
                               />
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="el-label">
                                 End Time *
                               </label>
                               <input
                                 type="time"
                                 value={editingProctor.endTime}
                                 onChange={(e) => setEditingProctor({...editingProctor, endTime: e.target.value})}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                className="el-input px-2 py-1"
                               />
                             </div>
                             <div className="md:col-span-2">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <label className="el-label">
                                 Email
                               </label>
                               <input
                                 type="email"
                                 value={editingProctor.email}
                                 onChange={(e) => setEditingProctor({...editingProctor, email: e.target.value})}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                className="el-input px-2 py-1"
                                 placeholder="proctor@example.com"
                               />
                             </div>
@@ -2687,13 +2688,13 @@ function SessionDetail({ onBack }) {
                           <div className="flex space-x-2">
                             <button
                               onClick={handleSaveEditProctor}
-                              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded transition duration-200"
+                              className="el-btn el-btn-success el-btn-sm"
                             >
                               Save
                             </button>
                             <button
                               onClick={handleCancelEditProctor}
-                              className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium rounded transition duration-200"
+                              className="el-btn el-btn-secondary el-btn-sm"
                             >
                               Cancel
                             </button>
@@ -2703,16 +2704,16 @@ function SessionDetail({ onBack }) {
                         // Display mode
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="font-medium text-gray-900">{proctor.name}</div>
-                            <div className="text-sm text-gray-600">
+                            <div className="font-medium text-slate-900">{proctor.name}</div>
+                            <div className="text-sm text-slate-600">
                               {proctor.startTime} - {proctor.endTime}
                               {proctor.email && ` • ${proctor.email}`}
                             </div>
                           </div>
-                          <div className="flex space-x-1">
+                          <div className="flex gap-0.5">
                             <button
                               onClick={() => handleEditProctor(index)}
-                              className="text-blue-500 hover:text-blue-700 p-1"
+                              className="el-icon-btn"
                               title="Edit Proctor"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2721,7 +2722,7 @@ function SessionDetail({ onBack }) {
                             </button>
                             <button
                               onClick={() => handleRemoveProctor(index)}
-                              className="text-red-500 hover:text-red-700 p-1"
+                              className="el-icon-btn hover:bg-rose-50 hover:text-rose-600"
                               title="Remove Proctor"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2735,92 +2736,92 @@ function SessionDetail({ onBack }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No proctors assigned yet.</p>
+                <p className="text-slate-400 text-sm">No proctors assigned yet.</p>
               )}
             </div>
 
             {/* Add New Proctor */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Add New Proctor</h3>
+            <div className="border-t border-slate-200 pt-6">
+              <h3 className="text-base font-semibold text-slate-800 mb-3">Add New Proctor</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     First Name *
                   </label>
                   <input
                     type="text"
                     value={newProctor.firstName}
                     onChange={(e) => setNewProctor({...newProctor, firstName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="el-input"
                     placeholder="First name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Last Name *
                   </label>
                   <input
                     type="text"
                     value={newProctor.lastName}
                     onChange={(e) => setNewProctor({...newProctor, lastName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="el-input"
                     placeholder="Last name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Start Time *
                   </label>
                   <input
                     type="time"
                     value={newProctor.startTime}
                     onChange={(e) => setNewProctor({...newProctor, startTime: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="el-input"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     End Time *
                   </label>
                   <input
                     type="time"
                     value={newProctor.endTime}
                     onChange={(e) => setNewProctor({...newProctor, endTime: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="el-input"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Email
                   </label>
                   <input
                     type="email"
                     value={newProctor.email}
                     onChange={(e) => setNewProctor({...newProctor, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="el-input"
                     placeholder="proctor@example.com"
                   />
                 </div>
               </div>
               <button
                 onClick={handleAddProctor}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 mb-4"
+                className="el-btn el-btn-success w-full mb-4"
               >
                 Add Proctor
               </button>
             </div>
 
             {/* Modal Actions */}
-            <div className="flex space-x-3 pt-6 border-t">
+            <div className="flex space-x-3 pt-6 border-t border-slate-200">
               <button
                 onClick={handleCancelProctors}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                className="el-btn el-btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveProctors}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                className="el-btn el-btn-primary flex-1"
               >
                 Save Changes
               </button>

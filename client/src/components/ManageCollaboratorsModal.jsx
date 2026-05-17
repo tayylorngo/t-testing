@@ -161,64 +161,64 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Collaborators</h2>
-        
+    <div className="el-overlay">
+      <div className="el-modal el-fade-up max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">Manage Collaborators</h2>
+
         {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading collaborators...</p>
+          <div className="flex flex-col items-center py-8">
+            <span className="el-spinner h-9 w-9" />
+            <p className="mt-3 text-sm text-slate-500">Loading collaborators...</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Session Owner */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Session Owner</h3>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h3 className="el-label">Session Owner</h3>
+              <div className="el-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900">
+                    <div className="font-semibold text-slate-900">
                       {owner?.username}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-slate-500">
                       {owner?.firstName} {owner?.lastName}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <span className="el-badge el-badge-brand">
                     Full Access
-                  </div>
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Collaborators */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              <h3 className="el-label">
                 Collaborators ({collaborators.length})
               </h3>
-              
+
               {collaborators.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="el-card py-8 text-center text-sm text-slate-500">
                   No collaborators yet. Invite users to get started.
                 </div>
               ) : (
                 <div className="space-y-3">
                   {collaborators.map((collaborator) => (
-                    <div key={collaborator.userId._id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div key={collaborator.userId._id} className="el-card p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900">
+                          <div className="font-semibold text-slate-900">
                             {collaborator.userId.username}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-slate-500">
                             {collaborator.userId.firstName} {collaborator.userId.lastName}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-4">
                           {/* Permissions */}
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-3">
                             {['view', 'edit', 'manage'].map((permission) => (
                               <div key={permission} className="flex items-center">
                                 <input
@@ -226,32 +226,32 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
                                   checked={collaborator.permissions[permission]}
                                   onChange={() => handlePermissionChange(collaborator.userId._id, permission)}
                                   disabled={updatingPermissions === collaborator.userId._id || !isOwner}
-                                  className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                                  className={`h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 ${
                                     !isOwner ? 'opacity-50 cursor-not-allowed' : ''
                                   }`}
                                   title={!isOwner && permission !== 'view' ? 'Only session owners can change permissions' : ''}
                                 />
-                                <label className={`ml-1 text-xs ${
-                                  !isOwner && permission !== 'view' ? 'text-gray-400' : 'text-gray-600'
+                                <label className={`ml-1.5 text-xs font-medium ${
+                                  !isOwner && permission !== 'view' ? 'text-slate-400' : 'text-slate-600'
                                 }`}>
                                   {getPermissionLabel(permission)}
                                 </label>
                               </div>
                             ))}
                           </div>
-                          
+
                           {/* Remove Button - Only show for owners */}
                           {isOwner && (
                             <button
                               onClick={() => handleRemoveCollaborator(collaborator.userId._id)}
                               disabled={removingCollaborator === collaborator.userId._id}
-                              className="text-red-500 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                              className="el-icon-btn hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
                               title="Remove collaborator"
                             >
                               {removingCollaborator === collaborator.userId._id ? (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                                <span className="el-spinner h-4 w-4" />
                               ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                               )}
@@ -266,10 +266,10 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
             </div>
 
             {/* Close Button */}
-            <div className="pt-4">
+            <div className="pt-2">
               <button
                 onClick={onClose}
-                className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
+                className="el-btn el-btn-secondary w-full"
               >
                 Close
               </button>

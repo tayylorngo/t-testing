@@ -2083,7 +2083,7 @@ function SessionView({ user, onBack }) {
     }, [roomId])
 
     if (!sections || sections.length === 0) {
-      return <p className="text-sm text-gray-500 dark:text-gray-400">No sections assigned</p>
+      return <p className="text-sm text-slate-500">No sections assigned</p>
     }
 
     return (
@@ -2097,18 +2097,18 @@ function SessionView({ user, onBack }) {
         onScroll={handleScroll}
       >
         {sortedSections.map((section) => (
-          <div key={section._id} className="bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+          <div key={section._id} className="bg-brand-50 px-3 py-2 rounded-lg">
             <div className="flex justify-between items-start mb-1">
-              <span className="text-sm font-medium text-gray-700 dark:text-white">
+              <span className="text-sm font-medium text-slate-700">
                 Section {section.number} ({section.studentCount} students)
               </span>
             </div>
             {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
               <div className="mt-1">
-                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Accommodations:</span>
+                <span className="text-xs font-medium text-brand-700">Accommodations:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {section.accommodations.map((acc, index) => (
-                    <span key={index} className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs rounded">
+                    <span key={index} className="px-2 py-1 bg-brand-100 text-brand-700 text-xs rounded">
                       {acc}
                     </span>
                   ))}
@@ -2116,7 +2116,7 @@ function SessionView({ user, onBack }) {
               </div>
             )}
             {section.notes && (
-              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <div className="text-xs text-slate-600 mt-1">
                 <span className="font-medium">Notes:</span> {section.notes}
               </div>
             )}
@@ -2129,20 +2129,20 @@ function SessionView({ user, onBack }) {
   // Memoized component for room proctors
   const RoomProctors = memo(({ proctors }) => {
     if (!proctors || proctors.length === 0) {
-      return <p className="text-sm text-gray-500 dark:text-gray-400">No proctors assigned</p>
+      return <p className="text-sm text-slate-500">No proctors assigned</p>
     }
 
     return (
       <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
         {proctors.map((proctor, index) => (
-          <div key={index} className="bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+          <div key={index} className="bg-emerald-50 px-3 py-2 rounded-lg">
             <div className="flex justify-between items-start mb-1">
-              <span className="text-sm font-medium text-gray-700 dark:text-white">
+              <span className="text-sm font-medium text-slate-700">
                 {proctor.name || `${proctor.firstName} ${proctor.lastName}`}
               </span>
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              <div className="font-medium text-green-700 dark:text-green-300">
+            <div className="text-xs text-slate-600">
+              <div className="font-medium text-emerald-700">
                 {proctor.startTime} - {proctor.endTime}
               </div>
               {proctor.email && (
@@ -2186,7 +2186,7 @@ function SessionView({ user, onBack }) {
     }, [supplies])
 
     if (!supplyData.hasSupplies) {
-      return <p className="text-sm text-gray-500 dark:text-gray-400">No supplies assigned</p>
+      return <p className="text-sm text-slate-500">No supplies assigned</p>
     }
 
     return (
@@ -2194,14 +2194,14 @@ function SessionView({ user, onBack }) {
         {/* Initial Supplies */}
         {supplyData.initialSupplies.length > 0 && (
           <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Initial:</span>
+            <span className="text-xs text-slate-600 font-medium">Initial:</span>
             <div className="space-y-1 mt-1">
               {supplyData.initialSupplies.map(([supplyName, count], index) => (
-                <div key={`initial-${index}`} className="flex justify-between items-center bg-green-50 dark:bg-green-900 px-3 py-2 rounded-lg">
-                  <span className="text-sm text-green-700 dark:text-green-300">
+                <div key={`initial-${index}`} className="flex justify-between items-center bg-emerald-50 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-emerald-700">
                     {supplyName}
                   </span>
-                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                  <span className="text-sm font-medium text-emerald-700">
                     {count}
                   </span>
                 </div>
@@ -2213,14 +2213,14 @@ function SessionView({ user, onBack }) {
         {/* Added Supplies */}
         {supplyData.addedSupplies.length > 0 && (
           <div className={supplyData.initialSupplies.length > 0 ? 'mt-3' : ''}>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Added:</span>
+            <span className="text-xs text-slate-600 font-medium">Added:</span>
             <div className="space-y-1 mt-1">
               {supplyData.addedSupplies.map(([supplyName, count], index) => (
-                <div key={`added-${index}`} className="flex justify-between items-center bg-blue-50 dark:bg-blue-900 px-3 py-2 rounded-lg">
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                <div key={`added-${index}`} className="flex justify-between items-center bg-brand-50 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-brand-700">
                     {supplyName}
                   </span>
-                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  <span className="text-sm font-medium text-brand-700">
                     {count}
                   </span>
                 </div>
@@ -2235,10 +2235,10 @@ function SessionView({ user, onBack }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session...</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="el-spinner h-9 w-9" />
+          <p className="text-sm text-slate-500">Loading session…</p>
         </div>
       </div>
     )
@@ -2246,12 +2246,12 @@ function SessionView({ user, onBack }) {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <p className="text-gray-600">Session not found</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="el-card el-fade-up p-8 max-w-md w-full text-center">
+          <p className="text-sm text-slate-600">Session not found</p>
           <button
             onClick={onBack}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+            className="el-btn el-btn-primary mt-4"
           >
             Back to Dashboard
           </button>
@@ -2263,27 +2263,27 @@ function SessionView({ user, onBack }) {
   const progress = calculateProgress()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 page-container" style={{ overflow: 'visible' }}>
+    <div className="el-app-bg page-container" style={{ overflow: 'visible' }}>
 
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6 gap-4">
             <div className="min-w-0 flex-1 pr-4">
-              <h1 className="text-3xl font-bold text-gray-900 truncate">{session.name}</h1>
-              <p className="text-gray-600">Session Progress View</p>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 truncate">{session.name}</h1>
+              <p className="text-sm text-slate-500">Session Progress View</p>
               <div className="mt-2 flex items-center gap-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                <span className="el-badge el-badge-brand">
                   {getSessionRole()}
                 </span>
                 {/* Real-time connection status */}
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-                  <span className="text-sm text-gray-600">
+                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></div>
+                  <span className="text-sm text-slate-600">
                     {isConnected ? 'Live' : 'Offline'}
                   </span>
                   {!isConnected && connectionAttempts > 0 && (
-                    <span className="text-xs text-red-600">
+                    <span className="text-xs text-rose-600">
                       (Attempt {connectionAttempts}/5)
                     </span>
                   )}
@@ -2293,7 +2293,7 @@ function SessionView({ user, onBack }) {
                         console.log('🔄 Manual reconnect requested')
                         reconnect()
                       }}
-                      className="ml-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition-colors"
+                      className="el-btn el-btn-secondary el-btn-sm ml-2"
                       title="Click to reconnect"
                     >
                       Reconnect
@@ -2305,7 +2305,7 @@ function SessionView({ user, onBack }) {
             <div className="flex items-center gap-3 flex-shrink-0">
               <button
                 onClick={() => exportSessionToExcel(session, session.name)}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center gap-2"
+                className="el-btn el-btn-success"
                 title="Export session data to Excel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2315,7 +2315,7 @@ function SessionView({ user, onBack }) {
               </button>
               <button
                 onClick={onBack}
-                className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                className="el-btn el-btn-secondary"
               >
                 Back to Dashboard
               </button>
@@ -2328,16 +2328,16 @@ function SessionView({ user, onBack }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ overflow: 'visible' }}>
         {/* Permission Info Message */}
         {!canEditSession() && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="mb-6 rounded-xl border border-brand-200 bg-brand-50 p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-brand-500" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">View-Only Access</h3>
-                <div className="mt-2 text-sm text-blue-700">
+                <h3 className="text-sm font-semibold text-brand-800">View-Only Access</h3>
+                <div className="mt-2 text-sm text-brand-700">
                   <p>You have view-only access to this session. You can see all session information, room statuses, and progress, but you cannot make any changes.</p>
                 </div>
               </div>
@@ -2348,94 +2348,94 @@ function SessionView({ user, onBack }) {
         {/* Session Info and Timer */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Session Details */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Session Information</h2>
+          <div className="lg:col-span-2 el-card p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Session Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Date</p>
-                <p className="font-medium">{new Date(session.date).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
+                <p className="el-stat-label">Date</p>
+                <p className="font-medium text-slate-900">{new Date(session.date).toLocaleDateString('en-US', { timeZone: 'UTC' })}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Time</p>
-                <p className="font-medium">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
+                <p className="el-stat-label">Time</p>
+                <p className="font-medium text-slate-900">{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Status</p>
+                <p className="el-stat-label">Status</p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white room-status-transition ${getStatusColor(session.status)}`}>
                   {getStatusText(session.status)}
                 </span>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Students</p>
-                <p className="font-medium">{calculateTotalStudentsInSession()}</p>
+                <p className="el-stat-label">Total Students</p>
+                <p className="font-medium text-slate-900">{calculateTotalStudentsInSession()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Rooms</p>
-                <p className="font-medium">{session.rooms?.length || 0}</p>
+                <p className="el-stat-label">Total Rooms</p>
+                <p className="font-medium text-slate-900">{session.rooms?.length || 0}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Sections</p>
-                <p className="font-medium">{calculateTotalSectionsInSession()}</p>
+                <p className="el-stat-label">Total Sections</p>
+                <p className="font-medium text-slate-900">{calculateTotalSectionsInSession()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Present Students</p>
-                <p className="font-medium">{calculateTotalPresentStudents()}</p>
+                <p className="el-stat-label">Present Students</p>
+                <p className="font-medium text-slate-900">{calculateTotalPresentStudents()}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Absent Students</p>
-                <p className="font-medium">{calculateTotalAbsentStudents()}</p>
+                <p className="el-stat-label">Absent Students</p>
+                <p className="font-medium text-slate-900">{calculateTotalAbsentStudents()}</p>
               </div>
             </div>
           </div>
 
           {/* Timer */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Time Remaining</h2>
+          <div className="el-card p-6 flex flex-col">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Time Remaining</h2>
             <div className="flex-1 flex items-center justify-center">
               {timeRemaining ? (
                 <div className="text-center">
                   {timeRemaining.isOver ? (
-                    <div className="text-red-600 font-bold text-4xl">EXAM ENDED</div>
+                    <div className="text-rose-600 font-bold text-4xl">EXAM ENDED</div>
                   ) : (
-                    <div className="text-5xl font-bold text-orange-600">
+                    <div className="text-5xl font-bold text-amber-600">
                       {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
                     </div>
                   )}
-                  <p className="text-sm text-gray-500 mt-2">Until exam ends</p>
+                  <p className="text-sm text-slate-500 mt-2">Until exam ends</p>
                 </div>
               ) : (
-                <div className="text-center text-gray-500">Loading timer...</div>
+                <div className="text-center text-slate-500">Loading timer...</div>
               )}
             </div>
           </div>
         </div>
 
         {/* Overall Progress */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+        <div className="el-card p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Overall Progress</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Overall Progress</h2>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-blue-600">{progress}%</span>
+              <span className="text-2xl font-bold text-brand-600">{progress}%</span>
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-slate-200 rounded-full h-4">
             <div
-              className="bg-blue-600 h-4 rounded-full progress-bar-transition"
+              className="bg-brand-600 h-4 rounded-full progress-bar-transition"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-slate-500 mt-2">
             {session.rooms?.filter(room => room.status === 'completed').length || 0} of {session.rooms?.length || 0} rooms completed
           </p>
         </div>
 
         {/* Testing In Progress */}
-        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Testing In Progress</h2>
+        <div className="el-card p-4 mb-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Testing In Progress</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Students Still Testing</p>
-              <p className="text-2xl font-bold text-blue-600">
+            <div className="bg-brand-50 rounded-lg p-4">
+              <p className="text-sm text-slate-600 mb-1">Students Still Testing</p>
+              <p className="text-2xl font-bold text-brand-600">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -2446,9 +2446,9 @@ function SessionView({ user, onBack }) {
                     })()}
               </p>
                 </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Sections Remaining</p>
-              <p className="text-2xl font-bold text-green-600">
+            <div className="bg-emerald-50 rounded-lg p-4">
+              <p className="text-sm text-slate-600 mb-1">Sections Remaining</p>
+              <p className="text-2xl font-bold text-emerald-600">
                     {(() => {
                       if (!session || !session.rooms) return 0;
                       return session.rooms
@@ -2461,12 +2461,12 @@ function SessionView({ user, onBack }) {
         </div>
 
         {/* Sort Controls and Search */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+        <div className="el-card p-6 mb-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Search Inputs */}
             <div className="flex flex-col sm:flex-row gap-4 flex-1">
             <div className="flex-1 max-w-md">
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="search" className="el-label">
                 Search Rooms
               </label>
               <input
@@ -2475,11 +2475,11 @@ function SessionView({ user, onBack }) {
                 placeholder="Search by room number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="el-input"
               />
               </div>
               <div className="flex-1 max-w-md">
-                <label htmlFor="sectionSearch" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="sectionSearch" className="el-label">
                   Search Sections
                 </label>
                 <input
@@ -2488,26 +2488,26 @@ function SessionView({ user, onBack }) {
                   placeholder="Search by section number..."
                   value={sectionSearchQuery}
                   onChange={(e) => setSectionSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="el-input"
                 />
               </div>
             </div>
 
             {/* View Toggle */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="el-label">
                 View Mode
               </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setIsTableView(!isTableView)}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+                  className="el-btn el-btn-primary el-btn-sm"
                 >
                   {isTableView ? 'Card View' : 'Table View'}
                 </button>
                 <button
                   onClick={() => setIsDisplayMode(true)}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-purple-500 hover:bg-purple-600 text-white flex items-center gap-2"
+                  className="el-btn el-btn-secondary el-btn-sm"
                   title="Open large screen display mode"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2521,14 +2521,14 @@ function SessionView({ user, onBack }) {
 
           {/* Mark Room Complete / Mark Section Complete - bottom row, right-aligned */}
           {canEditSession() && (session?.rooms?.some(r => r.status !== 'completed') || sectionsAvailableForQuickComplete.length > 0) && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+            <div className="mt-4 pt-4 border-t border-slate-200 flex justify-end gap-2">
               {session?.rooms?.some(r => r.status !== 'completed') && (
                 <button
                   onClick={() => {
                     setSelectedRoomForComplete(null)
                     setShowMarkRoomCompleteModal(true)
                   }}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-2"
+                  className="el-btn el-btn-success el-btn-sm"
                   title="Mark a room as complete"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2544,7 +2544,7 @@ function SessionView({ user, onBack }) {
                     setQuickCompleteStudentsPresent('')
                     setShowQuickCompleteModal(true)
                   }}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-2"
+                  className="el-btn el-btn-success el-btn-sm"
                   title="Mark a section as complete"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2559,11 +2559,11 @@ function SessionView({ user, onBack }) {
 
         {/* Large Screen Display Mode */}
         {isDisplayMode && (
-          <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 z-50 flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-slate-100 z-50 flex flex-col overflow-hidden">
             {/* Exit button */}
             <button
               onClick={() => setIsDisplayMode(false)}
-              className="fixed top-4 right-4 z-50 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 shadow-lg"
+              className="el-btn el-btn-danger fixed top-4 right-4 z-50 shadow-lg"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2575,8 +2575,8 @@ function SessionView({ user, onBack }) {
             <div className="flex-shrink-0 p-6 pb-3">
               {/* Header */}
               <div className="text-center mb-5">
-                <h1 className="text-4xl font-bold text-gray-900 mb-3">{session?.name}</h1>
-                <p className="text-xl text-gray-600">
+                <h1 className="text-4xl font-bold text-slate-900 mb-3">{session?.name}</h1>
+                <p className="text-xl text-slate-600">
                   {session?.date && new Date(session.date).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
@@ -2600,7 +2600,7 @@ function SessionView({ user, onBack }) {
                   })()}
                 </p>
                 {session?.accommodationStartTime && (
-                  <p className="text-base text-blue-600 mt-2 font-medium">
+                  <p className="text-base text-brand-600 mt-2 font-medium">
                     Accommodation Start: {(() => {
                       const formatTime = (time) => {
                         const [hours, minutes] = time.split(':')
@@ -2618,43 +2618,43 @@ function SessionView({ user, onBack }) {
               {/* Main Timer */}
               <div className="text-center mb-4">
                 <div className="flex flex-col md:flex-row gap-3 justify-center items-center flex-wrap">
-                  <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-gray-200">
-                    <p className="text-sm text-gray-500 mb-2">Estimated Time Remaining</p>
+                  <div className="inline-block el-card px-7 py-5">
+                    <p className="text-sm text-slate-500 mb-2">Estimated Time Remaining</p>
                   {timeRemaining ? (
                     timeRemaining.isOver ? (
-                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
                     ) : (
-                        <div className="text-4xl font-mono font-bold text-green-600">
+                        <div className="text-4xl font-mono font-bold text-emerald-600">
                         {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
                       </div>
                     )
                   ) : (
-                      <div className="text-xl text-gray-400">Loading...</div>
+                      <div className="text-xl text-slate-400">Loading...</div>
                   )}
                 </div>
-                  
+
                   {/* 1.5x Time Remaining */}
                   {timeRemaining15x && (
-                    <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-orange-200">
-                      <p className="text-sm text-gray-500 mb-2">1.5x Time Remaining</p>
+                    <div className="inline-block rounded-xl border border-amber-200 bg-white shadow-sm px-7 py-5">
+                      <p className="text-sm text-slate-500 mb-2">1.5x Time Remaining</p>
                       {timeRemaining15x.isOver ? (
-                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
                       ) : (
-                        <div className="text-4xl font-mono font-bold text-orange-600">
+                        <div className="text-4xl font-mono font-bold text-amber-600">
                           {String(timeRemaining15x.hours).padStart(2, '0')}:{String(timeRemaining15x.minutes).padStart(2, '0')}:{String(timeRemaining15x.seconds).padStart(2, '0')}
                         </div>
                       )}
                     </div>
                   )}
-                  
+
                   {/* 2x Time Remaining */}
                   {timeRemaining2x && (
-                    <div className="inline-block bg-white rounded-2xl px-7 py-5 shadow-lg border border-purple-200">
-                      <p className="text-sm text-gray-500 mb-2">2x Time Remaining</p>
+                    <div className="inline-block rounded-xl border border-brand-200 bg-white shadow-sm px-7 py-5">
+                      <p className="text-sm text-slate-500 mb-2">2x Time Remaining</p>
                       {timeRemaining2x.isOver ? (
-                        <div className="text-3xl font-bold text-red-600 animate-pulse">EXAM ENDED</div>
+                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
                       ) : (
-                        <div className="text-4xl font-mono font-bold text-purple-600">
+                        <div className="text-4xl font-mono font-bold text-brand-600">
                           {String(timeRemaining2x.hours).padStart(2, '0')}:{String(timeRemaining2x.minutes).padStart(2, '0')}:{String(timeRemaining2x.seconds).padStart(2, '0')}
                         </div>
                       )}
@@ -2665,33 +2665,33 @@ function SessionView({ user, onBack }) {
 
               {/* Stats Row */}
               <div className="grid grid-cols-6 gap-3 max-w-7xl mx-auto">
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Progress</p>
-                  <p className="text-3xl font-bold text-blue-600">{progress}%</p>
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Progress</p>
+                  <p className="text-3xl font-bold text-brand-600">{progress}%</p>
                 </div>
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Total Students</p>
-                  <p className="text-3xl font-bold text-gray-900">
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Total Students</p>
+                  <p className="text-3xl font-bold text-slate-900">
                     {calculateTotalStudentsInSession()}
                   </p>
                 </div>
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Present</p>
-                  <p className="text-3xl font-bold text-green-600">{calculateTotalPresentStudents()}</p>
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Present</p>
+                  <p className="text-3xl font-bold text-emerald-600">{calculateTotalPresentStudents()}</p>
                 </div>
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Absent</p>
-                  <p className="text-3xl font-bold text-red-600">{calculateTotalAbsentStudents()}</p>
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Absent</p>
+                  <p className="text-3xl font-bold text-rose-600">{calculateTotalAbsentStudents()}</p>
                 </div>
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Rooms</p>
-                  <p className="text-3xl font-bold text-purple-600">
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Rooms</p>
+                  <p className="text-3xl font-bold text-brand-600">
                     {debouncedSession?.rooms?.filter(r => r.status === 'completed').length || 0}/{debouncedSession?.rooms?.length || 0}
                   </p>
                 </div>
-                <div className="bg-white rounded-2xl p-4 text-center shadow-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Sections</p>
-                  <p className="text-3xl font-bold text-indigo-600">
+                <div className="el-card p-4 text-center">
+                  <p className="text-sm text-slate-500 mb-1">Sections</p>
+                  <p className="text-3xl font-bold text-brand-600">
                     {debouncedSession?.rooms?.reduce((sum, room) => sum + (room.status === 'completed' ? (room.sections?.length || 0) : 0), 0) || 0}/{debouncedSession?.rooms?.reduce((sum, room) => sum + (room.sections?.length || 0), 0) || 0}
                   </p>
                 </div>
@@ -2699,35 +2699,35 @@ function SessionView({ user, onBack }) {
 
               {/* Testing Rooms Title and Filters - Fixed, not scrollable */}
               <div className="mt-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 className="text-3xl font-bold text-gray-900">Testing Rooms</h2>
+                <h2 className="text-3xl font-bold text-slate-900">Testing Rooms</h2>
                 <div className="flex flex-wrap gap-3">
                   {/* Status Filter */}
                   <div>
-                    <label htmlFor="displayStatusFilter" className="block text-xs font-medium text-gray-700 mb-1">
+                    <label htmlFor="displayStatusFilter" className="el-label">
                       Status
                     </label>
                     <select
                       id="displayStatusFilter"
                       value={displayFilterStatus}
                       onChange={(e) => setDisplayFilterStatus(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      className="el-input w-auto"
                     >
                       <option value="all">All Status</option>
                       <option value="active">Active</option>
                       <option value="completed">Completed</option>
                     </select>
                   </div>
-                  
+
                   {/* Accommodation Filter */}
                   <div>
-                    <label htmlFor="displayAccommodationFilter" className="block text-xs font-medium text-gray-700 mb-1">
+                    <label htmlFor="displayAccommodationFilter" className="el-label">
                       Accommodation
                     </label>
                     <select
                       id="displayAccommodationFilter"
                       value={displayFilterAccommodation}
                       onChange={(e) => setDisplayFilterAccommodation(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      className="el-input w-auto"
                     >
                       <option value="all">All Rooms</option>
                       <option value="bilingual">Bilingual</option>
@@ -2735,17 +2735,17 @@ function SessionView({ user, onBack }) {
                       <option value="2x">2x</option>
                     </select>
                   </div>
-                  
+
                   {/* Sort By */}
                   <div>
-                    <label htmlFor="displaySortBy" className="block text-xs font-medium text-gray-700 mb-1">
+                    <label htmlFor="displaySortBy" className="el-label">
                       Sort By
                     </label>
                     <select
                       id="displaySortBy"
                       value={displaySortBy}
                       onChange={(e) => setDisplaySortBy(e.target.value)}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      className="el-input w-auto"
                     >
                       <option value="roomNumber">Room Number</option>
                       <option value="sectionNumber">Section Number</option>
@@ -2863,72 +2863,72 @@ function SessionView({ user, onBack }) {
                     return (
                       <div
                         key={room._id}
-                        className={`rounded-xl p-5 shadow-lg ${hasConflict
-                          ? 'bg-yellow-50 border-2 border-yellow-500'
+                        className={`rounded-xl p-5 shadow-sm border ${hasConflict
+                          ? 'bg-amber-50 border-amber-300'
                           : room.status === 'completed'
-                          ? 'bg-green-50 border-2 border-green-500'
+                          ? 'bg-emerald-50 border-emerald-300'
                           : room.status === 'active'
-                            ? 'bg-blue-50 border-2 border-blue-500'
-                            : 'bg-white border-2 border-gray-300'
+                            ? 'bg-blue-50 border-blue-300'
+                            : 'bg-white border-slate-200'
                           }`}
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex flex-col gap-1 truncate flex-1">
-                            <h3 className="text-xl font-bold text-gray-900 truncate">{room.name}</h3>
+                            <h3 className="text-xl font-bold text-slate-900 truncate">{room.name}</h3>
                             <div className="flex gap-1 flex-wrap">
                               {getRoomAccommodationSummary(room) && (
                                 <>
                                   {getRoomAccommodationSummary(room).includes('bilingual') && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    <span className="el-badge el-badge-blue">
                                       🌐 Bilingual
                                     </span>
                                   )}
                                   {getRoomAccommodationSummary(room).includes('extra-time') && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="el-badge el-badge-green">
                                       ⏱️ Extra Time
                                     </span>
                                   )}
                                 </>
                               )}
                               {room.notes && room.notes.trim() && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                                <span className="el-badge el-badge-amber" title={room.notes}>
                                   📝 Notes
                                 </span>
                               )}
                             </div>
                           </div>
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ml-2 ${room.status === 'completed'
-                            ? 'bg-green-500 text-white'
+                          <span className={`px-2 py-1 rounded-md text-xs font-semibold ml-2 ${room.status === 'completed'
+                            ? 'bg-emerald-500 text-white'
                             : room.status === 'active'
                               ? 'bg-blue-500 text-white'
-                              : 'bg-gray-400 text-white'
+                              : 'bg-slate-400 text-white'
                             }`}>
                             {room.status?.toUpperCase()}
                           </span>
                         </div>
 
-                        <div className="space-y-2 text-gray-600">
+                        <div className="space-y-2 text-slate-600">
                           <div className="flex justify-between">
                             <span>Students:</span>
-                            <span className="font-semibold text-gray-900">{presentStudents} / {totalStudents}</span>
+                            <span className="font-semibold text-slate-900">{presentStudents} / {totalStudents}</span>
                           </div>
                           {roomTimeData && !roomTimeData.isOver && (
                             <div className="flex justify-between">
                               <span>{hasConflict && <span className="mr-1">⚠️</span>}Time Left:</span>
-                              <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-orange-600' : 'text-green-600'}`}>
+                              <span className={`font-mono font-semibold ${roomTimeData.multiplier > 1 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                 {String(roomTimeData.hours).padStart(2, '0')}:{String(roomTimeData.minutes).padStart(2, '0')}:{String(roomTimeData.seconds).padStart(2, '0')}
                                 {roomTimeData.multiplier > 1 && <span className="text-xs ml-1">({roomTimeData.multiplier}x)</span>}
                               </span>
                             </div>
                           )}
                           {roomTimeData?.isOver && (
-                            <div className="text-red-600 font-semibold text-center mt-2">TIME UP</div>
+                            <div className="text-rose-600 font-semibold text-center mt-2">TIME UP</div>
                           )}
                         </div>
 
                         {sortedSections.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="text-sm font-semibold text-gray-700 mb-3">Sections</div>
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <div className="text-sm font-semibold text-slate-700 mb-3">Sections</div>
                             <div className="max-h-40 overflow-y-auto pr-1 space-y-3">
                               {sortedSections.map((section) => {
                                 // Sort accommodations: time accommodations first, then others
@@ -2954,14 +2954,14 @@ function SessionView({ user, onBack }) {
                                 return (
                                   <div key={section._id} className="text-sm">
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                      <span className="font-semibold text-gray-900 text-base">#{section.number}</span>
-                                      <span className="text-gray-600 text-sm">({section.studentCount || 0})</span>
+                                      <span className="font-semibold text-slate-900 text-base">#{section.number}</span>
+                                      <span className="text-slate-600 text-sm">({section.studentCount || 0})</span>
                                       {sortedAccommodations.length > 0 && (
                                       <div className="flex flex-wrap gap-1">
                                           {sortedAccommodations.map((acc, index) => (
                                           <span
                                             key={`${section._id}-acc-${index}`}
-                                              className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs"
+                                              className="px-2 py-1 bg-brand-100 text-brand-700 rounded text-xs"
                                           >
                                             {acc}
                                           </span>
@@ -2989,13 +2989,13 @@ function SessionView({ user, onBack }) {
         {/* Rooms Display */}
         {isTableView ? (
           /* Table View */
-          <div className="bg-white rounded-2xl shadow-lg">
+          <div className="el-card">
             <div className="overflow-x-auto" style={{ touchAction: 'pan-x', overflowY: 'visible', position: 'relative' }}>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
                   <tr>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('roomNumber')}
                     >
                       <div className="flex items-center gap-2">
@@ -3008,7 +3008,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center gap-2">
@@ -3021,7 +3021,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('studentCount')}
                     >
                       <div className="flex items-center gap-2">
@@ -3034,7 +3034,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('present')}
                     >
                       <div className="flex items-center gap-2">
@@ -3047,7 +3047,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('absent')}
                     >
                       <div className="flex items-center gap-2">
@@ -3060,7 +3060,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('sections')}
                     >
                       <div className="flex items-center gap-2">
@@ -3073,7 +3073,7 @@ function SessionView({ user, onBack }) {
                       </div>
                     </th>
                     <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 select-none"
                       onClick={() => handleSort('timeRemaining')}
                     >
                       <div className="flex items-center gap-2">
@@ -3085,16 +3085,16 @@ function SessionView({ user, onBack }) {
                         )}
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-slate-200">
                   {getPaginatedRooms().map((room) => (
                     <React.Fragment key={room._id}>
                       <tr
-                        className="hover:bg-gray-50 cursor-pointer"
+                        className="hover:bg-slate-50 cursor-pointer"
                         onClick={(e) => {
                           // Don't expand if clicking on action buttons
                           if (!e.target.closest('.dropdown-container') && !e.target.closest('button')) {
@@ -3105,24 +3105,24 @@ function SessionView({ user, onBack }) {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col gap-1">
-                            <span className="text-sm font-medium text-gray-900">{room.name}</span>
+                            <span className="text-sm font-medium text-slate-900">{room.name}</span>
                             <div className="flex gap-1 flex-wrap">
                             {getRoomAccommodationSummary(room) && (
                                 <>
                                 {getRoomAccommodationSummary(room).includes('bilingual') && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  <span className="el-badge el-badge-blue">
                                     🌐 Bilingual
                                   </span>
                                 )}
                                 {getRoomAccommodationSummary(room).includes('extra-time') && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  <span className="el-badge el-badge-green">
                                     ⏱️ Extra Time
                                   </span>
                                 )}
                                 </>
                               )}
                               {room.notes && room.notes.trim() && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                                <span className="el-badge el-badge-amber" title={room.notes}>
                                   📝 Notes
                                 </span>
                               )}
@@ -3135,19 +3135,19 @@ function SessionView({ user, onBack }) {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-black font-medium">
+                          <div className="text-sm text-slate-900 font-medium">
                             {String(calculateTotalStudents(room.sections) || 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-black">
-                            {String(room.status === 'completed' 
+                          <div className="text-sm text-slate-700">
+                            {String(room.status === 'completed'
                               ? (typeof room.presentStudents === 'number' ? room.presentStudents : 0)
                               : 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-black">
+                          <div className="text-sm text-slate-700">
                             {String((() => {
                               const total = calculateTotalStudents(room.sections) || 0;
                               if (room.status === 'completed' && typeof room.presentStudents === 'number') {
@@ -3159,7 +3159,7 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">
+                          <div className="text-sm text-slate-900">
                             {room.sections && room.sections.length > 0
                               ? [...room.sections]
                                   .sort((a, b) => (a.number || 0) - (b.number || 0))
@@ -3169,7 +3169,7 @@ function SessionView({ user, onBack }) {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm font-medium ${getRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                          <div className={`text-sm font-medium ${getRoomTimeRemaining(room)?.isOver ? 'text-rose-600' : 'text-amber-600'}`}>
                             {(() => {
                               const timeData = getRoomTimeRemaining(room)
                               if (!timeData) return '--:--:--'
@@ -3180,7 +3180,7 @@ function SessionView({ user, onBack }) {
                                 return (
                                   <div className="flex flex-col">
                                     <span>{timeString}</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="text-xs text-slate-400">
                                       ({multiplier}x time)
                                     </span>
                                   </div>
@@ -3200,7 +3200,7 @@ function SessionView({ user, onBack }) {
                                       e.stopPropagation()
                                       handleMarkRoomIncomplete(room._id)
                                     }}
-                                    className="px-3 py-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg font-medium transition-colors duration-200 border border-amber-200 dark:border-amber-800"
+                                    className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium transition-colors duration-200 border border-amber-200"
                                     title="Mark Incomplete"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3213,7 +3213,7 @@ function SessionView({ user, onBack }) {
                                       e.stopPropagation()
                                       handleMarkRoomComplete(room._id)
                                     }}
-                                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg font-medium transition-colors duration-200 border border-emerald-200 dark:border-emerald-800"
+                                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg font-medium transition-colors duration-200 border border-emerald-200"
                                     title="Mark Complete"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3228,7 +3228,7 @@ function SessionView({ user, onBack }) {
                                 e.stopPropagation()
                                 navigate(`/sessions/${sessionId}/rooms/${room._id}`)
                               }}
-                              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-medium transition-colors duration-200 border border-blue-200 dark:border-blue-800"
+                              className="px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg font-medium transition-colors duration-200 border border-brand-200"
                               title="View Room Details"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3244,7 +3244,7 @@ function SessionView({ user, onBack }) {
                                     e.stopPropagation()
                                     toggleDropdown(room._id, e)
                                   }}
-                                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors duration-200"
+                                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors duration-200"
                                   title="More Actions"
                                 >
                                   ⋯
@@ -3253,7 +3253,7 @@ function SessionView({ user, onBack }) {
                                 {showDropdown === room._id && createPortal(
                                   <div
                                     data-dropdown-menu
-                                    className="fixed w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+                                    className="fixed w-48 bg-white rounded-lg shadow-lg border border-slate-200 z-50"
                                     style={{
                                       position: 'fixed',
                                       top: `${dropdownPosition.top}px`,
@@ -3270,7 +3270,7 @@ function SessionView({ user, onBack }) {
                                           handleAddSupplyClick(room)
                                           setShowDropdown(null)
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                                         style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
@@ -3289,7 +3289,7 @@ function SessionView({ user, onBack }) {
                                           handleMoveStudentsClick(room)
                                           setShowDropdown(null)
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                                         style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
@@ -3308,7 +3308,7 @@ function SessionView({ user, onBack }) {
                                           handleRoomNotesClick(room)
                                           setShowDropdown(null)
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                                       >
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3322,7 +3322,7 @@ function SessionView({ user, onBack }) {
                                           handleEditSuppliesClick(room)
                                           setShowDropdown(null)
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                                         style={{
                                           pointerEvents: 'auto',
                                           zIndex: 99999,
@@ -3341,7 +3341,7 @@ function SessionView({ user, onBack }) {
                                           handleInvalidateTestClick(room)
                                           setShowDropdown(null)
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center"
                                       >
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -3360,20 +3360,20 @@ function SessionView({ user, onBack }) {
 
                       {/* Expanded Details Row */}
                       {expandedRooms.has(room._id) && (
-                        <tr key={`${room._id}-details`} className="bg-gray-50 dark:bg-gray-700">
+                        <tr key={`${room._id}-details`} className="bg-slate-50">
                           <td colSpan="9" className="px-0 py-0">
                             <div className="overflow-hidden">
                               <div className="px-6 py-3">
                                 <div className="grid grid-cols-3 gap-4">
                                   {/* Sections Column */}
                                   <div>
-                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
+                                    <h4 className="text-sm font-semibold text-slate-700 mb-2">Sections</h4>
                                     <RoomSections sections={room.sections} roomId={room._id} />
                                   </div>
 
                                   {/* Proctors Column */}
                                   <div>
-                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
+                                    <h4 className="text-sm font-semibold text-slate-700 mb-2">Proctors</h4>
                                     <RoomProctors proctors={room.proctors} />
                                   </div>
 
@@ -3381,7 +3381,7 @@ function SessionView({ user, onBack }) {
                                   <div className="flex flex-col h-full justify-between">
                                     {/* Supplies Section */}
                                     <div>
-                                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
+                                      <h4 className="text-sm font-semibold text-slate-700 mb-2">Supplies</h4>
                                       <RoomSupplies supplies={room.supplies} />
                                     </div>
 
@@ -3391,7 +3391,7 @@ function SessionView({ user, onBack }) {
                                       if (roomInvalidatedTests.length > 0) {
                                         return (
                                           <div className="mt-4">
-                                            <h4 className="text-sm font-medium text-red-700 dark:text-red-300 mb-2 flex items-center">
+                                            <h4 className="text-sm font-semibold text-rose-600 mb-2 flex items-center">
                                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                               </svg>
@@ -3399,18 +3399,18 @@ function SessionView({ user, onBack }) {
                                             </h4>
                                             <div className="space-y-2 max-h-32 overflow-y-auto">
                                               {roomInvalidatedTests.map((invalidation) => (
-                                                <div key={invalidation.id} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-2">
+                                                <div key={invalidation.id} className="bg-rose-50 border border-rose-200 rounded-lg p-2">
                                                   <div className="flex justify-between items-start">
                                                     <div className="flex-1">
-                                                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                                                      <p className="text-sm font-medium text-rose-700">
                                                         Section {invalidation.sectionNumber}
                                                       </p>
-                                                      <p className="text-xs text-red-600 dark:text-red-400">
+                                                      <p className="text-xs text-rose-600">
                                                         {invalidation.notes}
                                                       </p>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
-                                                      <span className="text-xs text-red-500 dark:text-red-400">
+                                                      <span className="text-xs text-rose-500">
                                                         {new Date(invalidation.timestamp).toLocaleTimeString()}
                                                       </span>
                                                       <button
@@ -3418,7 +3418,7 @@ function SessionView({ user, onBack }) {
                                                           e.stopPropagation()
                                                           handleRemoveInvalidatedTestClick(invalidation)
                                                         }}
-                                                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs"
+                                                        className="text-rose-500 hover:text-rose-700 text-xs"
                                                         title="Remove invalidation"
                                                       >
                                                         ✕
@@ -3437,14 +3437,14 @@ function SessionView({ user, onBack }) {
                                     {/* Room Notes Section */}
                                     {room.notes && (
                                       <div className="mt-4">
-                                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center">
                                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                           </svg>
                                           Room Notes
                                         </h4>
-                                        <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-                                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                          <p className="text-sm text-slate-700 whitespace-pre-wrap">
                                             {room.notes}
                                           </p>
                                         </div>
@@ -3470,30 +3470,30 @@ function SessionView({ user, onBack }) {
             {getPaginatedRooms().map((room) => (
               <div
                 key={room._id}
-                className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-200"
+                className="el-card p-6 cursor-pointer hover:shadow-md hover:ring-1 hover:ring-brand-200 transition duration-200"
                 onClick={() => toggleCardExpansion(room._id)}
                 data-room-id={room._id}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">{room.name}</h3>
                     <div className="flex gap-1 flex-wrap">
                     {getRoomAccommodationSummary(room) && (
                         <>
                         {getRoomAccommodationSummary(room).includes('bilingual') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="el-badge el-badge-blue">
                             🌐 Bilingual
                           </span>
                         )}
                         {getRoomAccommodationSummary(room).includes('extra-time') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <span className="el-badge el-badge-green">
                             ⏱️ Extra Time
                           </span>
                         )}
                         </>
                       )}
                       {room.notes && room.notes.trim() && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={room.notes}>
+                        <span className="el-badge el-badge-amber" title={room.notes}>
                           📝 Notes
                         </span>
                       )}
@@ -3505,30 +3505,30 @@ function SessionView({ user, onBack }) {
                 </div>
 
                 {/* Total Students */}
-                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="mb-4 p-3 bg-brand-50 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Students:</span>
-                    <span className="text-2xl font-bold text-blue-600">
+                    <span className="text-sm font-medium text-slate-700">Total Students:</span>
+                    <span className="text-2xl font-bold text-brand-600">
                       {calculateTotalStudents(room.sections)}
                     </span>
                   </div>
                 </div>
 
                 {/* Present Students */}
-                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="mb-4 p-3 bg-emerald-50 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Present Students:</span>
-                    <span className="text-2xl font-bold text-green-600">
+                    <span className="text-sm font-medium text-slate-700">Present Students:</span>
+                    <span className="text-2xl font-bold text-emerald-600">
                       {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
                     </span>
                   </div>
                 </div>
 
                 {/* Absent Students */}
-                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="mb-4 p-3 bg-rose-50 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Absent Students:</span>
-                    <span className="text-2xl font-bold text-red-600">
+                    <span className="text-sm font-medium text-slate-700">Absent Students:</span>
+                    <span className="text-2xl font-bold text-rose-600">
                       {room.status === 'completed' && room.presentStudents !== undefined
                         ? calculateTotalStudents(room.sections) - room.presentStudents
                         : '-'}
@@ -3545,7 +3545,7 @@ function SessionView({ user, onBack }) {
                         e.stopPropagation()
                         navigate(`/sessions/${sessionId}/rooms/${room._id}`)
                       }}
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                      className="el-btn el-btn-primary w-full"
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -3561,7 +3561,7 @@ function SessionView({ user, onBack }) {
                             e.stopPropagation()
                             handleMarkRoomIncomplete(room._id)
                           }}
-                          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                          className="el-btn w-full bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3574,7 +3574,7 @@ function SessionView({ user, onBack }) {
                             e.stopPropagation()
                             handleMarkRoomComplete(room._id)
                           }}
-                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                          className="el-btn el-btn-success w-full"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -3588,7 +3588,7 @@ function SessionView({ user, onBack }) {
                           e.stopPropagation()
                           navigate(`/sessions/${sessionId}/rooms/${room._id}`)
                         }}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                        className="el-btn el-btn-primary w-full"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -3602,14 +3602,14 @@ function SessionView({ user, onBack }) {
                             e.stopPropagation()
                             toggleDropdown(room._id)
                           }}
-                          className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                          className="el-btn el-btn-secondary w-full"
                         >
                           <span className="mr-2">⋯</span>
                           More Actions
                         </button>
 
                         {showDropdown === room._id && (
-                          <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                          <div data-dropdown-menu className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
                             <div className="py-1">
                               <button
                                 onClick={(e) => {
@@ -3618,7 +3618,7 @@ function SessionView({ user, onBack }) {
                                   handleAddSupplyClick(room)
                                   setShowDropdown(null)
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -3632,7 +3632,7 @@ function SessionView({ user, onBack }) {
                                   handleMoveStudentsClick(room)
                                   setShowDropdown(null)
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -3646,7 +3646,7 @@ function SessionView({ user, onBack }) {
                                   handleRoomNotesClick(room)
                                   setShowDropdown(null)
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3660,7 +3660,7 @@ function SessionView({ user, onBack }) {
                                   handleEditSuppliesClick(room)
                                   setShowDropdown(null)
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -3674,7 +3674,7 @@ function SessionView({ user, onBack }) {
                                   handleInvalidateTestClick(room)
                                   setShowDropdown(null)
                                 }}
-                                className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -3693,7 +3693,7 @@ function SessionView({ user, onBack }) {
                         e.stopPropagation()
                         navigate(`/sessions/${sessionId}/rooms/${room._id}`)
                       }}
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+                      className="el-btn el-btn-primary w-full"
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -3710,33 +3710,33 @@ function SessionView({ user, onBack }) {
                   <div className="mt-4 space-y-4">
                     {/* Sections */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sections</h4>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2">Sections</h4>
                       <RoomSections sections={room.sections} roomId={room._id} />
                     </div>
 
                     {/* Proctors */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Proctors</h4>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2">Proctors</h4>
                       <RoomProctors proctors={room.proctors} />
                     </div>
 
                     {/* Supplies */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Supplies</h4>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2">Supplies</h4>
                       <RoomSupplies supplies={room.supplies} />
                     </div>
 
                     {/* Room Notes */}
                     {room.notes && (
                       <div>
-                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                           Room Notes
                         </h4>
-                        <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap">
                             {room.notes}
                           </p>
                         </div>
@@ -3744,10 +3744,10 @@ function SessionView({ user, onBack }) {
                     )}
 
                     {/* Estimated Time */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <div className="border-t border-slate-200 pt-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Time:</span>
-                        <div className={`text-lg font-bold ${getRoomTimeRemaining(room)?.isOver ? 'text-red-600' : 'text-orange-600'}`}>
+                        <span className="text-sm font-medium text-slate-700">Estimated Time:</span>
+                        <div className={`text-lg font-bold ${getRoomTimeRemaining(room)?.isOver ? 'text-rose-600' : 'text-amber-600'}`}>
                           {(() => {
                             const timeData = getRoomTimeRemaining(room)
                             if (!timeData) return '--:--:--'
@@ -3758,7 +3758,7 @@ function SessionView({ user, onBack }) {
                               return (
                                 <div className="flex flex-col items-end">
                                   <span>{timeString}</span>
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                                  <span className="text-xs text-slate-400 font-normal">
                                     ({multiplier}x time)
                                   </span>
                                 </div>
@@ -3779,14 +3779,14 @@ function SessionView({ user, onBack }) {
         {/* Pagination Controls */}
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-between">
-            <div className="text-sm text-gray-700 dark:text-gray-300">
+            <div className="text-sm text-slate-600">
               Showing {((currentPage - 1) * roomsPerPage) + 1} to {Math.min(currentPage * roomsPerPage, getSortedRooms().length)} of {getSortedRooms().length} rooms
             </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                className="el-btn el-btn-secondary el-btn-sm"
               >
                 Previous
               </button>
@@ -3808,9 +3808,9 @@ function SessionView({ user, onBack }) {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
+                      className={`el-btn el-btn-sm ${currentPage === pageNum
+                        ? 'el-btn-primary'
+                        : 'el-btn-secondary'
                         }`}
                     >
                       {pageNum}
@@ -3822,7 +3822,7 @@ function SessionView({ user, onBack }) {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                className="el-btn el-btn-secondary el-btn-sm"
               >
                 Next
               </button>
@@ -3833,20 +3833,20 @@ function SessionView({ user, onBack }) {
 
       {/* Add Supply Modal */}
       {showAddSupplyModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Supply to {selectedRoom.name}</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Add Supply to {selectedRoom.name}</h2>
 
             <div className="space-y-4">
               {/* Preset Supplies */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Select Supply
                 </label>
                 <select
                   value={selectedPresetSupply}
                   onChange={(e) => setSelectedPresetSupply(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 >
                   <option value="">Choose a supply</option>
                   {PRESET_SUPPLIES.map(supply => (
@@ -3857,7 +3857,7 @@ function SessionView({ user, onBack }) {
 
               {/* Quantity */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Quantity
                 </label>
                 <input
@@ -3865,11 +3865,11 @@ function SessionView({ user, onBack }) {
                   min="1"
                   value={newSupplyQuantity}
                   onChange={(e) => setNewSupplyQuantity(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 />
               </div>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowAddSupplyModal(false)
@@ -3877,14 +3877,14 @@ function SessionView({ user, onBack }) {
                     setNewSupplyQuantity(1)
                     setSelectedRoom(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddSupply}
                   disabled={!selectedPresetSupply}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Add Supply
                 </button>
@@ -3896,25 +3896,25 @@ function SessionView({ user, onBack }) {
 
       {/* Edit Supply Modal */}
       {showEditSupplyModal && selectedRoom && editingSupply && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supply in {selectedRoom.name}</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit Supply in {selectedRoom.name}</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Supply Name
                 </label>
                 <input
                   type="text"
                   value={editingSupply.name}
                   onChange={(e) => setEditingSupply({ ...editingSupply, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Quantity
                 </label>
                 <input
@@ -3922,11 +3922,11 @@ function SessionView({ user, onBack }) {
                   min="1"
                   value={editSupplyQuantity}
                   onChange={(e) => setEditSupplyQuantity(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 />
               </div>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowEditSupplyModal(false)
@@ -3934,13 +3934,13 @@ function SessionView({ user, onBack }) {
                     setEditSupplyQuantity(1)
                     setSelectedRoom(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditSupply}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Update Supply
                 </button>
@@ -3952,37 +3952,37 @@ function SessionView({ user, onBack }) {
 
       {/* Move Students Modal */}
       {showMoveStudentsModal && moveFromRoom && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Move Students</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Move Students</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   From Room
                 </label>
-                <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-lg dark:text-white">
+                <div className="px-4 py-3 bg-slate-100 rounded-lg text-slate-700">
                   {moveFromRoom.name}
                 </div>
               </div>
 
               {moveFromRoom.sections && moveFromRoom.sections.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     Select Students to Move
                   </label>
                   <div className="space-y-4 max-h-60 overflow-y-auto">
                     {moveFromRoom.sections
                       .sort((a, b) => a.number - b.number)
                       .map((section) => (
-                        <div key={section._id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                        <div key={section._id} className="border border-slate-200 rounded-lg p-4">
                           <div className="flex justify-between items-center mb-3">
                             <div>
-                              <div className="text-sm font-medium text-gray-700 dark:text-white">
+                              <div className="text-sm font-medium text-slate-700">
                                 Section {section.number} ({section.studentCount} students)
                               </div>
                               {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                <div className="text-xs text-brand-600 mt-1">
                                   Accommodations: {section.accommodations.join(', ')}
                                 </div>
                               )}
@@ -3991,7 +3991,7 @@ function SessionView({ user, onBack }) {
 
                           <div className="space-y-3">
                             <div>
-                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                              <label className="block text-xs font-medium text-slate-500 mb-1">
                                 Students to move from this section:
                               </label>
                               <input
@@ -4009,16 +4009,16 @@ function SessionView({ user, onBack }) {
                                     }
                                   }))
                                 }}
-                                className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white"
+                                className="el-input w-20"
                               />
-                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                              <span className="text-xs text-slate-400 ml-2">
                                 (0-{section.studentCount})
                               </span>
                             </div>
 
                             {(studentMoveData[section._id]?.studentsToMove || 0) > 0 && (
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                <label className="block text-xs font-medium text-slate-500 mb-1">
                                   Destination room:
                                 </label>
                                 <select
@@ -4032,7 +4032,7 @@ function SessionView({ user, onBack }) {
                                       }
                                     }))
                                   }}
-                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-700 dark:text-white"
+                                  className="el-input"
                                 >
                                   <option value="">Select destination room</option>
                                   {session.rooms
@@ -4052,14 +4052,14 @@ function SessionView({ user, onBack }) {
                 </div>
               )}
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowMoveStudentsModal(false)
                     setMoveFromRoom(null)
                     setStudentMoveData({})
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -4069,7 +4069,7 @@ function SessionView({ user, onBack }) {
                     studentMoveData[key].studentsToMove > 0 &&
                     studentMoveData[key].destinationRoom
                   ).length === 0}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
                   Move Students
                 </button>
@@ -4081,9 +4081,9 @@ function SessionView({ user, onBack }) {
 
       {/* Edit Supplies Modal */}
       {showEditSuppliesModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Supplies for {selectedRoom.name}</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit Supplies for {selectedRoom.name}</h2>
 
             <div className="space-y-4">
               {(() => {
@@ -4107,17 +4107,17 @@ function SessionView({ user, onBack }) {
                     {/* Initial Supplies */}
                     {Object.keys(initialSupplyCounts).length > 0 && (
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Initial Supplies</h3>
+                        <h3 className="text-base font-semibold text-slate-900 mb-3">Initial Supplies</h3>
                         <div className="space-y-2">
                           {Object.entries(initialSupplyCounts).map(([supplyName, count]) => (
-                            <div key={supplyName} className="flex items-center justify-between bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-3">
+                            <div key={supplyName} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                               <div className="flex items-center">
-                                <svg className="w-5 h-5 text-green-600 dark:text-green-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-emerald-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
-                                <span className="text-green-700 dark:text-green-300 font-medium">{supplyName}</span>
+                                <span className="text-emerald-700 font-medium">{supplyName}</span>
                               </div>
-                              <span className="text-green-800 dark:text-green-200 font-semibold">{count}</span>
+                              <span className="text-emerald-700 font-semibold">{count}</span>
                             </div>
                           ))}
                         </div>
@@ -4127,32 +4127,32 @@ function SessionView({ user, onBack }) {
                     {/* Added Supplies */}
                     {Object.keys(addedSupplyCounts).length > 0 && (
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Added Supplies</h3>
+                        <h3 className="text-base font-semibold text-slate-900 mb-3">Added Supplies</h3>
                         <div className="space-y-2">
                           {Object.entries(addedSupplyCounts).map(([supplyName, count]) => (
-                            <div key={supplyName} className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                            <div key={supplyName} className="flex items-center justify-between bg-brand-50 border border-brand-200 rounded-lg p-3">
                               <div className="flex items-center">
-                                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-brand-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
-                                <span className="text-blue-700 dark:text-blue-300 font-medium">{supplyName}</span>
+                                <span className="text-brand-700 font-medium">{supplyName}</span>
                               </div>
                               <div className="flex items-center space-x-3">
                                 <div className="flex items-center space-x-2">
                                   <button
                                     onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, -1)}
                                     disabled={count <= 0}
-                                    className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white flex items-center justify-center transition duration-200"
+                                    className="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center transition duration-200"
                                     title="Remove 1"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                                     </svg>
                                   </button>
-                                  <span className="text-blue-800 dark:text-blue-200 font-semibold min-w-[2rem] text-center">{count}</span>
+                                  <span className="text-brand-700 font-semibold min-w-[2rem] text-center">{count}</span>
                                   <button
                                     onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, 1)}
-                                    className="w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition duration-200"
+                                    className="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition duration-200"
                                     title="Add 1"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4162,7 +4162,7 @@ function SessionView({ user, onBack }) {
                                 </div>
                                 <button
                                   onClick={() => handleRemoveSupply(selectedRoom._id, supplyName)}
-                                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 ml-2"
+                                  className="text-rose-500 hover:text-rose-700 p-1 ml-2"
                                   title="Remove all"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4178,10 +4178,10 @@ function SessionView({ user, onBack }) {
 
                     {Object.keys(initialSupplyCounts).length === 0 && Object.keys(addedSupplyCounts).length === 0 && (
                       <div className="text-center py-8">
-                        <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
-                        <p className="text-gray-500 dark:text-gray-400">No supplies assigned to this room</p>
+                        <p className="text-slate-500">No supplies assigned to this room</p>
                       </div>
                     )}
                   </div>
@@ -4189,13 +4189,13 @@ function SessionView({ user, onBack }) {
               })()}
             </div>
 
-            <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-slate-200">
               <button
                 onClick={() => {
                   setShowEditSuppliesModal(false)
                   setSelectedRoom(null)
                 }}
-                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition duration-200"
+                className="el-btn el-btn-secondary"
               >
                 Close
               </button>
@@ -4206,20 +4206,20 @@ function SessionView({ user, onBack }) {
 
       {/* Activity Log Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <div className="el-card p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Activity Log</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Activity Log</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowActivityLog(!showActivityLog)}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+                className="el-btn el-btn-primary el-btn-sm"
               >
                 {showActivityLog ? 'Hide Log' : 'Show Log'}
               </button>
               {getSessionRole() === 'Owner' && (
                 <button
                   onClick={() => setShowClearLogModal(true)}
-                  className="px-3 py-2 text-sm font-medium rounded-lg transition duration-200 bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 dark:text-gray-200"
+                  className="el-btn el-btn-secondary el-btn-sm"
                   title="Clear activity log (Owner only)"
                 >
                   Clear
@@ -4231,8 +4231,8 @@ function SessionView({ user, onBack }) {
           {showActivityLog && (
             <div className="space-y-4">
               {activityLog.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="text-center py-8 text-slate-500">
+                  <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <p className="mt-2">No activity recorded yet</p>
@@ -4245,29 +4245,29 @@ function SessionView({ user, onBack }) {
                     return (
                       <div
                         key={index}
-                        className={`flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 ${colors.border}`}
+                        className={`flex items-start gap-3 p-3 bg-slate-50 rounded-lg border-l-4 ${colors.border}`}
                       >
                         <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            <p className="text-sm font-medium text-slate-900">
                               {log.action}
                             </p>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-slate-400">
                               {formatTimestamp(log.timestamp)}
                             </span>
                           </div>
                           <div className="mt-1 flex items-center gap-2">
-                            <span className="text-xs text-gray-600 dark:text-gray-300">
+                            <span className="text-xs text-slate-600">
                               User: <span className="font-medium">{log.userName}</span>
                             </span>
                             {log.roomName && (
-                              <span className="text-xs text-gray-600 dark:text-gray-300">
+                              <span className="text-xs text-slate-600">
                                 Room: <span className="font-medium">{log.roomName}</span>
                               </span>
                             )}
                             {log.details && (
-                              <span className="text-xs text-gray-600 dark:text-gray-300">
+                              <span className="text-xs text-slate-600">
                                 {log.details}
                               </span>
                             )}
@@ -4286,15 +4286,15 @@ function SessionView({ user, onBack }) {
       {/* Invalidated Tests Section */}
       {invalidatedTests.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl shadow-lg border border-red-200 dark:border-red-800 p-6">
+          <div className="rounded-xl shadow-sm border border-rose-200 bg-rose-50 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 flex items-center">
+              <h2 className="text-lg font-semibold text-rose-700 flex items-center">
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
                 Invalidated Tests
               </h2>
-              <span className="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 text-sm font-medium px-3 py-1 rounded-full">
+              <span className="el-badge el-badge-rose">
                 {invalidatedTests.length}
               </span>
             </div>
@@ -4303,31 +4303,31 @@ function SessionView({ user, onBack }) {
               {invalidatedTests.map((invalidation) => {
                 const room = session?.rooms?.find(r => r._id === invalidation.roomId)
                 return (
-                  <div key={invalidation.id} className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700 p-4">
+                  <div key={invalidation.id} className="bg-white rounded-lg border border-rose-200 p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 dark:text-white">
+                        <h3 className="font-medium text-slate-900">
                           Section {invalidation.sectionNumber} - {room?.name || 'Unknown Room'}
                         </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-slate-600">
                           Invalidated by {invalidation.invalidatedBy}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-slate-400">
                           {new Date(invalidation.timestamp).toLocaleString()}
                         </span>
                         <button
                           onClick={() => handleRemoveInvalidatedTestClick(invalidation)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
+                          className="text-rose-500 hover:text-rose-700 text-sm"
                           title="Remove invalidation"
                         >
                           ✕
                         </button>
                       </div>
                     </div>
-                    <div className="bg-red-50 dark:bg-red-900/30 rounded p-3">
-                      <p className="text-sm text-red-800 dark:text-red-200">
+                    <div className="bg-rose-50 rounded p-3">
+                      <p className="text-sm text-rose-700">
                         <strong>Notes:</strong> {invalidation.notes}
                       </p>
                     </div>
@@ -4341,13 +4341,13 @@ function SessionView({ user, onBack }) {
 
       {/* Mark Room Complete Modal */}
       {showMarkRoomCompleteModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Complete</h2>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="el-label">
                   Select Room
                 </label>
                 <select
@@ -4361,7 +4361,7 @@ function SessionView({ user, onBack }) {
                     const room = session?.rooms?.find(r => r._id === roomId)
                     setSelectedRoomForComplete(room || null)
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 >
                   <option value="">Choose a room...</option>
                   {session?.rooms
@@ -4375,13 +4375,13 @@ function SessionView({ user, onBack }) {
                 </select>
               </div>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowMarkRoomCompleteModal(false)
                     setSelectedRoomForComplete(null)
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -4394,7 +4394,7 @@ function SessionView({ user, onBack }) {
                     }
                   }}
                   disabled={!selectedRoomForComplete}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                  className="el-btn el-btn-success flex-1"
                 >
                   Continue
                 </button>
@@ -4406,13 +4406,13 @@ function SessionView({ user, onBack }) {
 
       {/* Mark Section Complete Modal */}
       {showQuickCompleteModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Section Complete</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Section Complete</h2>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="el-label">
                   Select Section
                 </label>
                 <select
@@ -4431,7 +4431,7 @@ function SessionView({ user, onBack }) {
                     setQuickCompleteSection(item || null)
                     setQuickCompleteStudentsPresent('')
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 >
                   <option value="">Choose a section...</option>
                   {sectionsAvailableForQuickComplete.map(({ section, room }) => (
@@ -4444,7 +4444,7 @@ function SessionView({ user, onBack }) {
 
               {quickCompleteSection && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="el-label">
                     Students Present (Section {quickCompleteSection.section.number})
                   </label>
                   <input
@@ -4453,31 +4453,31 @@ function SessionView({ user, onBack }) {
                     max={quickCompleteSection.section.studentCount}
                     value={quickCompleteStudentsPresent}
                     onChange={(e) => setQuickCompleteStudentsPresent(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     placeholder={`Enter 0–${quickCompleteSection.section.studentCount}`}
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     Max: {quickCompleteSection.section.studentCount} students
                   </p>
                 </div>
               )}
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowQuickCompleteModal(false)
                     setQuickCompleteSection(null)
                     setQuickCompleteStudentsPresent('')
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleQuickCompleteBySection}
                   disabled={!quickCompleteSection || !quickCompleteStudentsPresent || isNaN(parseInt(quickCompleteStudentsPresent))}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                  className="el-btn el-btn-success flex-1"
                 >
                   Mark Section Complete
                 </button>
@@ -4489,17 +4489,17 @@ function SessionView({ user, onBack }) {
 
       {/* Present Students Modal */}
       {showPresentStudentsModal && roomToComplete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mark Room Complete</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Complete</h2>
 
             <div className="space-y-6">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Room: {roomToComplete.name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+              <div className="bg-brand-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-slate-900 mb-2">Room: {roomToComplete.name}</h3>
+                <p className="text-sm text-slate-600">
                   Total Students: {calculateTotalStudents(roomToComplete.sections)}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+                <p className="text-sm text-slate-600">
                   Sections: {roomToComplete.sections?.length || 0}
                 </p>
               </div>
@@ -4507,19 +4507,19 @@ function SessionView({ user, onBack }) {
               {roomToComplete.sections && roomToComplete.sections.length > 1 ? (
                 // Per-section input for multiple sections
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  <h3 className="text-base font-semibold text-slate-900 mb-4">
                     Students Present by Section
                   </h3>
                   <div className="space-y-4">
                     {roomToComplete.sections
                       .sort((a, b) => a.number - b.number)
                       .map((section) => (
-                        <div key={section._id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div key={section._id} className="bg-slate-50 p-4 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
+                            <h4 className="font-medium text-slate-900">
                               Section {section.number}
                             </h4>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                            <span className="text-sm text-slate-500">
                               Total: {section.studentCount} students
                             </span>
                           </div>
@@ -4532,14 +4532,14 @@ function SessionView({ user, onBack }) {
                               ...prev,
                               [section._id]: e.target.value
                             }))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-600 dark:text-white"
+                            className="el-input"
                             placeholder={`Enter present students (0-${section.studentCount})`}
                           />
                         </div>
                       ))}
                   </div>
-                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <div className="mt-4 p-3 bg-emerald-50 rounded-lg">
+                    <p className="text-sm text-slate-700">
                       <span className="font-medium">Total Present:</span> {
                         Object.values(sectionPresentCounts).reduce((total, count) => {
                           const num = parseInt(count) || 0
@@ -4552,7 +4552,7 @@ function SessionView({ user, onBack }) {
               ) : (
                 // Single input for single section or no sections
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="el-label">
                     How many students were present?
                   </label>
                   <input
@@ -4561,17 +4561,17 @@ function SessionView({ user, onBack }) {
                     max={calculateTotalStudents(roomToComplete.sections)}
                     value={presentStudentsCount}
                     onChange={(e) => setPresentStudentsCount(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     placeholder="Enter number of present students"
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     Enter a number between 0 and {calculateTotalStudents(roomToComplete.sections)}
                   </p>
                 </div>
               )}
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowPresentStudentsModal(false)
@@ -4579,7 +4579,7 @@ function SessionView({ user, onBack }) {
                     setPresentStudentsCount('')
                     setSectionPresentCounts({})
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
@@ -4589,7 +4589,7 @@ function SessionView({ user, onBack }) {
                     ? !Object.values(sectionPresentCounts).every(count => count !== '' && !isNaN(parseInt(count)))
                     : (!presentStudentsCount || isNaN(parseInt(presentStudentsCount)))
                   }
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-success flex-1"
                 >
                   Mark Complete
                 </button>
@@ -4601,28 +4601,28 @@ function SessionView({ user, onBack }) {
 
       {/* Clear Activity Log Confirmation Modal */}
       {showClearLogModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Clear Activity Log</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Clear Activity Log</h2>
 
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-sm text-slate-700">
                 Are you sure you want to clear the activity log for this session?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This action cannot be undone. All activity history will be permanently removed.
               </p>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowClearLogModal(false)}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmClearActivityLog}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Clear Log
                 </button>
@@ -4634,28 +4634,28 @@ function SessionView({ user, onBack }) {
 
       {/* Mark Room Incomplete Confirmation Modal */}
       {showIncompleteConfirmModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Mark Room Incomplete</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Incomplete</h2>
 
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-sm text-slate-700">
                 Are you sure you want to mark this room as incomplete?
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-slate-500">
                 This will change the room status back to active and clear the present students count. The session status may also change back to active if all rooms become incomplete.
               </p>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={cancelMarkRoomIncomplete}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmMarkRoomIncomplete}
-                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn flex-1 bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500"
                 >
                   Mark Incomplete
                 </button>
@@ -4667,26 +4667,26 @@ function SessionView({ user, onBack }) {
 
       {/* Attendance Error Modal */}
       {showAttendanceErrorModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="flex items-center mb-6">
-              <div className="flex-shrink-0 w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white ml-4">Invalid Attendance</h2>
+              <h2 className="text-lg font-semibold text-slate-900 ml-4">Invalid Attendance</h2>
             </div>
 
             <div className="space-y-4">
-              <p className="text-gray-700 dark:text-gray-300">
+              <p className="text-sm text-slate-700">
                 {attendanceError}
               </p>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={() => setShowAttendanceErrorModal(false)}
-                  className="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger"
                 >
                   OK
                 </button>
@@ -4698,24 +4698,24 @@ function SessionView({ user, onBack }) {
 
       {/* Invalidate Test Modal */}
       {showInvalidateModal && roomToInvalidate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Invalidate Test</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Invalidate Test</h2>
 
             <div className="space-y-4">
-              <p className="text-gray-700 dark:text-gray-300">
-                Invalidate 1 test in <strong>{roomToInvalidate.name}</strong>
+              <p className="text-sm text-slate-700">
+                Invalidate 1 test in <strong className="text-slate-900">{roomToInvalidate.name}</strong>
               </p>
 
               {/* Section Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Select Section
                 </label>
                 <select
                   value={selectedSection}
                   onChange={(e) => setSelectedSection(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                 >
                   <option value="">Choose a section...</option>
                   {roomToInvalidate.sections?.map(section => (
@@ -4727,29 +4727,29 @@ function SessionView({ user, onBack }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Notes
                 </label>
                 <textarea
                   value={invalidationNotes}
                   onChange={(e) => setInvalidationNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                   rows={3}
                   placeholder="Enter notes about the test invalidation..."
                 />
               </div>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={cancelInvalidateTest}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleInvalidateTest}
                   disabled={!invalidationNotes.trim() || !selectedSection}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Invalidate Test
                 </button>
@@ -4761,41 +4761,41 @@ function SessionView({ user, onBack }) {
 
       {/* Remove Invalidation Confirmation Modal */}
       {showRemoveInvalidationModal && invalidationToRemove && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Remove Invalidation</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Remove Invalidation</h2>
 
             <div className="space-y-4">
-              <p className="text-gray-700 dark:text-gray-300">
+              <p className="text-sm text-slate-700">
                 Are you sure you want to remove this test invalidation?
               </p>
 
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
-                <p className="text-sm font-medium text-red-800 dark:text-red-200">
+              <div className="bg-rose-50 border border-rose-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-rose-700">
                   Section {invalidationToRemove.sectionNumber}
                 </p>
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p className="text-sm text-rose-600 mt-1">
                   {invalidationToRemove.notes}
                 </p>
-                <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                <p className="text-xs text-rose-500 mt-2">
                   Invalidated by {invalidationToRemove.invalidatedBy} on {new Date(invalidationToRemove.timestamp).toLocaleString()}
                 </p>
               </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-slate-500">
                 This action will be recorded in the activity log.
               </p>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={cancelRemoveInvalidatedTest}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmRemoveInvalidatedTest}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-danger flex-1"
                 >
                   Remove Invalidation
                 </button>
@@ -4807,13 +4807,13 @@ function SessionView({ user, onBack }) {
 
       {/* Room Notes Modal */}
       {showRoomNotesModal && selectedRoomForNotes && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Add Notes to {selectedRoomForNotes.name}</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Add Notes to {selectedRoomForNotes.name}</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="el-label">
                   Room Notes
                 </label>
                 <textarea
@@ -4821,21 +4821,21 @@ function SessionView({ user, onBack }) {
                   onChange={(e) => setRoomNotes(e.target.value)}
                   placeholder="Enter notes for this room..."
                   rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                  className="el-input resize-none"
                 />
               </div>
             </div>
 
-            <div className="flex space-x-4 pt-6">
+            <div className="flex gap-3 pt-4">
               <button
                 onClick={cancelRoomNotes}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                className="el-btn el-btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveRoomNotes}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
+                className="el-btn el-btn-primary flex-1"
               >
                 Save Notes
               </button>
