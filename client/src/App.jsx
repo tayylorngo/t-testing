@@ -80,10 +80,10 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="el-spinner h-9 w-9" />
+          <p className="text-sm text-slate-500">Loading…</p>
         </div>
       </div>
     )

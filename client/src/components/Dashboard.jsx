@@ -519,471 +519,419 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading sessions...</p>
+      <div className="el-app-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="el-spinner h-9 w-9" />
+          <p className="text-sm text-slate-500">Loading sessions…</p>
         </div>
       </div>
     )
   }
 
+  const sortedSessions = getSortedSessions()
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="el-app-bg pb-12">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              {/* Elmira Logo */}
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" viewBox="0 0 32 32" fill="none">
-                    <rect x="8" y="6" width="2.5" height="20" rx="1.25" fill="white"/>
-                    <rect x="8" y="6" width="12" height="2.5" rx="1.25" fill="white"/>
-                    <rect x="8" y="14.75" width="9" height="2.5" rx="1.25" fill="white"/>
-                    <rect x="8" y="23.5" width="12" height="2.5" rx="1.25" fill="white"/>
-                    <circle cx="24" cy="10" r="2" fill="white" opacity="0.8"/>
-                    <circle cx="26" cy="22" r="1.5" fill="white" opacity="0.6"/>
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Elmira</h1>
-                  <p className="text-gray-600">Testing Session Management</p>
-                </div>
-              </div>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 shadow-sm">
+              <svg className="h-6 w-6 text-white" viewBox="0 0 32 32" fill="none">
+                <rect x="8" y="6" width="2.5" height="20" rx="1.25" fill="white"/>
+                <rect x="8" y="6" width="12" height="2.5" rx="1.25" fill="white"/>
+                <rect x="8" y="14.75" width="9" height="2.5" rx="1.25" fill="white"/>
+                <rect x="8" y="23.5" width="12" height="2.5" rx="1.25" fill="white"/>
+                <circle cx="24" cy="10" r="2" fill="white" opacity="0.8"/>
+                <circle cx="26" cy="22" r="1.5" fill="white" opacity="0.6"/>
+              </svg>
             </div>
-            <div className="text-right">
-              <p className="text-gray-600">Welcome back, {user.firstName} {user.lastName}</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              {/* Real-time connection status */}
-              <div className="flex items-center gap-2 mr-4">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-                <span className="text-sm text-gray-600">
-                  {isConnected ? 'Live' : 'Offline'}
-                </span>
-                {!isConnected && (
-                  <button
-                    onClick={() => {
-                      console.log('🔄 Manual reconnect requested from Dashboard')
-                      reconnect()
-                    }}
-                    className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition-colors"
-                    title="Click to reconnect"
-                  >
-                    Reconnect
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={handleOpenProfile}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition duration-200"
-                title="Edit Profile"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Profile
-              </button>
-              <button
-                onClick={() => setShowPendingInvitationsModal(true)}
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 flex items-center"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2zM4 15h6v-2H4v2zM4 11h6V9H4v2zM4 7h6V5H4v2z" />
-                </svg>
-                Invitations
-              </button>
-              <button
-                onClick={onLogout}
-                className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-              >
-                Logout
-              </button>
+            <div className="leading-tight">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900">Elmira</h1>
+              <p className="hidden text-xs text-slate-400 sm:block">Testing Session Management</p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            {/* Real-time connection status */}
+            <span className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline-flex ${
+              isConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+              {isConnected ? 'Live' : 'Offline'}
+            </span>
+            {!isConnected && (
+              <button
+                onClick={reconnect}
+                className="el-btn el-btn-secondary el-btn-sm"
+                title="Click to reconnect"
+              >
+                Reconnect
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowPendingInvitationsModal(true)}
+              className="el-icon-btn"
+              title="Invitations"
+              aria-label="Invitations"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </button>
+
+            <button
+              onClick={handleOpenProfile}
+              className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              title="Edit profile"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                {(user.firstName?.[0] || '') + (user.lastName?.[0] || '')}
+              </span>
+              <span className="hidden sm:inline">{user.firstName}</span>
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="el-btn el-btn-ghost el-btn-sm"
+              title="Log out"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Create Session Button */}
-        <div className="mb-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* Page heading */}
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900">Testing Sessions</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Welcome back, {user.firstName} — you have {sessions.length} session{sessions.length !== 1 ? 's' : ''}.
+            </p>
+          </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center"
+            className="el-btn el-btn-primary"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Create New Testing Session
+            New Session
           </button>
         </div>
 
-        {/* Sort Controls */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Sort By
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="date">Test Date</option>
-                  <option value="name">Session Name</option>
-                  <option value="createdAt">Created Date</option>
-                  <option value="status">Status</option>
-                  <option value="roomCount">Room Count</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Order
-                </label>
-                <button
-                  onClick={() => setSortDescending(!sortDescending)}
-                  className="px-4 py-2 text-sm font-medium rounded-lg transition duration-200 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:text-blue-300 flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                  </svg>
-                  {sortDescending ? 'Newest First' : 'Oldest First'}
-                </button>
-              </div>
+        {/* Toolbar */}
+        <div className="el-card mb-5 flex flex-col gap-3 p-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sessions by name or description…"
+              className="el-input pl-9 pr-9"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Archived
-                </label>
-                <button
-                  onClick={handleToggleShowArchived}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition duration-200 flex items-center gap-2 ${
-                    showArchived
-                      ? 'bg-gray-900 hover:bg-gray-800 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                  title={showArchived ? 'Hide archived sessions' : 'Show archived sessions'}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
-                  </svg>
-                  {showArchived ? 'Showing Archived' : 'Hide Archived'}
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 max-w-md">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Search Sessions
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or description..."
-                  className="w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {getSortedSessions().length} of {sessions.length} session{sessions.length !== 1 ? 's' : ''}
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="el-input w-auto py-1.5 text-sm"
+            >
+              <option value="date">Sort: Test Date</option>
+              <option value="name">Sort: Name</option>
+              <option value="createdAt">Sort: Created</option>
+              <option value="status">Sort: Status</option>
+              <option value="roomCount">Sort: Room Count</option>
+            </select>
+
+            <button
+              onClick={() => setSortDescending(!sortDescending)}
+              className="el-btn el-btn-secondary el-btn-sm"
+              title="Toggle sort order"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sortDescending ? 'M3 4h13M3 8h9M3 12h5m9 0l4 4m0 0l4-4m-4 4V8' : 'M3 4h13M3 8h9M3 12h5m9 8l4-4m0 0l4 4m-4-4v8'} />
+              </svg>
+              {sortDescending ? 'Newest' : 'Oldest'}
+            </button>
+
+            <button
+              onClick={handleToggleShowArchived}
+              className={`el-btn el-btn-sm ${showArchived ? 'el-btn-primary' : 'el-btn-secondary'}`}
+              title={showArchived ? 'Hide archived sessions' : 'Show archived sessions'}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+              </svg>
+              Archived
+            </button>
+
+            <span className="ml-1 text-xs font-medium text-slate-400">
+              {sortedSessions.length} / {sessions.length}
+            </span>
           </div>
         </div>
 
         {/* Sessions List */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {getSortedSessions().length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Testing Sessions</h3>
-                <p className="text-gray-600 mb-4">Get started by creating your first testing session</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                >
-                  Create Session
-                </button>
-              </div>
+        {sortedSessions.length === 0 ? (
+          <div className="el-card flex flex-col items-center px-6 py-16 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+              <svg className="h-7 w-7 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
-          ) : (
-            getSortedSessions().map((session) => (
-              <div key={session._id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition duration-200">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4 gap-4">
-                    <div className="flex-1 min-w-0 pr-2">
-                      <h3 className="text-xl font-semibold text-gray-900 break-words">{session.name}</h3>
-                      <div className="flex items-center mt-1">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          session.createdBy._id === user._id 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
+            <h3 className="text-base font-semibold text-slate-900">
+              {searchQuery ? 'No matching sessions' : 'No testing sessions yet'}
+            </h3>
+            <p className="mt-1 max-w-sm text-sm text-slate-500">
+              {searchQuery ? 'Try a different search term or clear the filter.' : 'Create your first testing session to start monitoring rooms and proctors.'}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="el-btn el-btn-primary mt-5"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create Session
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {sortedSessions.map((session) => {
+              const statusStyles = {
+                planned: 'bg-slate-100 text-slate-600',
+                active: 'bg-blue-100 text-blue-700',
+                completed: 'bg-emerald-100 text-emerald-700',
+                cancelled: 'bg-rose-100 text-rose-700',
+              }
+              const status = session.status || 'planned'
+              const owner = session.createdBy._id === user._id
+              return (
+                <div key={session._id} className="el-card el-fade-up flex flex-col transition hover:shadow-md hover:ring-1 hover:ring-brand-200">
+                  {/* Card header */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 p-4">
+                    <div className="min-w-0">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className={`el-badge ${statusStyles[status] || statusStyles.planned}`}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </span>
+                        <span className={`el-badge ${owner ? 'el-badge-brand' : 'el-badge-green'}`}>
                           {getSessionRole(session)}
                         </span>
                         {session.archived && (
-                          <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
-                            Archived
-                          </span>
+                          <span className="el-badge el-badge-slate">Archived</span>
                         )}
                       </div>
-                    </div>
-                    <div className="flex space-x-2 flex-shrink-0">
-                      {canEditSession(session) && (
-                        <button
-                          onClick={() => openEditModal(session)}
-                          className="text-blue-500 hover:text-blue-700 transition duration-200"
-                          title="Edit Session"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => openDuplicateModal(session)}
-                        className="text-indigo-500 hover:text-indigo-700 transition duration-200"
-                        title="Duplicate Session"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                      {canManageSession(session) && (
-                        <>
-                          <button
-                            onClick={() => openArchiveSessionModal(session)}
-                            className="text-gray-600 hover:text-gray-900 transition duration-200"
-                            title={session.archived ? 'Unarchive Session' : 'Archive Session'}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedSession(session)
-                              setShowInviteModal(true)
-                            }}
-                            className="text-green-500 hover:text-green-700 transition duration-200"
-                            title={isSessionOwner(session) ? "Invite Users" : "Invite Users (Viewer only)"}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedSession(session)
-                              setShowCollaboratorsModal(true)
-                            }}
-                            className="text-purple-500 hover:text-purple-700 transition duration-200"
-                            title={isSessionOwner(session) ? "Manage Collaborators" : "View Collaborators (Limited)"}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-                      {session.createdBy._id === user._id && (
-                        <button
-                          onClick={() => openDeleteModal(session)}
-                          className="text-red-500 hover:text-red-700 transition duration-200"
-                          title="Delete Session"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      )}
-                      {/* Leave Session button for collaborators */}
-                      {session.createdBy._id !== user._id && session.collaborators?.some(collab => collab.userId._id === user._id) && (
-                        <button
-                          onClick={() => handleLeaveSession(session._id)}
-                          className="text-orange-500 hover:text-orange-700 transition duration-200"
-                          title="Leave Session"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                        </button>
-                      )}
+                      <h3 className="truncate text-base font-semibold text-slate-900" title={session.name}>
+                        {session.name}
+                      </h3>
                     </div>
                   </div>
-                  
-                  <p className="text-gray-600 mb-4">{session.description}</p>
-                  
-                  <div className="space-y-2 text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 p-4">
+                    <div className="col-span-2 flex items-center gap-2 text-sm text-slate-600">
+                      <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      {formatDate(session.date)}
+                      <span className="truncate">{formatDate(session.date)}</span>
                     </div>
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="col-span-2 flex items-center gap-2 text-sm text-slate-600">
+                      <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                      <span>{formatTime(session.startTime)} – {formatTime(session.endTime)}</span>
                     </div>
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                      {session.rooms?.length || 0} rooms
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <p className="el-stat-label">Rooms</p>
+                      <p className="text-sm font-semibold text-slate-900">{session.rooms?.length || 0}</p>
                     </div>
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      {session.sections?.length || 0} sections
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <p className="el-stat-label">Sections</p>
+                      <p className="text-sm font-semibold text-slate-900">{session.sections?.length || 0}</p>
                     </div>
+                    {session.description && (
+                      <p className="col-span-2 line-clamp-2 text-xs text-slate-400">{session.description}</p>
+                    )}
                     {session.collaborators && session.collaborators.length > 0 && (
-                      <div className="flex items-center">
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <p className="col-span-2 flex items-center gap-1.5 text-xs text-slate-400">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         {session.collaborators.length} collaborator{session.collaborators.length !== 1 ? 's' : ''}
-                      </div>
+                      </p>
                     )}
                   </div>
-                  
-                  <div className="mt-6 space-y-2">
-                    <button 
-                      onClick={() => handleManageSession(session)}
-                      disabled={!canManageSession(session)}
-                      className={`w-full font-semibold py-2 px-4 rounded-lg transition duration-200 ${
-                        canManageSession(session)
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      }`}
-                      title={canManageSession(session) ? 'Manage Session' : 'You need manage permissions to access this feature'}
-                    >
-                      Manage Session
+
+                  {/* Actions toolbar */}
+                  <div className="mt-auto flex items-center gap-0.5 border-t border-slate-100 px-2 py-1.5">
+                    {canEditSession(session) && (
+                      <button onClick={() => openEditModal(session)} className="el-icon-btn" title="Edit session">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    )}
+                    <button onClick={() => openDuplicateModal(session)} className="el-icon-btn" title="Duplicate session">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
                     </button>
-                    <button 
-                      onClick={() => handleViewSession(session)}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
-                    >
-                      View Session
-                    </button>
+                    {canManageSession(session) && (
+                      <>
+                        <button onClick={() => openArchiveSessionModal(session)} className="el-icon-btn" title={session.archived ? 'Unarchive session' : 'Archive session'}>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+                          </svg>
+                        </button>
+                        <button onClick={() => { setSelectedSession(session); setShowInviteModal(true) }} className="el-icon-btn" title={isSessionOwner(session) ? 'Invite users' : 'Invite users (viewer only)'}>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM3 21v-2a4 4 0 014-4h4m6 0v6m3-3h-6" />
+                          </svg>
+                        </button>
+                        <button onClick={() => { setSelectedSession(session); setShowCollaboratorsModal(true) }} className="el-icon-btn" title={isSessionOwner(session) ? 'Manage collaborators' : 'View collaborators'}>
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                    {session.createdBy._id === user._id && (
+                      <button onClick={() => openDeleteModal(session)} className="el-icon-btn hover:bg-rose-50 hover:text-rose-600" title="Delete session">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                    {session.createdBy._id !== user._id && session.collaborators?.some(collab => collab.userId._id === user._id) && (
+                      <button onClick={() => handleLeaveSession(session._id)} className="el-icon-btn hover:bg-amber-50 hover:text-amber-600" title="Leave session">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                      </button>
+                    )}
+                    <div className="ml-auto flex gap-1.5">
+                      <button
+                        onClick={() => handleViewSession(session)}
+                        className="el-btn el-btn-secondary el-btn-sm"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleManageSession(session)}
+                        disabled={!canManageSession(session)}
+                        className="el-btn el-btn-primary el-btn-sm"
+                        title={canManageSession(session) ? 'Manage session' : 'You need manage permissions for this'}
+                      >
+                        Manage
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Create Session Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Testing Session</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Create Testing Session</h2>
+
             <form onSubmit={handleCreateSession} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Session Name
-                </label>
+                <label className="el-label">Session Name</label>
                 <input
                   type="text"
                   value={newSession.name}
                   onChange={(e) => setNewSession({...newSession, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter session name"
+                  className="el-input"
+                  placeholder="e.g. June Regents — Algebra I"
                   required
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
+                <label className="el-label">Description</label>
                 <textarea
                   value={newSession.description}
                   onChange={(e) => setNewSession({...newSession, description: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter session description"
+                  className="el-input"
+                  placeholder="Optional notes about this session"
                   rows="3"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
+                <label className="el-label">Date</label>
                 <input
                   type="date"
                   value={newSession.date}
                   onChange={(e) => setNewSession({...newSession, date: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="el-input"
                   required
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Time
-                  </label>
+                  <label className="el-label">Start Time</label>
                   <input
                     type="time"
                     value={newSession.startTime}
                     onChange={(e) => setNewSession({...newSession, startTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     required
                   />
                 </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Time
-                  </label>
+                  <label className="el-label">End Time</label>
                   <input
                     type="time"
                     value={newSession.endTime}
                     onChange={(e) => setNewSession({...newSession, endTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="el-input"
                     required
                   />
                 </div>
               </div>
-              
-              <div className="flex space-x-4 pt-4">
+
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
+                <button type="submit" className="el-btn el-btn-primary flex-1">
                   Create Session
                 </button>
               </div>
@@ -994,80 +942,69 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Edit Session Modal */}
       {showEditModal && selectedSession && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Testing Session</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Edit Testing Session</h2>
+
             <form onSubmit={handleEditSession} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Session Name
-                </label>
+                <label className="el-label">Session Name</label>
                 <input
                   type="text"
                   value={editSession.name}
                   onChange={(e) => setEditSession({...editSession, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                   placeholder="Enter session name"
                   required
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
+                <label className="el-label">Description</label>
                 <textarea
                   value={editSession.description}
                   onChange={(e) => setEditSession({...editSession, description: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter session description"
+                  className="el-input"
+                  placeholder="Optional notes about this session"
                   rows="3"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Date
-                </label>
+                <label className="el-label">Date</label>
                 <input
                   type="date"
                   value={editSession.date}
                   onChange={(e) => setEditSession({...editSession, date: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                   required
                 />
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Start Time
-                  </label>
+                  <label className="el-label">Start Time</label>
                   <input
                     type="time"
                     value={editSession.startTime}
                     onChange={(e) => setEditSession({...editSession, startTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     required
                   />
                 </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    End Time
-                  </label>
+                  <label className="el-label">End Time</label>
                   <input
                     type="time"
                     value={editSession.endTime}
                     onChange={(e) => setEditSession({...editSession, endTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     required
                   />
                 </div>
               </div>
-              
-              <div className="flex space-x-4 pt-4">
+
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1075,15 +1012,12 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
                     setSelectedSession(null)
                     setEditSession({ name: '', description: '', date: '', startTime: '', endTime: '' })
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Update Session
+                <button type="submit" className="el-btn el-btn-primary flex-1">
+                  Save Changes
                 </button>
               </div>
             </form>
@@ -1093,37 +1027,27 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Delete Session Modal */}
       {showDeleteModal && selectedSession && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Testing Session</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to delete "{selectedSession.name}"? This action cannot be undone.
-              </p>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setShowDeleteModal(false)
-                    setSelectedSession(null)
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteSession}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Delete Session
-                </button>
-              </div>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+              <svg className="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">Delete Testing Session</h3>
+            <p className="mt-1 mb-5 text-sm text-slate-500">
+              Are you sure you want to delete <strong className="text-slate-700">{selectedSession.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setSelectedSession(null) }}
+                className="el-btn el-btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button onClick={handleDeleteSession} className="el-btn el-btn-danger flex-1">
+                Delete Session
+              </button>
             </div>
           </div>
         </div>
@@ -1131,43 +1055,35 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Archive/Unarchive Session Modal */}
       {archiveSessionModal.show && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
-                <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
-                </svg>
-              </div>
-
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {archiveSessionModal.isArchived ? 'Unarchive Testing Session' : 'Archive Testing Session'}
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {archiveSessionModal.isArchived
-                  ? <>Unarchive "<strong>{archiveSessionModal.sessionName}</strong>" so it shows up in your main list again?</>
-                  : <>Archive "<strong>{archiveSessionModal.sessionName}</strong>"? It will be hidden from your main list unless you choose “Show archived”.</>
-                }
-              </p>
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setArchiveSessionModal({ show: false, sessionId: null, sessionName: '', isArchived: false })}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmArchiveSession}
-                  className={`flex-1 font-semibold py-3 px-6 rounded-lg transition duration-200 ${
-                    archiveSessionModal.isArchived
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-900 hover:bg-gray-800 text-white'
-                  }`}
-                >
-                  {archiveSessionModal.isArchived ? 'Unarchive' : 'Archive'}
-                </button>
-              </div>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+              <svg className="h-6 w-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16 0H4m4-4h8" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">
+              {archiveSessionModal.isArchived ? 'Unarchive Session' : 'Archive Session'}
+            </h3>
+            <p className="mt-1 mb-5 text-sm text-slate-500">
+              {archiveSessionModal.isArchived
+                ? <>Unarchive <strong className="text-slate-700">{archiveSessionModal.sessionName}</strong> so it shows in your main list again?</>
+                : <>Archive <strong className="text-slate-700">{archiveSessionModal.sessionName}</strong>? It will be hidden from your main list unless you choose “Archived”.</>
+              }
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setArchiveSessionModal({ show: false, sessionId: null, sessionName: '', isArchived: false })}
+                className="el-btn el-btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmArchiveSession}
+                className={`el-btn flex-1 ${archiveSessionModal.isArchived ? 'el-btn-success' : 'el-btn-primary'}`}
+              >
+                {archiveSessionModal.isArchived ? 'Unarchive' : 'Archive'}
+              </button>
             </div>
           </div>
         </div>
@@ -1175,79 +1091,69 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Duplicate Session Modal */}
       {showDuplicateModal && selectedSession && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Duplicate Testing Session</h2>
-            
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Duplicate Testing Session</h2>
+
             <form onSubmit={handleDuplicateSession} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Session Name
-                </label>
+                <label className="el-label">Session Name</label>
                 <input
                   type="text"
                   value={duplicateSession.name}
                   onChange={(e) => setDuplicateSession({...duplicateSession, name: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                   placeholder="Enter session name"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description (Optional)
-                </label>
+                <label className="el-label">Description (Optional)</label>
                 <textarea
                   value={duplicateSession.description}
                   onChange={(e) => setDuplicateSession({...duplicateSession, description: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter session description"
+                  className="el-input"
+                  placeholder="Optional notes about this session"
                   rows="3"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Date
-                </label>
+                <label className="el-label">Date</label>
                 <input
                   type="date"
                   value={duplicateSession.date}
                   onChange={(e) => setDuplicateSession({...duplicateSession, date: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  className="el-input"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Start Time
-                  </label>
+                  <label className="el-label">Start Time</label>
                   <input
                     type="time"
                     value={duplicateSession.startTime}
                     onChange={(e) => setDuplicateSession({...duplicateSession, startTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    End Time
-                  </label>
+                  <label className="el-label">End Time</label>
                   <input
                     type="time"
                     value={duplicateSession.endTime}
                     onChange={(e) => setDuplicateSession({...duplicateSession, endTime: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                    className="el-input"
                     required
                   />
                 </div>
               </div>
 
-              <div className="flex space-x-4 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1255,14 +1161,11 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
                     setSelectedSession(null)
                     setDuplicateSession({ name: '', description: '', date: '', startTime: '', endTime: '' })
                   }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
+                <button type="submit" className="el-btn el-btn-primary flex-1">
                   Duplicate Session
                 </button>
               </div>
@@ -1310,111 +1213,118 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Profile Modal */}
       {showProfileModal && user && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h2>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Edit Profile</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                  <label className="el-label">First Name</label>
                   <input
                     type="text"
                     value={profileForm.firstName}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`el-input ${profileErrors.firstName ? 'el-input-error' : ''}`}
                     disabled={isProfileLoading}
                   />
-                  {profileErrors.firstName && <span className="text-red-500 text-sm">{profileErrors.firstName}</span>}
+                  {profileErrors.firstName && <span className="el-error">{profileErrors.firstName}</span>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                  <label className="el-label">Last Name</label>
                   <input
                     type="text"
                     value={profileForm.lastName}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`el-input ${profileErrors.lastName ? 'el-input-error' : ''}`}
                     disabled={isProfileLoading}
                   />
-                  {profileErrors.lastName && <span className="text-red-500 text-sm">{profileErrors.lastName}</span>}
+                  {profileErrors.lastName && <span className="el-error">{profileErrors.lastName}</span>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <label className="el-label">Username</label>
                 <input
                   type="text"
                   value={profileForm.username}
                   onChange={(e) => setProfileForm(prev => ({ ...prev, username: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.username ? 'border-red-500' : 'border-gray-300'}`}
+                  className={`el-input ${profileErrors.username ? 'el-input-error' : ''}`}
                   disabled={isProfileLoading}
                 />
-                {profileErrors.username && <span className="text-red-500 text-sm">{profileErrors.username}</span>}
+                {profileErrors.username && <span className="el-error">{profileErrors.username}</span>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <label className="el-label">Email</label>
                 <input
                   type="email"
                   value={profileForm.email}
                   onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                  className={`el-input ${profileErrors.email ? 'el-input-error' : ''}`}
                   disabled={isProfileLoading}
                 />
-                {profileErrors.email && <span className="text-red-500 text-sm">{profileErrors.email}</span>}
+                {profileErrors.email && <span className="el-error">{profileErrors.email}</span>}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Current Password <span className="text-gray-500">(required to change password)</span></label>
-                <input
-                  type="password"
-                  value={profileForm.currentPassword}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}`}
-                  placeholder="Enter current password to change it"
-                  disabled={isProfileLoading}
-                />
-                {profileErrors.currentPassword && <span className="text-red-500 text-sm">{profileErrors.currentPassword}</span>}
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Change Password</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="el-label">Current Password</label>
+                    <input
+                      type="password"
+                      value={profileForm.currentPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className={`el-input ${profileErrors.currentPassword ? 'el-input-error' : ''}`}
+                      placeholder="Required to change password"
+                      disabled={isProfileLoading}
+                    />
+                    {profileErrors.currentPassword && <span className="el-error">{profileErrors.currentPassword}</span>}
+                  </div>
+                  <div>
+                    <label className="el-label">New Password</label>
+                    <input
+                      type="password"
+                      value={profileForm.password}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, password: e.target.value }))}
+                      className={`el-input ${profileErrors.password ? 'el-input-error' : ''}`}
+                      placeholder="Leave blank to keep current"
+                      disabled={isProfileLoading}
+                    />
+                    {profileErrors.password && <span className="el-error">{profileErrors.password}</span>}
+                  </div>
+                  <div>
+                    <label className="el-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={profileForm.confirmPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className={`el-input ${profileErrors.confirmPassword ? 'el-input-error' : ''}`}
+                      placeholder="Confirm new password"
+                      disabled={isProfileLoading}
+                    />
+                    {profileErrors.confirmPassword && <span className="el-error">{profileErrors.confirmPassword}</span>}
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Password <span className="text-gray-500">(optional)</span></label>
-                <input
-                  type="password"
-                  value={profileForm.password}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, password: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.password ? 'border-red-500' : 'border-gray-300'}`}
-                  placeholder="Leave blank to keep current"
-                  disabled={isProfileLoading}
-                />
-                {profileErrors.password && <span className="text-red-500 text-sm">{profileErrors.password}</span>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={profileForm.confirmPassword}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${profileErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
-                  placeholder="Confirm new password"
-                  disabled={isProfileLoading}
-                />
-                {profileErrors.confirmPassword && <span className="text-red-500 text-sm">{profileErrors.confirmPassword}</span>}
-              </div>
+
               {profileMessage && (
-                <div className={`p-3 rounded-lg text-sm ${profileMessage.includes('success') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                <div className={`rounded-lg px-3 py-2 text-sm ${profileMessage.includes('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                   {profileMessage}
                 </div>
               )}
-              <div className="flex space-x-3 pt-4">
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => { setShowProfileModal(false); setProfileMessage(''); }}
-                  className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                  className="el-btn el-btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isProfileLoading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                  className="el-btn el-btn-primary flex-1"
                 >
-                  {isProfileLoading ? 'Saving...' : 'Save Changes'}
+                  {isProfileLoading ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1424,34 +1334,27 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Leave Session Confirmation Modal */}
       {leaveSessionModal.show && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
-                <svg className="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Leave Testing Session</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to leave "{leaveSessionModal.sessionName}"? You will lose access to this session and all its content.
-              </p>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setLeaveSessionModal({ show: false, sessionId: null, sessionName: '' })}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmLeaveSession}
-                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Leave Session
-                </button>
-              </div>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <svg className="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">Leave Testing Session</h3>
+            <p className="mt-1 mb-5 text-sm text-slate-500">
+              Are you sure you want to leave <strong className="text-slate-700">{leaveSessionModal.sessionName}</strong>? You will lose access to this session and all its content.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLeaveSessionModal({ show: false, sessionId: null, sessionName: '' })}
+                className="el-btn el-btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button onClick={confirmLeaveSession} className="el-btn el-btn-danger flex-1">
+                Leave Session
+              </button>
             </div>
           </div>
         </div>
@@ -1459,34 +1362,27 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Remove Collaborator Confirmation Modal */}
       {removeCollaboratorModal.show && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Remove Collaborator</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Are you sure you want to remove <strong>{removeCollaboratorModal.username}</strong> from "{removeCollaboratorModal.sessionName}"? They will lose access to this session.
-              </p>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setRemoveCollaboratorModal({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmRemoveCollaborator}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-                >
-                  Remove
-                </button>
-              </div>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+              <svg className="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">Remove Collaborator</h3>
+            <p className="mt-1 mb-5 text-sm text-slate-500">
+              Are you sure you want to remove <strong className="text-slate-700">{removeCollaboratorModal.username}</strong> from <strong className="text-slate-700">{removeCollaboratorModal.sessionName}</strong>? They will lose access to this session.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRemoveCollaboratorModal({ show: false, sessionId: null, sessionName: '', userId: null, username: '' })}
+                className="el-btn el-btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button onClick={confirmRemoveCollaborator} className="el-btn el-btn-danger flex-1">
+                Remove
+              </button>
             </div>
           </div>
         </div>
@@ -1494,27 +1390,21 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
 
       {/* Error Modal */}
       {errorModal.show && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              
-              <h3 className="text-lg font-medium text-gray-900 mb-2">{errorModal.title}</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {errorModal.message}
-              </p>
-              
-              <button
-                onClick={() => setErrorModal({ show: false, title: '', message: '' })}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200"
-              >
-                OK
-              </button>
+        <div className="el-overlay">
+          <div className="el-modal el-fade-up p-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
+              <svg className="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
             </div>
+            <h3 className="text-base font-semibold text-slate-900">{errorModal.title}</h3>
+            <p className="mt-1 mb-5 text-sm text-slate-500">{errorModal.message}</p>
+            <button
+              onClick={() => setErrorModal({ show: false, title: '', message: '' })}
+              className="el-btn el-btn-primary w-full"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

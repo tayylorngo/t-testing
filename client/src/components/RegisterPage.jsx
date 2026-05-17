@@ -116,13 +116,13 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-lg w-full space-y-8">
+    <div className="el-app-bg flex items-center justify-center p-4 py-8">
+      <div className="w-full max-w-md el-fade-up">
         {/* Header */}
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-9 h-9 text-white" viewBox="0 0 32 32" fill="none">
+        <div className="mb-6 text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 shadow-lg shadow-brand-600/25">
+              <svg className="h-8 w-8 text-white" viewBox="0 0 32 32" fill="none">
                 <rect x="8" y="6" width="2.5" height="20" rx="1.25" fill="white"/>
                 <rect x="8" y="6" width="12" height="2.5" rx="1.25" fill="white"/>
                 <rect x="8" y="14.75" width="9" height="2.5" rx="1.25" fill="white"/>
@@ -132,179 +132,145 @@ function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
               </svg>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Elmira</h1>
-          <p className="text-gray-600 text-lg">Professional Testing Management Platform</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Elmira</h1>
+          <p className="mt-1 text-sm text-slate-500">Testing Session Management</p>
         </div>
-        
+
         {/* Register Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
-            <p className="text-gray-600">Join the testing management platform</p>
+        <div className="el-card p-6 sm:p-7">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">Create your account</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Set up access to the testing platform</p>
           </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name
-                </label>
+                <label htmlFor="firstName" className="el-label">First name</label>
                 <input
                   type="text"
                   id="firstName"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.firstName ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter first name"
+                  className={`el-input ${errors.firstName ? 'el-input-error' : ''}`}
+                  placeholder="First name"
                   disabled={isLoading}
                 />
-                {errors.firstName && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.firstName}</span>
-                )}
+                {errors.firstName && <span className="el-error">{errors.firstName}</span>}
               </div>
-              
+
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name
-                </label>
+                <label htmlFor="lastName" className="el-label">Last name</label>
                 <input
                   type="text"
                   id="lastName"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter last name"
+                  className={`el-input ${errors.lastName ? 'el-input-error' : ''}`}
+                  placeholder="Last name"
                   disabled={isLoading}
                 />
-                {errors.lastName && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.lastName}</span>
-                )}
+                {errors.lastName && <span className="el-error">{errors.lastName}</span>}
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.username ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Choose a username"
-                  disabled={isLoading}
-                />
-                {errors.username && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.username}</span>
-                )}
-              </div>
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter your email"
-                  disabled={isLoading}
-                />
-                {errors.email && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.email}</span>
-                )}
-              </div>
+            <div>
+              <label htmlFor="username" className="el-label">Username</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                className={`el-input ${errors.username ? 'el-input-error' : ''}`}
+                placeholder="Choose a username"
+                disabled={isLoading}
+              />
+              {errors.username && <span className="el-error">{errors.username}</span>}
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div>
+              <label htmlFor="email" className="el-label">Email</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`el-input ${errors.email ? 'el-input-error' : ''}`}
+                placeholder="you@school.edu"
+                disabled={isLoading}
+              />
+              {errors.email && <span className="el-error">{errors.email}</span>}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
+                <label htmlFor="password" className="el-label">Password</label>
                 <input
                   type="password"
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.password ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter password"
+                  className={`el-input ${errors.password ? 'el-input-error' : ''}`}
+                  placeholder="Create a password"
                   disabled={isLoading}
                 />
-                {errors.password && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.password}</span>
-                )}
+                {errors.password && <span className="el-error">{errors.password}</span>}
               </div>
-              
+
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
+                <label htmlFor="confirmPassword" className="el-label">Confirm password</label>
                 <input
                   type="password"
                   id="confirmPassword"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Confirm password"
+                  className={`el-input ${errors.confirmPassword ? 'el-input-error' : ''}`}
+                  placeholder="Re-enter password"
                   disabled={isLoading}
                 />
-                {errors.confirmPassword && (
-                  <span className="text-red-500 text-sm mt-1 block">{errors.confirmPassword}</span>
-                )}
+                {errors.confirmPassword && <span className="el-error">{errors.confirmPassword}</span>}
               </div>
             </div>
-            
+
+            <p className="text-xs text-slate-400">
+              Use at least 8 characters with an uppercase letter, a lowercase letter, and a number.
+            </p>
+
             {registerMessage && (
-              <div className={`p-4 rounded-lg text-sm ${
-                registerMessage.includes('successful') 
-                  ? 'bg-green-50 text-green-800 border border-green-200' 
-                  : 'bg-red-50 text-red-800 border border-red-200'
+              <div className={`rounded-lg border px-3 py-2 text-sm ${
+                registerMessage.includes('successful')
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-rose-200 bg-rose-50 text-rose-700'
               }`}>
                 {registerMessage}
               </div>
             )}
-            
-            <button 
-              type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+
+            <button
+              type="submit"
+              className="el-btn el-btn-primary w-full"
               disabled={isLoading}
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? 'Creating account…' : 'Create account'}
             </button>
           </form>
-          
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 text-sm">
+
+          <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+            <p className="text-sm text-slate-500">
               Already have an account?{' '}
-              <button 
-                type="button" 
-                className="text-blue-600 hover:text-blue-700 font-semibold transition duration-200"
+              <button
+                type="button"
+                className="font-semibold text-brand-600 hover:text-brand-700"
                 onClick={onSwitchToLogin}
                 disabled={isLoading}
               >
-                Sign In
+                Sign in
               </button>
             </p>
           </div>

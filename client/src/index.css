@@ -1,162 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-/* Smooth transitions for real-time updates */
-.room-status-transition {
-  transition: all 0.3s ease-in-out;
+/* ============================================================
+   Elmira design system
+   A focused, data-dense visual language for teacher use.
+   ============================================================ */
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Brand — indigo */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
 }
 
-.room-status-completed {
-  animation: statusUpdate 0.5s ease-in-out;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-700 antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /* Consistent, visible keyboard focus everywhere */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 1px;
+  }
+
+  /* Tidy scrollbars for dense panels */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
 }
 
-.room-status-active {
-  animation: statusUpdate 0.5s ease-in-out;
+@layer components {
+  /* ---- Surfaces ---------------------------------------------------- */
+  .el-card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .el-app-bg {
+    @apply min-h-screen bg-slate-100;
+  }
+
+  /* ---- Forms ------------------------------------------------------- */
+  .el-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .el-input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
+           text-slate-900 placeholder-slate-400 shadow-sm transition
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25
+           disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400;
+  }
+
+  .el-input-error {
+    @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/25;
+  }
+
+  .el-error {
+    @apply mt-1 block text-xs font-medium text-rose-600;
+  }
+
+  /* ---- Buttons ----------------------------------------------------- */
+  .el-btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg
+           px-4 py-2 text-sm font-semibold transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .el-btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .el-btn-primary {
+    @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800
+           focus-visible:ring-brand-500;
+  }
+  .el-btn-secondary {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50
+           active:bg-slate-100 focus-visible:ring-slate-400;
+  }
+  .el-btn-danger {
+    @apply bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500;
+  }
+  .el-btn-success {
+    @apply bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500;
+  }
+  .el-btn-ghost {
+    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-slate-300;
+  }
+
+  /* Square icon-only button */
+  .el-icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500
+           transition hover:bg-slate-100 hover:text-slate-900
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500;
+  }
+
+  /* ---- Badges ------------------------------------------------------ */
+  .el-badge {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold;
+  }
+  .el-badge-slate   { @apply bg-slate-100 text-slate-600; }
+  .el-badge-brand   { @apply bg-brand-50 text-brand-700; }
+  .el-badge-blue    { @apply bg-blue-100 text-blue-700; }
+  .el-badge-green   { @apply bg-emerald-100 text-emerald-700; }
+  .el-badge-amber   { @apply bg-amber-100 text-amber-700; }
+  .el-badge-rose    { @apply bg-rose-100 text-rose-700; }
+
+  /* ---- Modals ------------------------------------------------------ */
+  .el-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4
+           backdrop-blur-[2px];
+  }
+  .el-modal {
+    @apply w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-2xl;
+  }
+
+  /* ---- Misc -------------------------------------------------------- */
+  .el-spinner {
+    @apply inline-block animate-spin rounded-full border-2 border-slate-200
+           border-t-brand-600;
+  }
+  .el-stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-slate-400;
+  }
 }
+
+/* ============================================================
+   Real-time update animations (used by live monitoring views)
+   ============================================================ */
+.room-status-transition { transition: all 0.3s ease-in-out; }
+.room-status-completed,
+.room-status-active { animation: statusUpdate 0.5s ease-in-out; }
 
 @keyframes statusUpdate {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.02);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-/* Prevent layout shifts during updates */
-.room-card {
-  min-height: 200px;
-  transition: all 0.3s ease-in-out;
-}
+.room-card { min-height: 200px; transition: all 0.3s ease-in-out; }
+.room-status-badge { transition: all 0.3s ease-in-out; transform-origin: center; }
+.progress-bar-transition { transition: width 0.5s ease-in-out; }
+.room-expansion-transition,
+.card-expansion-transition { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+.supply-transition { transition: all 0.2s ease-in-out; }
+.student-count-transition,
+.time-transition { transition: all 0.3s ease-in-out; }
 
-.room-status-badge {
-  transition: all 0.3s ease-in-out;
-  transform-origin: center;
-}
+.room-update-pending { opacity: 0.8; transform: scale(0.98); }
+.room-update-complete { opacity: 1; transform: scale(1); }
 
-/* Smooth progress bar updates */
-.progress-bar-transition {
-  transition: width 0.5s ease-in-out;
-}
-
-/* Smooth room expansion/collapse */
-.room-expansion-transition {
-  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-/* Smooth card expansion/collapse */
-.card-expansion-transition {
-  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-/* Smooth supply changes */
-.supply-transition {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Smooth student count updates */
-.student-count-transition {
-  transition: all 0.3s ease-in-out;
-}
-
-/* Smooth time updates */
-.time-transition {
-  transition: all 0.3s ease-in-out;
-}
-
-/* Prevent flash of unstyled content during updates */
-.room-update-pending {
-  opacity: 0.8;
-  transform: scale(0.98);
-}
-
-.room-update-complete {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Subtle highlight for real-time updates */
-.room-status-updated {
-  animation: roomUpdateHighlight 1.5s ease-out;
-}
-
-.room-updated {
-  animation: roomUpdateHighlight 1.5s ease-out;
-}
-
-.section-updated {
-  animation: sectionUpdateHighlight 1.5s ease-out;
-}
-
-.section-added-to-room {
-  animation: sectionAddHighlight 1.5s ease-out;
-}
-
-.section-removed-from-room {
-  animation: sectionRemoveHighlight 1.5s ease-out;
-}
+.room-status-updated,
+.room-updated { animation: roomUpdateHighlight 1.5s ease-out; }
+.section-updated { animation: sectionUpdateHighlight 1.5s ease-out; }
+.section-added-to-room { animation: sectionAddHighlight 1.5s ease-out; }
+.section-removed-from-room { animation: sectionRemoveHighlight 1.5s ease-out; }
 
 @keyframes roomUpdateHighlight {
-  0% {
-    background-color: rgba(59, 130, 246, 0.1);
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
-  }
-  50% {
-    background-color: rgba(59, 130, 246, 0.05);
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: none;
-  }
+  0% { background-color: rgba(99, 102, 241, 0.1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  50% { background-color: rgba(99, 102, 241, 0.05); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
+  100% { background-color: transparent; box-shadow: none; }
 }
 
 @keyframes sectionUpdateHighlight {
-  0% {
-    background-color: rgba(16, 185, 129, 0.1);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-  }
-  50% {
-    background-color: rgba(16, 185, 129, 0.05);
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: none;
-  }
+  0% { background-color: rgba(16, 185, 129, 0.1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { background-color: rgba(16, 185, 129, 0.05); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); }
+  100% { background-color: transparent; box-shadow: none; }
 }
 
 @keyframes sectionAddHighlight {
-  0% {
-    background-color: rgba(34, 197, 94, 0.1);
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
-  }
-  50% {
-    background-color: rgba(34, 197, 94, 0.05);
-    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: none;
-  }
+  0% { background-color: rgba(34, 197, 94, 0.1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { background-color: rgba(34, 197, 94, 0.05); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); }
+  100% { background-color: transparent; box-shadow: none; }
 }
 
 @keyframes sectionRemoveHighlight {
-  0% {
-    background-color: rgba(239, 68, 68, 0.1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    background-color: rgba(239, 68, 68, 0.05);
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: none;
-  }
-} 
+  0% { background-color: rgba(239, 68, 68, 0.1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { background-color: rgba(239, 68, 68, 0.05); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
+/* Gentle entrance for cards / panels */
+@keyframes elFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.el-fade-up { animation: elFadeUp 0.25s ease-out both; }
