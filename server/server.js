@@ -651,9 +651,11 @@ const initializeDemoData = async () => {
   }
 };
 
-// Initialize demo data after connection
+// Initialize demo data after connection (only when explicitly opted in)
 mongoose.connection.once('open', () => {
-  initializeDemoData();
+  if (process.env.SEED_DEMO === 'true') {
+    initializeDemoData();
+  }
 });
 
 // Middleware
