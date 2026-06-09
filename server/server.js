@@ -213,8 +213,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// Catch-all handler: send back React's index.html file for client-side routing
+// Catch-all handler: send back React's index.html file for client-side routing.
+// Assets and API paths must NOT fall through to index.html — a missing asset
+// should return a clean 404 instead of HTML (which causes MIME-type errors) or
+// a JSON 500. The express.static middleware above still serves existing assets.
 app.get('*', (req, res) => {
+  if (req.path.startsWith('/assets/') || req.path.startsWith('/api/')) {
+    return res.status(404).send('Not found');
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

@@ -9,8 +9,7 @@
     "start": "node server/server.js",
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm ci --production",
-    "postinstall": "npm run build",
-    "prestart": "npm run build"
+    "postinstall": "npm run build"
   },
   "engines": {
     "node": ">=18.0.0",

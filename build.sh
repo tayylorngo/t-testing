@@ -31,6 +31,11 @@ cd ..
 echo "📁 Creating server/public directory..."
 mkdir -p server/public
 
+# Remove stale hashed bundles from previous deploys so old assets don't linger
+echo "🧹 Clearing stale assets in server/public..."
+rm -rf server/public/assets
+mkdir -p server/public
+
 # Copy client build to server/public
 echo "📋 Copying client build to server/public..."
 cp -r client/dist/* server/public/
