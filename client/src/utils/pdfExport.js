@@ -130,8 +130,8 @@ export const exportSessionToPDF = (session, filename = 'testing-session') => {
       return [
         room.name || '', room.status || '', total, present, absent,
         (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A',
-        room.sections?.map(s => `Section ${s.number} (${s.studentCount})`).join(', ') || 'None',
-        room.supplies?.join(', ') || 'None',
+        room.sections?.map(s => `Section ${s.number} (${s.studentCount} students)`).join(', ') || 'None',
+        formatSupplies(room.supplies),
         room.notes || '',
       ];
     }), 9, 'No rooms found'),
@@ -215,6 +215,20 @@ function fmtTime(time) {
 function roomTotal(room) {
   if (!room.sections) return 0;
   return room.sections.reduce((total, section) => total + (section.studentCount || 0), 0);
+}
+
+// Collapse duplicate supplies into "Name (count)" instead of repeating the name.
+// Strips the INITIAL_ marker and any existing " (n)" suffix before counting.
+function formatSupplies(supplies) {
+  if (!supplies || supplies.length === 0) return 'None';
+  const counts = {};
+  supplies.forEach(raw => {
+    const name = String(raw).replace(/^INITIAL_/, '').replace(/\s*\(\d+\)$/, '').trim();
+    if (!name) return;
+    counts[name] = (counts[name] || 0) + 1;
+  });
+  const parts = Object.entries(counts).map(([name, n]) => (n > 1 ? `${name} (${n})` : name));
+  return parts.length ? parts.join(', ') : 'None';
 }
 
 function calcStats(session) {
