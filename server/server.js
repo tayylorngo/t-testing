@@ -13,6 +13,7 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import rateLimit from 'express-rate-limit';
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -28,11 +29,23 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// Parse CLIENT_URL into a CORS allowlist (comma-separated origins)
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
+function checkCorsOrigin(origin, callback) {
+  // Allow requests with no Origin header (same-origin, curl, server-to-server)
+  if (!origin) return callback(null, true);
+  if (allowedOrigins.includes(origin)) return callback(null, true);
+  callback(new Error(`CORS: origin ${origin} is not allowed`));
+}
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: checkCorsOrigin,
     methods: ["GET", "POST"]
   }
 });
@@ -660,7 +673,7 @@ mongoose.connection.once('open', () => {
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({ origin: checkCorsOrigin }));
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -860,8 +873,17 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Rate limiter for auth endpoints (login, register, forgot-password)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests, please try again later.' }
+});
+
 // Register user
-app.post('/api/register', validateRegistration, async (req, res) => {
+app.post('/api/register', authLimiter, validateRegistration, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -917,7 +939,7 @@ app.post('/api/register', validateRegistration, async (req, res) => {
 });
 
 // Login user
-app.post('/api/login', validateLogin, async (req, res) => {
+app.post('/api/login', authLimiter, validateLogin, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -990,7 +1012,7 @@ app.post('/api/logout', authenticateToken, (req, res) => {
 });
 
 // Forgot password – send reset code to email on file
-app.post('/api/forgot-password', [
+app.post('/api/forgot-password', authLimiter, [
   body('email').trim().isEmail().withMessage('Please enter a valid email address')
 ], async (req, res) => {
   try {
