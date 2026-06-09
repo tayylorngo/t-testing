@@ -34,15 +34,22 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-// Parse CLIENT_URL into a CORS allowlist (comma-separated origins)
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map(o => o.trim()).filter(Boolean)
-  : [];
+// Build the CORS allowlist from CLIENT_URL (comma-separated) plus this app's own
+// public URL on Render (RENDER_EXTERNAL_URL is set automatically, e.g.
+// https://elmira.onrender.com). Since the SPA is served from the same origin as
+// the API, the app's own origin must be allowed for browser API calls to work.
+const normalizeOrigin = (o) => o.trim().replace(/\/+$/, '');
+const allowedOrigins = [
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : []),
+  ...(process.env.RENDER_EXTERNAL_URL ? [process.env.RENDER_EXTERNAL_URL] : []),
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 function checkCorsOrigin(origin, callback) {
-  // Allow requests with no Origin header (same-origin, curl, server-to-server)
+  // Allow requests with no Origin header (same-origin GETs, curl, server-to-server)
   if (!origin) return callback(null, true);
-  if (allowedOrigins.includes(origin)) return callback(null, true);
+  if (allowedOrigins.includes(normalizeOrigin(origin))) return callback(null, true);
   callback(new Error(`CORS: origin ${origin} is not allowed`));
 }
 
