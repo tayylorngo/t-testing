@@ -188,8 +188,10 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
   if (attRows.length === 0) {
     styleBody(wsAtt, wsAtt.addRow(['No rooms found']), 6, 0);
   } else {
+    const attWidths = [24, 14, 12, 11, 11, 14];
     attRows.forEach((r, i) => {
       const row = wsAtt.addRow(r);
+      row.height = estimateRowHeight(r, attWidths);
       styleBody(wsAtt, row, 6, i, { statusCol: 2, centerCols: [3, 4, 5, 6] });
     });
   }
@@ -279,7 +281,7 @@ function addGroupHeader(ws, text, span) {
 // Key/value row (label bold, value plain)
 function kv(ws, label, value, valueColor = COLORS.slate900) {
   const row = ws.addRow([label, value]);
-  row.height = 20;
+  row.height = estimateRowHeight([label, value], [30, 60]);
   const l = row.getCell(1);
   l.font = { name: FONT, size: 11, bold: true, color: { argb: COLORS.slate700 } };
   l.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
@@ -340,10 +342,26 @@ function addTableHeader(ws, headers) {
   return row;
 }
 
+// Estimate a row height that fits wrapped text, so long Action/Sections/Notes
+// cells aren't clipped. Approximates wrapped line count from text length vs the
+// column width (in Excel "characters"), honoring explicit newlines.
+function estimateRowHeight(values, widths) {
+  let maxLines = 1;
+  for (let i = 0; i < values.length; i++) {
+    const text = values[i] == null ? '' : String(values[i]);
+    const width = Math.max(6, (widths[i] || 12) - 1);
+    let lines = 0;
+    text.split('\n').forEach(seg => {
+      lines += Math.max(1, Math.ceil(seg.length / width));
+    });
+    maxLines = Math.max(maxLines, lines);
+  }
+  return Math.min(180, Math.max(20, Math.round(maxLines * 15)));
+}
+
 // Style a populated body row across `ncols` columns (zebra by index)
 function styleBody(ws, row, ncols, index, opts = {}) {
   const { statusCol, centerCols = [] } = opts;
-  row.height = 20;
   const zebra = index % 2 === 1;
   for (let c = 1; c <= ncols; c++) {
     const cell = row.getCell(c);
@@ -377,7 +395,11 @@ function buildTableSheet(workbook, { name, title, headers, widths, rows, statusC
     row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
     row.height = 20;
   } else {
-    rows.forEach((r, i) => styleBody(ws, ws.addRow(r), headers.length, i, { statusCol, centerCols }));
+    rows.forEach((r, i) => {
+      const row = ws.addRow(r);
+      row.height = estimateRowHeight(r, widths);
+      styleBody(ws, row, headers.length, i, { statusCol, centerCols });
+    });
     ws.autoFilter = { from: { row: headerRow.number, column: 1 }, to: { row: headerRow.number, column: headers.length } };
   }
 

@@ -5,6 +5,7 @@ import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
+import { exportSessionToPDF } from '../utils/pdfExport'
 import ClearLogModal from './session/ClearLogModal'
 import IncompleteConfirmModal from './session/IncompleteConfirmModal'
 import AttendanceErrorModal from './session/AttendanceErrorModal'
@@ -2361,6 +2362,16 @@ function SessionView({ user, onBack }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Export Excel
+              </button>
+              <button
+                onClick={() => exportSessionToPDF(session, session.name)}
+                className="el-btn el-btn-primary"
+                title="Export session data to PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
               </button>
               <button
                 onClick={onBack}
