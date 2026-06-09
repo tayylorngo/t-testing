@@ -155,25 +155,30 @@ try {
 
 // Serve static files with proper MIME types
 app.use(express.static(publicPath, {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css');
-    } else if (path.endsWith('.js')) {
+    } else if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.html')) {
+    } else if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html');
+      // index.html must always be revalidated so a client picks up the new
+      // hashed asset names after a redeploy (prevents requesting deleted bundles).
+      res.setHeader('Cache-Control', 'no-cache');
     }
   }
 }));
 
 // Specific route for assets directory
 app.use('/assets', express.static(path.join(publicPath, 'assets'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css');
-    } else if (path.endsWith('.js')) {
+    } else if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
     }
+    // Hashed bundles are content-addressed, so they are safe to cache forever.
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   }
 }));
 
@@ -221,6 +226,7 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/assets/') || req.path.startsWith('/api/')) {
     return res.status(404).send('Not found');
   }
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
