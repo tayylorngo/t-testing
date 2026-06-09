@@ -5,6 +5,22 @@ import { testingAPI } from '../services/api'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
+import ClearLogModal from './session/ClearLogModal'
+import IncompleteConfirmModal from './session/IncompleteConfirmModal'
+import AttendanceErrorModal from './session/AttendanceErrorModal'
+import MarkRoomCompleteModal from './session/MarkRoomCompleteModal'
+import QuickCompleteModal from './session/QuickCompleteModal'
+import PresentStudentsModal from './session/PresentStudentsModal'
+import InvalidateTestModal from './session/InvalidateTestModal'
+import RemoveInvalidationModal from './session/RemoveInvalidationModal'
+import RoomNotesModal from './session/RoomNotesModal'
+import AddSupplyModal from './session/AddSupplyModal'
+import EditSupplyModal from './session/EditSupplyModal'
+import EditSuppliesModal from './session/EditSuppliesModal'
+import MoveStudentsModal from './session/MoveStudentsModal'
+import ActivityLogPanel from './session/ActivityLogPanel'
+import InvalidatedTestsSection from './session/InvalidatedTestsSection'
+import { useSessionRealtime } from '../hooks/useSessionRealtime'
 
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
@@ -233,42 +249,6 @@ function SessionView({ user, onBack }) {
       }, duration)
     }
   }, [])
-
-  useEffect(() => {
-    console.log('🔄 SessionView useEffect - Setting up real-time updates for session:', sessionId)
-    console.log('🔄 SessionView useEffect - isConnected:', isConnected)
-    console.log('🔄 SessionView useEffect - Current user:', user ? `${user.firstName} ${user.lastName}` : 'Unknown')
-    console.log('🔄 SessionView useEffect - Session loaded:', !!session)
-
-    // Only set up real-time updates if we have session data
-    if (!session) {
-      console.log('⏳ Session not loaded yet, skipping real-time setup')
-      return
-    }
-
-    const attemptJoinSession = () => {
-      console.log('🔄 SessionView useEffect - Attempting to join session:', sessionId)
-      const success = joinSession(sessionId)
-      if (!success) {
-        console.log('⏳ Session join failed, will retry when connected...')
-      }
-    }
-
-    attemptJoinSession()
-
-    // Set up real-time update listener
-    console.log('🔄 SessionView useEffect - Registering onSessionUpdate callback for session:', sessionId)
-    const cleanup = onSessionUpdate(sessionId, handleRealTimeUpdate)
-    console.log('🔄 SessionView useEffect - Callback registered successfully')
-
-    return () => {
-      console.log('🔄 SessionView useEffect - Cleaning up real-time updates for session:', sessionId)
-      cleanup()
-      // Don't leave session here as it can cause connection issues
-      // The RealTimeContext will handle session management
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- register handler when session loads
-  }, [sessionId, isConnected, session])
 
   // Fetch session data when component mounts or sessionId changes
   useEffect(() => {
@@ -559,6 +539,10 @@ function SessionView({ user, onBack }) {
         console.log('Unknown update type:', update.type)
     }
   }, [session, sessionId, user, addUpdateAnimation, silentRefreshRef, fetchSessionDataRef])
+
+  // Real-time subscription: join session + register update listener (extracted to a hook).
+  // Placed after handleRealTimeUpdate so it is defined before being passed in.
+  useSessionRealtime({ sessionId, isConnected, session, user, joinSession, onSessionUpdate, handleRealTimeUpdate })
 
   const updateTimeRemaining = useCallback(() => {
     if (!memoizedSession) return
@@ -4094,1017 +4078,188 @@ function SessionView({ user, onBack }) {
       </div>
 
       {/* Add Supply Modal */}
-      {showAddSupplyModal && selectedRoom && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Add Supply to {selectedRoom.name}</h2>
-
-            <div className="space-y-4">
-              {/* Preset Supplies */}
-              <div>
-                <label className="el-label">
-                  Select Supply
-                </label>
-                <select
-                  value={selectedPresetSupply}
-                  onChange={(e) => setSelectedPresetSupply(e.target.value)}
-                  className="el-input"
-                >
-                  <option value="">Choose a supply</option>
-                  {PRESET_SUPPLIES.map(supply => (
-                    <option key={supply} value={supply}>{supply}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quantity */}
-              <div>
-                <label className="el-label">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newSupplyQuantity}
-                  onChange={(e) => setNewSupplyQuantity(parseInt(e.target.value) || 1)}
-                  className="el-input"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowAddSupplyModal(false)
-                    setSelectedPresetSupply('')
-                    setNewSupplyQuantity(1)
-                    setSelectedRoom(null)
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddSupply}
-                  disabled={!selectedPresetSupply}
-                  className="el-btn el-btn-primary flex-1"
-                >
-                  Add Supply
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddSupplyModal
+        show={showAddSupplyModal}
+        room={selectedRoom}
+        presetSupplies={PRESET_SUPPLIES}
+        selectedPresetSupply={selectedPresetSupply}
+        setSelectedPresetSupply={setSelectedPresetSupply}
+        quantity={newSupplyQuantity}
+        setQuantity={setNewSupplyQuantity}
+        onCancel={() => {
+          setShowAddSupplyModal(false)
+          setSelectedPresetSupply('')
+          setNewSupplyQuantity(1)
+          setSelectedRoom(null)
+        }}
+        onConfirm={handleAddSupply}
+      />
 
       {/* Edit Supply Modal */}
-      {showEditSupplyModal && selectedRoom && editingSupply && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit Supply in {selectedRoom.name}</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="el-label">
-                  Supply Name
-                </label>
-                <input
-                  type="text"
-                  value={editingSupply.name}
-                  onChange={(e) => setEditingSupply({ ...editingSupply, name: e.target.value })}
-                  className="el-input"
-                />
-              </div>
-
-              <div>
-                <label className="el-label">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={editSupplyQuantity}
-                  onChange={(e) => setEditSupplyQuantity(parseInt(e.target.value) || 1)}
-                  className="el-input"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowEditSupplyModal(false)
-                    setEditingSupply(null)
-                    setEditSupplyQuantity(1)
-                    setSelectedRoom(null)
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleEditSupply}
-                  className="el-btn el-btn-primary flex-1"
-                >
-                  Update Supply
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditSupplyModal
+        show={showEditSupplyModal}
+        room={selectedRoom}
+        editingSupply={editingSupply}
+        setEditingSupply={setEditingSupply}
+        quantity={editSupplyQuantity}
+        setQuantity={setEditSupplyQuantity}
+        onCancel={() => {
+          setShowEditSupplyModal(false)
+          setEditingSupply(null)
+          setEditSupplyQuantity(1)
+          setSelectedRoom(null)
+        }}
+        onConfirm={handleEditSupply}
+      />
 
       {/* Move Students Modal */}
-      {showMoveStudentsModal && moveFromRoom && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6 max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Move Students</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="el-label">
-                  From Room
-                </label>
-                <div className="px-4 py-3 bg-slate-100 rounded-lg text-slate-700">
-                  {moveFromRoom.name}
-                </div>
-              </div>
-
-              {moveFromRoom.sections && moveFromRoom.sections.length > 0 && (
-                <div>
-                  <label className="el-label">
-                    Select Students to Move
-                  </label>
-                  <div className="space-y-4 max-h-60 overflow-y-auto">
-                    {moveFromRoom.sections
-                      .sort((a, b) => a.number - b.number)
-                      .map((section) => (
-                        <div key={section._id} className="border border-slate-200 rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-3">
-                            <div>
-                              <div className="text-sm font-medium text-slate-700">
-                                Section {section.number} ({section.studentCount} students)
-                              </div>
-                              {Array.isArray(section.accommodations) && section.accommodations.length > 0 && (
-                                <div className="text-xs text-brand-600 mt-1">
-                                  Accommodations: {section.accommodations.join(', ')}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">
-                                Students to move from this section:
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                max={section.studentCount}
-                                value={studentMoveData[section._id]?.studentsToMove || 0}
-                                onChange={(e) => {
-                                  const studentsToMove = parseInt(e.target.value) || 0
-                                  setStudentMoveData(prev => ({
-                                    ...prev,
-                                    [section._id]: {
-                                      ...prev[section._id],
-                                      studentsToMove
-                                    }
-                                  }))
-                                }}
-                                className="el-input w-20"
-                              />
-                              <span className="text-xs text-slate-400 ml-2">
-                                (0-{section.studentCount})
-                              </span>
-                            </div>
-
-                            {(studentMoveData[section._id]?.studentsToMove || 0) > 0 && (
-                              <div>
-                                <label className="block text-xs font-medium text-slate-500 mb-1">
-                                  Destination room:
-                                </label>
-                                <select
-                                  value={studentMoveData[section._id]?.destinationRoom || ''}
-                                  onChange={(e) => {
-                                    setStudentMoveData(prev => ({
-                                      ...prev,
-                                      [section._id]: {
-                                        ...prev[section._id],
-                                        destinationRoom: e.target.value
-                                      }
-                                    }))
-                                  }}
-                                  className="el-input"
-                                >
-                                  <option value="">Select destination room</option>
-                                  {session.rooms
-                                    .sort((a, b) => a.name.localeCompare(b.name))
-                                    .map(room => (
-                                      <option key={room._id} value={room._id}>
-                                        {room.name}
-                                      </option>
-                                    ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowMoveStudentsModal(false)
-                    setMoveFromRoom(null)
-                    setStudentMoveData({})
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleMoveStudents}
-                  disabled={Object.keys(studentMoveData).filter(key =>
-                    studentMoveData[key].studentsToMove > 0 &&
-                    studentMoveData[key].destinationRoom
-                  ).length === 0}
-                  className="el-btn el-btn-primary flex-1"
-                >
-                  Move Students
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MoveStudentsModal
+        show={showMoveStudentsModal}
+        fromRoom={moveFromRoom}
+        rooms={session?.rooms}
+        studentMoveData={studentMoveData}
+        setStudentMoveData={setStudentMoveData}
+        onCancel={() => {
+          setShowMoveStudentsModal(false)
+          setMoveFromRoom(null)
+          setStudentMoveData({})
+        }}
+        onConfirm={handleMoveStudents}
+      />
 
       {/* Edit Supplies Modal */}
-      {showEditSuppliesModal && selectedRoom && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit Supplies for {selectedRoom.name}</h2>
-
-            <div className="space-y-4">
-              {(() => {
-                const supplies = selectedRoom.supplies || []
-                const initialSupplies = supplies.filter(supply => supply.startsWith('INITIAL_'))
-                const addedSupplies = supplies.filter(supply => !supply.startsWith('INITIAL_'))
-
-                const initialSupplyCounts = {}
-                initialSupplies.forEach(supply => {
-                  const cleanName = supply.replace('INITIAL_', '')
-                  initialSupplyCounts[cleanName] = (initialSupplyCounts[cleanName] || 0) + 1
-                })
-
-                const addedSupplyCounts = {}
-                addedSupplies.forEach(supply => {
-                  addedSupplyCounts[supply] = (addedSupplyCounts[supply] || 0) + 1
-                })
-
-                return (
-                  <div className="space-y-4">
-                    {/* Initial Supplies */}
-                    {Object.keys(initialSupplyCounts).length > 0 && (
-                      <div>
-                        <h3 className="text-base font-semibold text-slate-900 mb-3">Initial Supplies</h3>
-                        <div className="space-y-2">
-                          {Object.entries(initialSupplyCounts).map(([supplyName, count]) => (
-                            <div key={supplyName} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                              <div className="flex items-center">
-                                <svg className="w-5 h-5 text-emerald-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
-                                <span className="text-emerald-700 font-medium">{supplyName}</span>
-                              </div>
-                              <span className="text-emerald-700 font-semibold">{count}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Added Supplies */}
-                    {Object.keys(addedSupplyCounts).length > 0 && (
-                      <div>
-                        <h3 className="text-base font-semibold text-slate-900 mb-3">Added Supplies</h3>
-                        <div className="space-y-2">
-                          {Object.entries(addedSupplyCounts).map(([supplyName, count]) => (
-                            <div key={supplyName} className="flex items-center justify-between bg-brand-50 border border-brand-200 rounded-lg p-3">
-                              <div className="flex items-center">
-                                <svg className="w-5 h-5 text-brand-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
-                                <span className="text-brand-700 font-medium">{supplyName}</span>
-                              </div>
-                              <div className="flex items-center space-x-3">
-                                <div className="flex items-center space-x-2">
-                                  <button
-                                    onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, -1)}
-                                    disabled={count <= 0}
-                                    className="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center transition duration-200"
-                                    title="Remove 1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                                    </svg>
-                                  </button>
-                                  <span className="text-brand-700 font-semibold min-w-[2rem] text-center">{count}</span>
-                                  <button
-                                    onClick={() => handleAdjustSupplyQuantity(selectedRoom._id, supplyName, 1)}
-                                    className="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition duration-200"
-                                    title="Add 1"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                  </button>
-                                </div>
-                                <button
-                                  onClick={() => handleRemoveSupply(selectedRoom._id, supplyName)}
-                                  className="text-rose-500 hover:text-rose-700 p-1 ml-2"
-                                  title="Remove all"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {Object.keys(initialSupplyCounts).length === 0 && Object.keys(addedSupplyCounts).length === 0 && (
-                      <div className="text-center py-8">
-                        <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                        <p className="text-slate-500">No supplies assigned to this room</p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-
-            <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-slate-200">
-              <button
-                onClick={() => {
-                  setShowEditSuppliesModal(false)
-                  setSelectedRoom(null)
-                }}
-                className="el-btn el-btn-secondary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditSuppliesModal
+        show={showEditSuppliesModal}
+        room={selectedRoom}
+        onAdjustQuantity={handleAdjustSupplyQuantity}
+        onRemoveSupply={handleRemoveSupply}
+        onClose={() => {
+          setShowEditSuppliesModal(false)
+          setSelectedRoom(null)
+        }}
+      />
 
       {/* Activity Log Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="el-card p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold text-slate-900">Activity Log</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowActivityLog(!showActivityLog)}
-                className="el-btn el-btn-primary el-btn-sm"
-              >
-                {showActivityLog ? 'Hide Log' : 'Show Log'}
-              </button>
-              {getSessionRole() === 'Owner' && (
-                <button
-                  onClick={() => setShowClearLogModal(true)}
-                  className="el-btn el-btn-secondary el-btn-sm"
-                  title="Clear activity log (Owner only)"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {showActivityLog && (
-            <div className="space-y-4">
-              {activityLog.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="mt-2">No activity recorded yet</p>
-                  <p className="text-sm">Actions will appear here as they happen</p>
-                </div>
-              ) : (
-                <div className="max-h-96 overflow-y-auto space-y-3">
-                  {activityLog.map((log, index) => {
-                    const colors = getActivityLogColors(log.action);
-                    return (
-                      <div
-                        key={index}
-                        className={`flex items-start gap-3 p-3 bg-slate-50 rounded-lg border-l-4 ${colors.border}`}
-                      >
-                        <div className={`flex-shrink-0 w-2 h-2 ${colors.dot} rounded-full mt-2`}></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-slate-900">
-                              {log.action}
-                            </p>
-                            <span className="text-xs text-slate-400">
-                              {formatTimestamp(log.timestamp)}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="text-xs text-slate-600">
-                              User: <span className="font-medium">{log.userName}</span>
-                            </span>
-                            {log.roomName && (
-                              <span className="text-xs text-slate-600">
-                                Room: <span className="font-medium">{log.roomName}</span>
-                              </span>
-                            )}
-                            {log.details && (
-                              <span className="text-xs text-slate-600">
-                                {log.details}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <ActivityLogPanel
+        show={showActivityLog}
+        onToggle={() => setShowActivityLog(!showActivityLog)}
+        isOwner={getSessionRole() === 'Owner'}
+        onClear={() => setShowClearLogModal(true)}
+        activityLog={activityLog}
+        getActivityLogColors={getActivityLogColors}
+        formatTimestamp={formatTimestamp}
+      />
 
       {/* Invalidated Tests Section */}
-      {invalidatedTests.length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <div className="rounded-xl shadow-sm border border-rose-200 bg-rose-50 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-rose-700 flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                Invalidated Tests
-              </h2>
-              <span className="el-badge el-badge-rose">
-                {invalidatedTests.length}
-              </span>
-            </div>
-
-            <div className="space-y-4 max-h-64 overflow-y-auto">
-              {invalidatedTests.map((invalidation) => {
-                const room = session?.rooms?.find(r => r._id === invalidation.roomId)
-                return (
-                  <div key={invalidation.id} className="bg-white rounded-lg border border-rose-200 p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-slate-900">
-                          Section {invalidation.sectionNumber} - {room?.name || 'Unknown Room'}
-                        </h3>
-                        <p className="text-sm text-slate-600">
-                          Invalidated by {invalidation.invalidatedBy}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs text-slate-400">
-                          {new Date(invalidation.timestamp).toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveInvalidatedTestClick(invalidation)}
-                          className="text-rose-500 hover:text-rose-700 text-sm"
-                          title="Remove invalidation"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                    <div className="bg-rose-50 rounded p-3">
-                      <p className="text-sm text-rose-700">
-                        <strong>Notes:</strong> {invalidation.notes}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      <InvalidatedTestsSection
+        invalidatedTests={invalidatedTests}
+        rooms={session?.rooms}
+        onRemove={handleRemoveInvalidatedTestClick}
+      />
 
       {/* Mark Room Complete Modal */}
-      {showMarkRoomCompleteModal && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Complete</h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="el-label">
-                  Select Room
-                </label>
-                <select
-                  value={selectedRoomForComplete?._id || ''}
-                  onChange={(e) => {
-                    const roomId = e.target.value
-                    if (!roomId) {
-                      setSelectedRoomForComplete(null)
-                      return
-                    }
-                    const room = session?.rooms?.find(r => r._id === roomId)
-                    setSelectedRoomForComplete(room || null)
-                  }}
-                  className="el-input"
-                >
-                  <option value="">Choose a room...</option>
-                  {session?.rooms
-                    ?.filter(room => room.status !== 'completed')
-                    ?.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                    ?.map(room => (
-                      <option key={room._id} value={room._id}>
-                        {room.name} ({room.sections?.length || 0} section{room.sections?.length !== 1 ? 's' : ''})
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowMarkRoomCompleteModal(false)
-                    setSelectedRoomForComplete(null)
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedRoomForComplete) {
-                      setShowMarkRoomCompleteModal(false)
-                      handleMarkRoomComplete(selectedRoomForComplete._id)
-                      setSelectedRoomForComplete(null)
-                    }
-                  }}
-                  disabled={!selectedRoomForComplete}
-                  className="el-btn el-btn-success flex-1"
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <MarkRoomCompleteModal
+        show={showMarkRoomCompleteModal}
+        rooms={session?.rooms}
+        selectedRoom={selectedRoomForComplete}
+        setSelectedRoom={setSelectedRoomForComplete}
+        onCancel={() => {
+          setShowMarkRoomCompleteModal(false)
+          setSelectedRoomForComplete(null)
+        }}
+        onContinue={() => {
+          if (selectedRoomForComplete) {
+            setShowMarkRoomCompleteModal(false)
+            handleMarkRoomComplete(selectedRoomForComplete._id)
+            setSelectedRoomForComplete(null)
+          }
+        }}
+      />
 
       {/* Mark Section Complete Modal */}
-      {showQuickCompleteModal && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Section Complete</h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className="el-label">
-                  Select Section
-                </label>
-                <select
-                  value={quickCompleteSection ? `${quickCompleteSection.room._id}-${quickCompleteSection.section._id}` : ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    if (!val) {
-                      setQuickCompleteSection(null)
-                      setQuickCompleteStudentsPresent('')
-                      return
-                    }
-                    const [roomId, sectionId] = val.split('-')
-                    const item = sectionsAvailableForQuickComplete.find(
-                      x => x.room._id === roomId && x.section._id === sectionId
-                    )
-                    setQuickCompleteSection(item || null)
-                    setQuickCompleteStudentsPresent('')
-                  }}
-                  className="el-input"
-                >
-                  <option value="">Choose a section...</option>
-                  {sectionsAvailableForQuickComplete.map(({ section, room }) => (
-                      <option key={`${room._id}-${section._id}`} value={`${room._id}-${section._id}`}>
-                        Section {section.number} – {room.name} ({section.studentCount} students)
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {quickCompleteSection && (
-                <div>
-                  <label className="el-label">
-                    Students Present (Section {quickCompleteSection.section.number})
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={quickCompleteSection.section.studentCount}
-                    value={quickCompleteStudentsPresent}
-                    onChange={(e) => setQuickCompleteStudentsPresent(e.target.value)}
-                    className="el-input"
-                    placeholder={`Enter 0–${quickCompleteSection.section.studentCount}`}
-                    autoFocus
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Max: {quickCompleteSection.section.studentCount} students
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowQuickCompleteModal(false)
-                    setQuickCompleteSection(null)
-                    setQuickCompleteStudentsPresent('')
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleQuickCompleteBySection}
-                  disabled={!quickCompleteSection || !quickCompleteStudentsPresent || isNaN(parseInt(quickCompleteStudentsPresent))}
-                  className="el-btn el-btn-success flex-1"
-                >
-                  Mark Section Complete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <QuickCompleteModal
+        show={showQuickCompleteModal}
+        section={quickCompleteSection}
+        setSection={setQuickCompleteSection}
+        studentsPresent={quickCompleteStudentsPresent}
+        setStudentsPresent={setQuickCompleteStudentsPresent}
+        availableSections={sectionsAvailableForQuickComplete}
+        onCancel={() => {
+          setShowQuickCompleteModal(false)
+          setQuickCompleteSection(null)
+          setQuickCompleteStudentsPresent('')
+        }}
+        onConfirm={handleQuickCompleteBySection}
+      />
 
       {/* Present Students Modal */}
-      {showPresentStudentsModal && roomToComplete && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6 max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Complete</h2>
-
-            <div className="space-y-6">
-              <div className="bg-brand-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-slate-900 mb-2">Room: {roomToComplete.name}</h3>
-                <p className="text-sm text-slate-600">
-                  Total Students: {calculateTotalStudents(roomToComplete.sections)}
-                </p>
-                <p className="text-sm text-slate-600">
-                  Sections: {roomToComplete.sections?.length || 0}
-                </p>
-              </div>
-
-              {roomToComplete.sections && roomToComplete.sections.length > 1 ? (
-                // Per-section input for multiple sections
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900 mb-4">
-                    Students Present by Section
-                  </h3>
-                  <div className="space-y-4">
-                    {roomToComplete.sections
-                      .sort((a, b) => a.number - b.number)
-                      .map((section) => (
-                        <div key={section._id} className="bg-slate-50 p-4 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-slate-900">
-                              Section {section.number}
-                            </h4>
-                            <span className="text-sm text-slate-500">
-                              Total: {section.studentCount} students
-                            </span>
-                          </div>
-                          <input
-                            type="number"
-                            min="0"
-                            max={section.studentCount}
-                            value={sectionPresentCounts[section._id] || ''}
-                            onChange={(e) => setSectionPresentCounts(prev => ({
-                              ...prev,
-                              [section._id]: e.target.value
-                            }))}
-                            className="el-input"
-                            placeholder={`Enter present students (0-${section.studentCount})`}
-                          />
-                        </div>
-                      ))}
-                  </div>
-                  <div className="mt-4 p-3 bg-emerald-50 rounded-lg">
-                    <p className="text-sm text-slate-700">
-                      <span className="font-medium">Total Present:</span> {
-                        Object.values(sectionPresentCounts).reduce((total, count) => {
-                          const num = parseInt(count) || 0
-                          return total + num
-                        }, 0)
-                      } / {calculateTotalStudents(roomToComplete.sections)}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                // Single input for single section or no sections
-                <div>
-                  <label className="el-label">
-                    How many students were present?
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={calculateTotalStudents(roomToComplete.sections)}
-                    value={presentStudentsCount}
-                    onChange={(e) => setPresentStudentsCount(e.target.value)}
-                    className="el-input"
-                    placeholder="Enter number of present students"
-                    autoFocus
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Enter a number between 0 and {calculateTotalStudents(roomToComplete.sections)}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowPresentStudentsModal(false)
-                    setRoomToComplete(null)
-                    setPresentStudentsCount('')
-                    setSectionPresentCounts({})
-                  }}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmRoomComplete}
-                  disabled={roomToComplete.sections && roomToComplete.sections.length > 1
-                    ? !Object.values(sectionPresentCounts).every(count => count !== '' && !isNaN(parseInt(count)))
-                    : (!presentStudentsCount || isNaN(parseInt(presentStudentsCount)))
-                  }
-                  className="el-btn el-btn-success flex-1"
-                >
-                  Mark Complete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <PresentStudentsModal
+        show={showPresentStudentsModal}
+        room={roomToComplete}
+        calculateTotalStudents={calculateTotalStudents}
+        sectionPresentCounts={sectionPresentCounts}
+        setSectionPresentCounts={setSectionPresentCounts}
+        presentStudentsCount={presentStudentsCount}
+        setPresentStudentsCount={setPresentStudentsCount}
+        onCancel={() => {
+          setShowPresentStudentsModal(false)
+          setRoomToComplete(null)
+          setPresentStudentsCount('')
+          setSectionPresentCounts({})
+        }}
+        onConfirm={handleConfirmRoomComplete}
+      />
 
       {/* Clear Activity Log Confirmation Modal */}
-      {showClearLogModal && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Clear Activity Log</h2>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                Are you sure you want to clear the activity log for this session?
-              </p>
-              <p className="text-sm text-slate-500">
-                This action cannot be undone. All activity history will be permanently removed.
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowClearLogModal(false)}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmClearActivityLog}
-                  className="el-btn el-btn-danger flex-1"
-                >
-                  Clear Log
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClearLogModal
+        show={showClearLogModal}
+        onCancel={() => setShowClearLogModal(false)}
+        onConfirm={confirmClearActivityLog}
+      />
 
       {/* Mark Room Incomplete Confirmation Modal */}
-      {showIncompleteConfirmModal && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Room Incomplete</h2>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                Are you sure you want to mark this room as incomplete?
-              </p>
-              <p className="text-sm text-slate-500">
-                This will change the room status back to active and clear the present students count. The session status may also change back to active if all rooms become incomplete.
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={cancelMarkRoomIncomplete}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmMarkRoomIncomplete}
-                  className="el-btn flex-1 bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500"
-                >
-                  Mark Incomplete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <IncompleteConfirmModal
+        show={showIncompleteConfirmModal}
+        onCancel={cancelMarkRoomIncomplete}
+        onConfirm={confirmMarkRoomIncomplete}
+      />
 
       {/* Attendance Error Modal */}
-      {showAttendanceErrorModal && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <div className="flex items-center mb-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-slate-900 ml-4">Invalid Attendance</h2>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                {attendanceError}
-              </p>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={() => setShowAttendanceErrorModal(false)}
-                  className="el-btn el-btn-danger"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AttendanceErrorModal
+        show={showAttendanceErrorModal}
+        message={attendanceError}
+        onClose={() => setShowAttendanceErrorModal(false)}
+      />
 
       {/* Invalidate Test Modal */}
-      {showInvalidateModal && roomToInvalidate && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Invalidate Test</h2>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                Invalidate 1 test in <strong className="text-slate-900">{roomToInvalidate.name}</strong>
-              </p>
-
-              {/* Section Selection */}
-              <div>
-                <label className="el-label">
-                  Select Section
-                </label>
-                <select
-                  value={selectedSection}
-                  onChange={(e) => setSelectedSection(e.target.value)}
-                  className="el-input"
-                >
-                  <option value="">Choose a section...</option>
-                  {roomToInvalidate.sections?.map(section => (
-                    <option key={section._id} value={section.number}>
-                      Section {section.number} ({section.studentCount} students)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="el-label">
-                  Notes
-                </label>
-                <textarea
-                  value={invalidationNotes}
-                  onChange={(e) => setInvalidationNotes(e.target.value)}
-                  className="el-input"
-                  rows={3}
-                  placeholder="Enter notes about the test invalidation..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={cancelInvalidateTest}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleInvalidateTest}
-                  disabled={!invalidationNotes.trim() || !selectedSection}
-                  className="el-btn el-btn-danger flex-1"
-                >
-                  Invalidate Test
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <InvalidateTestModal
+        show={showInvalidateModal}
+        room={roomToInvalidate}
+        selectedSection={selectedSection}
+        setSelectedSection={setSelectedSection}
+        notes={invalidationNotes}
+        setNotes={setInvalidationNotes}
+        onCancel={cancelInvalidateTest}
+        onConfirm={handleInvalidateTest}
+      />
 
       {/* Remove Invalidation Confirmation Modal */}
-      {showRemoveInvalidationModal && invalidationToRemove && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Remove Invalidation</h2>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                Are you sure you want to remove this test invalidation?
-              </p>
-
-              <div className="bg-rose-50 border border-rose-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-rose-700">
-                  Section {invalidationToRemove.sectionNumber}
-                </p>
-                <p className="text-sm text-rose-600 mt-1">
-                  {invalidationToRemove.notes}
-                </p>
-                <p className="text-xs text-rose-500 mt-2">
-                  Invalidated by {invalidationToRemove.invalidatedBy} on {new Date(invalidationToRemove.timestamp).toLocaleString()}
-                </p>
-              </div>
-
-              <p className="text-sm text-slate-500">
-                This action will be recorded in the activity log.
-              </p>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={cancelRemoveInvalidatedTest}
-                  className="el-btn el-btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmRemoveInvalidatedTest}
-                  className="el-btn el-btn-danger flex-1"
-                >
-                  Remove Invalidation
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RemoveInvalidationModal
+        show={showRemoveInvalidationModal}
+        invalidation={invalidationToRemove}
+        onCancel={cancelRemoveInvalidatedTest}
+        onConfirm={confirmRemoveInvalidatedTest}
+      />
 
       {/* Room Notes Modal */}
-      {showRoomNotesModal && selectedRoomForNotes && (
-        <div className="el-overlay">
-          <div className="el-modal el-fade-up p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Add Notes to {selectedRoomForNotes.name}</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="el-label">
-                  Room Notes
-                </label>
-                <textarea
-                  value={roomNotes}
-                  onChange={(e) => setRoomNotes(e.target.value)}
-                  placeholder="Enter notes for this room..."
-                  rows={4}
-                  className="el-input resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={cancelRoomNotes}
-                className="el-btn el-btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveRoomNotes}
-                className="el-btn el-btn-primary flex-1"
-              >
-                Save Notes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RoomNotesModal
+        show={showRoomNotesModal}
+        room={selectedRoomForNotes}
+        notes={roomNotes}
+        setNotes={setRoomNotes}
+        onCancel={cancelRoomNotes}
+        onConfirm={handleSaveRoomNotes}
+      />
     </div>
   )
 }
