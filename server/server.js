@@ -52,17 +52,25 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3001;
 
+// Gated debug logger — only emits when DEBUG=true. Use for noisy per-request /
+// per-socket diagnostics; keep console.error for genuine errors.
+const debugLog = (...args) => {
+  if (process.env.DEBUG === 'true') {
+    console.log(...args);
+  }
+};
+
 // Real-time session management
 const activeSessions = new Map(); // sessionId -> Set of socketIds
 const userSessions = new Map(); // socketId -> sessionId
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
-  console.log('🔌 User connected:', socket.id);
+  debugLog('🔌 User connected:', socket.id);
 
   // Join a session room
   socket.on('join-session', (sessionId) => {
-    console.log(`🔌 Socket ${socket.id} joining session: ${sessionId}`);
+    debugLog(`🔌 Socket ${socket.id} joining session: ${sessionId}`);
     socket.join(`session-${sessionId}`);
     
     // Track user's active session
@@ -74,14 +82,14 @@ io.on('connection', (socket) => {
     }
     activeSessions.get(sessionId).add(socket.id);
     
-    console.log(`🔌 User ${socket.id} joined session ${sessionId}`);
-    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
-    console.log(`🔌 Session ${sessionId} now has ${activeSessions.get(sessionId).size} users`);
+    debugLog(`🔌 User ${socket.id} joined session ${sessionId}`);
+    debugLog(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
+    debugLog(`🔌 Session ${sessionId} now has ${activeSessions.get(sessionId).size} users`);
   });
 
   // Leave a session room
   socket.on('leave-session', (sessionId) => {
-    console.log(`🔌 Socket ${socket.id} leaving session: ${sessionId}`);
+    debugLog(`🔌 Socket ${socket.id} leaving session: ${sessionId}`);
     socket.leave(`session-${sessionId}`);
     
     // Remove from tracking
@@ -93,15 +101,15 @@ io.on('connection', (socket) => {
       }
     }
     
-    console.log(`🔌 User ${socket.id} left session ${sessionId}`);
-    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
+    debugLog(`🔌 User ${socket.id} left session ${sessionId}`);
+    debugLog(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
   });
 
   // Handle disconnection
   socket.on('disconnect', () => {
     const sessionId = userSessions.get(socket.id);
     if (sessionId) {
-      console.log(`🔌 Socket ${socket.id} disconnected from session: ${sessionId}`);
+      debugLog(`🔌 Socket ${socket.id} disconnected from session: ${sessionId}`);
       if (activeSessions.has(sessionId)) {
         activeSessions.get(sessionId).delete(socket.id);
         if (activeSessions.get(sessionId).size === 0) {
@@ -110,8 +118,8 @@ io.on('connection', (socket) => {
       }
       userSessions.delete(socket.id);
     }
-    console.log('🔌 User disconnected:', socket.id);
-    console.log(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
+    debugLog('🔌 User disconnected:', socket.id);
+    debugLog(`🔌 Active sessions:`, Array.from(activeSessions.entries()).map(([id, sockets]) => [id, sockets.size]));
   });
   
   // Handle heartbeat ping
@@ -123,11 +131,11 @@ io.on('connection', (socket) => {
 // Helper function to emit updates to all users in a session
 const emitSessionUpdate = (sessionId, eventType, data, user = null, logEntry = null) => {
   try {
-    console.log(`🚀 emitSessionUpdate called for session: ${sessionId}`)
-    console.log(`🚀 Event type: ${eventType}`)
-    console.log(`🚀 Data:`, data)
-    console.log(`🚀 User:`, user ? `${user.firstName} ${user.lastName}` : 'Unknown User')
-    console.log(`🚀 Log entry:`, logEntry)
+    debugLog(`🚀 emitSessionUpdate called for session: ${sessionId}`)
+    debugLog(`🚀 Event type: ${eventType}`)
+    debugLog(`🚀 Data:`, data)
+    debugLog(`🚀 User:`, user ? `${user.firstName} ${user.lastName}` : 'Unknown User')
+    debugLog(`🚀 Log entry:`, logEntry)
     
     const updatePayload = {
       type: eventType,
@@ -140,16 +148,16 @@ const emitSessionUpdate = (sessionId, eventType, data, user = null, logEntry = n
       timestamp: new Date().toISOString()
     };
     
-    console.log(`🚀 Final update payload:`, updatePayload)
-    console.log(`🚀 Emitting ${eventType} update to session ${sessionId}`);
+    debugLog(`🚀 Final update payload:`, updatePayload)
+    debugLog(`🚀 Emitting ${eventType} update to session ${sessionId}`);
     
     // Check how many sockets are in the session room
     const sessionRoom = io.sockets.adapter.rooms.get(`session-${sessionId}`);
     const socketCount = sessionRoom ? sessionRoom.size : 0;
-    console.log(`🚀 Number of sockets in session-${sessionId}: ${socketCount}`);
+    debugLog(`🚀 Number of sockets in session-${sessionId}: ${socketCount}`);
     
     io.to(`session-${sessionId}`).emit('session-update', updatePayload);
-    console.log(`🚀 Emitted ${eventType} update to session ${sessionId}`);
+    debugLog(`🚀 Emitted ${eventType} update to session ${sessionId}`);
   } catch (error) {
     console.error(`❌ Error in emitSessionUpdate:`, error);
     // Don't throw the error, just log it to prevent 500 responses
@@ -245,12 +253,12 @@ const getSupplySummary = (supplies) => {
 // Helper function to add activity log entries to sessions
 const addActivityLogEntry = async (sessionId, action, roomName = null, details = null, userName = null) => {
   try {
-    console.log(`📝 addActivityLogEntry called for session: ${sessionId}`)
-    console.log(`📝 Action: ${action}, Room: ${roomName}, Details: ${details}, User: ${userName}`)
+    debugLog(`📝 addActivityLogEntry called for session: ${sessionId}`)
+    debugLog(`📝 Action: ${action}, Room: ${roomName}, Details: ${details}, User: ${userName}`)
     
     const session = await Session.findById(sessionId);
     if (!session) {
-      console.log(`❌ Session ${sessionId} not found for activity log entry`);
+      debugLog(`❌ Session ${sessionId} not found for activity log entry`);
       return null;
     }
 
@@ -266,7 +274,7 @@ const addActivityLogEntry = async (sessionId, action, roomName = null, details =
     session.activityLog = [logEntry, ...(session.activityLog || [])].slice(0, 100);
     await session.save();
 
-    console.log(`✅ Activity log entry added to session ${sessionId}:`, logEntry);
+    debugLog(`✅ Activity log entry added to session ${sessionId}:`, logEntry);
     return logEntry;
   } catch (error) {
     console.error(`❌ Error adding activity log entry to session ${sessionId}:`, error);
@@ -275,9 +283,13 @@ const addActivityLogEntry = async (sessionId, action, roomName = null, details =
 };
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://localhost:27017/t-testing';
-console.log('🔍 MongoDB URI:', MONGODB_URI ? 'Set' : 'Not set');
-console.log('🔍 Environment variables:', {
+const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error('❌ Missing MongoDB connection string: set MONGO_URL or MONGODB_URI');
+  process.exit(1);
+}
+debugLog('🔍 MongoDB URI:', MONGODB_URI ? 'Set' : 'Not set');
+debugLog('🔍 Environment variables:', {
   MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not set',
   MONGO_URL: process.env.MONGO_URL ? 'Set' : 'Not set',
   NODE_ENV: process.env.NODE_ENV || 'Not set'
@@ -680,26 +692,26 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the React app build
 const publicPath = path.join(__dirname, 'public');
-console.log('🔍 Public path:', publicPath);
-console.log('🔍 Public directory exists:', fs.existsSync(publicPath));
+debugLog('🔍 Public path:', publicPath);
+debugLog('🔍 Public directory exists:', fs.existsSync(publicPath));
 
 // Create public directory if it doesn't exist
 if (!fs.existsSync(publicPath)) {
-  console.log('🔨 Creating public directory...');
+  debugLog('🔨 Creating public directory...');
   fs.mkdirSync(publicPath, { recursive: true });
 }
 
 // Check if index.html exists
 const indexPath = path.join(publicPath, 'index.html');
-console.log('🔍 index.html exists:', fs.existsSync(indexPath));
+debugLog('🔍 index.html exists:', fs.existsSync(indexPath));
 
 // Debug: List files in public directory
-console.log('🔍 Files in public directory:');
+debugLog('🔍 Files in public directory:');
 try {
   const files = fs.readdirSync(publicPath, { recursive: true });
-  console.log('📁 Public directory contents:', files);
+  debugLog('📁 Public directory contents:', files);
 } catch (error) {
-  console.log('❌ Error reading public directory:', error.message);
+  console.error('❌ Error reading public directory:', error.message);
 }
 
 // Serve static files with proper MIME types
@@ -856,15 +868,9 @@ const checkSessionPermission = (requiredPermission = 'view') => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    message: 'Elmira API is running',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    websocket: io.engine.clientsCount || 0,
-    version: '1.0.0'
+  res.status(200).json({
+    status: 'ok',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
 
@@ -1199,9 +1205,9 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
 
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: id });
-    console.log(`Room status update - Found session:`, session ? session._id : 'None');
+    debugLog(`Room status update - Found session:`, session ? session._id : 'None');
     if (session) {
-      console.log(`Room status update - Emitting real-time update for session: ${session._id}`);
+      debugLog(`Room status update - Emitting real-time update for session: ${session._id}`);
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
@@ -1219,7 +1225,7 @@ app.put('/api/rooms/:id/status', authenticateToken, async (req, res) => {
       
       emitSessionUpdate(session._id, 'room-status-updated', { roomId: id, room: roomResponse, status }, user, logEntry);
     } else {
-      console.log(`Room status update - No session found containing room: ${id}`);
+      debugLog(`Room status update - No session found containing room: ${id}`);
     }
 
     res.json({ message: 'Room status updated', room: roomResponse });
@@ -1386,28 +1392,28 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         const allRoomsCompleted = allRooms.every(r => r.status === 'completed');
         
         if (allRoomsCompleted && session.status !== 'completed') {
-          console.log('All rooms completed, updating session status to completed');
+          debugLog('All rooms completed, updating session status to completed');
           await Session.findByIdAndUpdate(
             session._id,
             { status: 'completed', updatedAt: new Date() },
             { new: true, runValidators: true }
           );
-          console.log('Session status updated to completed');
+          debugLog('Session status updated to completed');
         }
       }
-      console.log(`Room update - Emitting real-time update for session: ${session._id}`);
+      debugLog(`Room update - Emitting real-time update for session: ${session._id}`);
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
       // Add activity log entry for supply changes or room completion
       let logEntry = null;
       if (supplies !== undefined) {
-        console.log(`🔍 Supply update detected for room ${id}`);
-        console.log(`🔍 Old supplies:`, oldRoom.supplies);
-        console.log(`🔍 New supplies:`, supplies);
+        debugLog(`🔍 Supply update detected for room ${id}`);
+        debugLog(`🔍 Old supplies:`, oldRoom.supplies);
+        debugLog(`🔍 New supplies:`, supplies);
         
         if (JSON.stringify(oldRoom.supplies) !== JSON.stringify(supplies)) {
-          console.log(`🔍 Supplies changed, creating log entry`);
+          debugLog(`🔍 Supplies changed, creating log entry`);
           // Compare old and new supplies to create a more descriptive log message
           const oldSupplies = oldRoom.supplies || [];
           const newSupplies = supplies || [];
@@ -1453,8 +1459,8 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
             }
           });
           
-          console.log(`🔍 Added supplies:`, addedSupplies);
-          console.log(`🔍 Removed supplies:`, removedSupplies);
+          debugLog(`🔍 Added supplies:`, addedSupplies);
+          debugLog(`🔍 Removed supplies:`, removedSupplies);
           
           let action = '';
           let details = '';
@@ -1477,22 +1483,22 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
             details = `Removed: ${removedSummary.summary}`;
           }
           
-          console.log(`🔍 Action:`, action);
-          console.log(`🔍 Details:`, details);
+          debugLog(`🔍 Action:`, action);
+          debugLog(`🔍 Details:`, details);
           
           if (action) {
             logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-            console.log(`🔍 Log entry created:`, logEntry);
+            debugLog(`🔍 Log entry created:`, logEntry);
           }
         } else {
-          console.log(`🔍 No supply changes detected`);
+          debugLog(`🔍 No supply changes detected`);
         }
       } else if (status === 'completed' && presentStudents !== undefined) {
         // Room completion with present students
         const action = `${user.firstName} ${user.lastName} marked Room ${room.name} complete with ${presentStudents} students present`;
         const details = `Present students: ${presentStudents}`;
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-        console.log(`🔍 Room completion log entry created:`, logEntry);
+        debugLog(`🔍 Room completion log entry created:`, logEntry);
       } else if (status === 'active' && presentStudents === undefined) {
         // Room marked incomplete - clear present students
         const previousPresentStudents = oldRoom.presentStudents;
@@ -1515,14 +1521,14 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         room.sectionAttendance = {};
         
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-        console.log(`🔍 Room incomplete log entry created:`, logEntry);
+        debugLog(`🔍 Room incomplete log entry created:`, logEntry);
       } else if (notes !== undefined) {
-        console.log(`🔍 Notes update detected for room ${id}`);
+        debugLog(`🔍 Notes update detected for room ${id}`);
         const oldNotes = oldRoom.notes || '';
         const newNotes = notes || '';
         
         if (oldNotes !== newNotes) {
-          console.log(`🔍 Notes changed, creating log entry`);
+          debugLog(`🔍 Notes changed, creating log entry`);
           let action, details;
           
           if (oldNotes && newNotes) {
@@ -1537,15 +1543,15 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           }
           
           logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-          console.log(`🔍 Room notes log entry created:`, logEntry);
+          debugLog(`🔍 Room notes log entry created:`, logEntry);
         }
       } else if (proctors !== undefined) {
-        console.log(`🔍 Proctors update detected for room ${id}`);
+        debugLog(`🔍 Proctors update detected for room ${id}`);
         const oldProctors = oldRoom.proctors || [];
         const newProctors = proctors || [];
         
         if (JSON.stringify(oldProctors) !== JSON.stringify(newProctors)) {
-          console.log(`🔍 Proctors changed, creating log entry`);
+          debugLog(`🔍 Proctors changed, creating log entry`);
           let action, details;
           
           const oldCount = oldProctors.length;
@@ -1563,15 +1569,15 @@ app.put('/api/rooms/:id', authenticateToken, async (req, res) => {
           }
           
           logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-          console.log(`🔍 Room proctors log entry created:`, logEntry);
+          debugLog(`🔍 Room proctors log entry created:`, logEntry);
         }
       } else {
-        console.log(`🔍 No supplies in request body`);
+        debugLog(`🔍 No supplies in request body`);
       }
       
       emitSessionUpdate(session._id, 'room-updated', { roomId: id, room: roomResponse }, user, logEntry);
     } else {
-      console.log(`Room update - No session found containing room: ${id}`);
+      debugLog(`Room update - No session found containing room: ${id}`);
     }
 
     res.json({ message: 'Room updated successfully', room: roomResponse });
@@ -2190,7 +2196,7 @@ app.get('/api/invitations/pending', authenticateToken, async (req, res) => {
       status: 'pending'
     }).populate('sessionId').populate('invitedBy', 'username firstName lastName');
     
-    console.log('Pending invitations with populated data:', JSON.stringify(invitations, null, 2));
+    debugLog('Pending invitations with populated data:', JSON.stringify(invitations, null, 2));
     
     res.json({ invitations });
   } catch (error) {
@@ -2206,7 +2212,7 @@ app.get('/api/invitations/sent', authenticateToken, async (req, res) => {
       invitedBy: req.user.id
     }).populate('sessionId').populate('invitedUserId', 'username firstName lastName');
     
-    console.log('Sent invitations with populated data:', JSON.stringify(invitations, null, 2));
+    debugLog('Sent invitations with populated data:', JSON.stringify(invitations, null, 2));
     
     res.json({ invitations });
   } catch (error) {
@@ -2568,7 +2574,7 @@ app.delete('/api/sessions/:sessionId/rooms', authenticateToken, async (req, res)
     session.rooms = [];
     await session.save();
 
-    console.log(`Cleared ${roomCount} rooms from session ${sessionId}`);
+    debugLog(`Cleared ${roomCount} rooms from session ${sessionId}`);
 
     res.json({ 
       message: `Successfully cleared ${roomCount} rooms from session`,
@@ -2718,7 +2724,7 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
     // Find the session that contains this section to emit real-time update
     const session = await Session.findOne({ sections: id });
     if (session) {
-      console.log(`Section update - Emitting real-time update for session: ${session._id}`);
+      debugLog(`Section update - Emitting real-time update for session: ${session._id}`);
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
@@ -2728,7 +2734,7 @@ app.put('/api/sections/:id', authenticateToken, async (req, res) => {
       
       emitSessionUpdate(session._id, 'section-updated', { sectionId: id, section }, user, logEntry);
     } else {
-      console.log(`Section update - No session found containing section: ${id}`);
+      debugLog(`Section update - No session found containing section: ${id}`);
     }
 
     res.json({ message: 'Section updated successfully', section });
@@ -2815,7 +2821,7 @@ app.delete('/api/sessions/:sessionId/sections', authenticateToken, async (req, r
     session.sections = [];
     await session.save();
 
-    console.log(`Cleared ${sectionCount} sections from session ${sessionId}`);
+    debugLog(`Cleared ${sectionCount} sections from session ${sessionId}`);
 
     res.json({ 
       message: `Successfully cleared ${sectionCount} sections from session`,
@@ -3081,13 +3087,13 @@ app.post('/api/rooms/:roomId/sections', authenticateToken, async (req, res) => {
       // Find the session that contains this room to emit real-time update
       const sessionDoc = await Session.findOne({ rooms: roomId }).session(session);
       if (sessionDoc) {
-        console.log(`Section added to room - Emitting real-time update for session: ${sessionDoc._id}`);
+        debugLog(`Section added to room - Emitting real-time update for session: ${sessionDoc._id}`);
         // Get user information for the real-time update
         const user = await User.findById(req.user.id);
         
         emitSessionUpdate(sessionDoc._id, 'section-added-to-room', { roomId, sectionId, room: updatedRoom }, user, null);
       } else {
-        console.log(`Section added to room - No session found containing room: ${roomId}`);
+        debugLog(`Section added to room - No session found containing room: ${roomId}`);
       }
 
       res.json({ 
@@ -3239,13 +3245,13 @@ app.delete('/api/rooms/:roomId/sections/:sectionId', authenticateToken, async (r
     // Find the session that contains this room to emit real-time update
     const session = await Session.findOne({ rooms: roomId });
     if (session) {
-      console.log(`Section removed from room - Emitting real-time update for session: ${session._id}`);
+      debugLog(`Section removed from room - Emitting real-time update for session: ${session._id}`);
       // Get user information for the real-time update
       const user = await User.findById(req.user.id);
       
              emitSessionUpdate(session._id, 'section-removed-from-room', { roomId, sectionId, room: updatedRoom }, user, null);
     } else {
-      console.log(`Section removed from room - No session found containing room: ${roomId}`);
+      debugLog(`Section removed from room - No session found containing room: ${roomId}`);
     }
 
     res.json({ 
@@ -3333,7 +3339,7 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
         // Delete the source section since we combined it
         await Section.findByIdAndDelete(sectionId, { session });
         
-        console.log(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
+        debugLog(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
       } else {
         // No existing section with same number - move the entire section
         // Remove section from source room
@@ -3346,7 +3352,7 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
           $push: { sections: sectionId }
         }, { session });
         
-        console.log(`Moved entire section ${section.number} with ${studentsToMove} students`);
+        debugLog(`Moved entire section ${section.number} with ${studentsToMove} students`);
       }
 
       // Get updated rooms with populated sections
@@ -3395,19 +3401,13 @@ app.post('/api/sessions/:sessionId/move-students', authenticateToken, async (req
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  if (process.env.NODE_ENV === 'development') {
+    console.error(err.stack);
+  } else {
+    console.error('Unhandled error:', err.message);
+  }
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
