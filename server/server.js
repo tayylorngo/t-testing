@@ -767,7 +767,11 @@ async function sendResetCodeEmail(email, code) {
       html: `<p>Your password reset code is: <strong>${code}</strong></p><p>This code expires in 15 minutes. If you didn't request this, you can ignore this email.</p>`
     });
   } else {
-    console.log('[Forgot password] No SMTP configured. Reset code for', email, ':', code);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Forgot password] No SMTP configured. Reset code for', email, ':', code);
+    } else {
+      console.log('[Forgot password] No SMTP configured. Reset code generated for', email);
+    }
   }
 }
 
@@ -3416,6 +3420,6 @@ app.get('*', (req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Elmira Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🗄️  MongoDB URI: ${MONGODB_URI}`);
+  console.log('🗄️  Connected to MongoDB');
   console.log(`🔌 WebSocket server ready for real-time updates`);
 }); 
