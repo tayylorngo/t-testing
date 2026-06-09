@@ -21,6 +21,13 @@ const __dirname = path.dirname(__filename);
 // Load environment variables - explicitly specify path
 dotenv.config({ path: path.join(__dirname, '.env') });
 
+// Validate JWT_SECRET at startup — refuse to boot without a real secret
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is missing or empty. Exiting.');
+  process.exit(1);
+}
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
@@ -772,7 +779,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
@@ -938,7 +945,7 @@ app.post('/api/login', validateLogin, async (req, res) => {
         id: user._id, 
         username: user.username
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 
