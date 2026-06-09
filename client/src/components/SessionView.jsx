@@ -2845,24 +2845,6 @@ function SessionView({ user, onBack }) {
               <div className="max-w-full mx-auto">
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                   {(() => {
-                    // Detect room number conflicts
-                    const roomNameCounts = {}
-                    debouncedSession?.rooms?.forEach(room => {
-                      const roomNum = parseInt(room.name?.match(/\d+/)?.[0]) || null
-                      if (roomNum !== null) {
-                        if (!roomNameCounts[roomNum]) {
-                          roomNameCounts[roomNum] = []
-                        }
-                        roomNameCounts[roomNum].push(room)
-                      }
-                    })
-                    const conflictRoomNumbers = new Set()
-                    Object.keys(roomNameCounts).forEach(num => {
-                      if (roomNameCounts[num].length > 1) {
-                        roomNameCounts[num].forEach(room => conflictRoomNumbers.add(room._id))
-                      }
-                    })
-                    
                     return debouncedSession?.rooms?.slice()
                     .filter(room => {
                       // Apply status filter
@@ -2939,14 +2921,13 @@ function SessionView({ user, onBack }) {
                     const roomFullyReturned = totalStudents > 0 && roomReturned >= totalStudents
                     const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
                     const canEdit = canEditSession()
-                    // Check for conflicts: room number conflicts OR sections with "Conflict" accommodation
-                    const hasRoomNumberConflict = conflictRoomNumbers.has(room._id)
-                    const hasSectionConflict = room.sections?.some(section =>
+                    // A room is flagged as a conflict ONLY when one of its sections has
+                    // the "Conflict" accommodation explicitly set (no room-number guessing).
+                    const hasConflict = room.sections?.some(section =>
                       section.accommodations?.some(acc =>
                         acc.toLowerCase().includes('conflict')
                       )
                     ) || false
-                    const hasConflict = hasRoomNumberConflict || hasSectionConflict
 
                     return (
                       <div
