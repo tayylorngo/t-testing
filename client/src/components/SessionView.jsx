@@ -2713,7 +2713,7 @@ function SessionView({ user, onBack }) {
             {/* Scrollable Rooms Section */}
             <div className="flex-1 overflow-y-auto px-8 pb-8">
               <div className="max-w-full mx-auto">
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
                   {(() => {
                     return debouncedSession?.rooms?.slice()
                     .filter(room => {
@@ -2802,7 +2802,7 @@ function SessionView({ user, onBack }) {
                     return (
                       <div
                         key={room._id}
-                        className={`flex flex-col rounded-xl p-4 shadow-sm border ${hasConflict
+                        className={`flex flex-col rounded-xl p-3 shadow-sm border ${hasConflict
                           ? 'bg-amber-50 border-amber-300'
                           : roomFullyRecorded
                           ? 'bg-emerald-50 border-emerald-300'
@@ -2810,9 +2810,9 @@ function SessionView({ user, onBack }) {
                           }`}
                       >
                         {/* Room header */}
-                        <div className="flex justify-between items-start mb-3 gap-2">
+                        <div className="flex justify-between items-start mb-2 gap-2">
                           <div className="flex flex-col gap-1 truncate flex-1">
-                            <h3 className="text-xl font-bold text-slate-900 truncate">{room.name}</h3>
+                            <h3 className="text-lg font-bold text-slate-900 truncate">{room.name}</h3>
                             <div className="flex gap-1 flex-wrap">
                               {getRoomAccommodationSummary(room) && (
                                 <>
@@ -2839,12 +2839,12 @@ function SessionView({ user, onBack }) {
                         {/* Room-level return progress */}
                         <div className="mb-2">
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-sm font-semibold text-slate-600">Present</span>
-                            <span className="text-lg font-bold text-slate-900">
-                              {roomPresent}<span className="text-sm font-semibold text-slate-400"> / {totalStudents}</span>
+                            <span className="text-xs font-semibold text-slate-600">Present</span>
+                            <span className="text-base font-bold text-slate-900">
+                              {roomPresent}<span className="text-xs font-semibold text-slate-400"> / {totalStudents}</span>
                             </span>
                           </div>
-                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${roomFullyRecorded ? 'bg-emerald-500' : 'bg-amber-500'}`}
                               style={{ width: `${roomReturnPct}%` }}
@@ -2868,14 +2868,14 @@ function SessionView({ user, onBack }) {
 
                         {/* Sections — tap to record how many students were present */}
                         {sortedSections.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-slate-200">
-                            <div className="flex items-center justify-between mb-2">
+                          <div className="mt-1.5 pt-1.5 border-t border-slate-200">
+                            <div className="flex items-center justify-between mb-1.5">
                               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Sections</span>
                               {canEdit && (
                                 <span className="text-[11px] text-slate-400">Tap to record present</span>
                               )}
                             </div>
-                            <div className="max-h-56 overflow-y-auto pr-1 space-y-2">
+                            <div className="max-h-48 overflow-y-auto pr-1 space-y-1.5">
                               {sortedSections.map((section) => {
                                 const count = section.studentCount || 0
                                 const present = getSectionReturned(room, section._id)
@@ -2906,26 +2906,26 @@ function SessionView({ user, onBack }) {
                                     type="button"
                                     onClick={() => openReturnEntry(room, section)}
                                     disabled={!canEdit}
-                                    className={`w-full rounded-lg border p-2.5 text-left transition ${
+                                    className={`w-full rounded-lg border p-2 text-left transition ${
                                       done
                                         ? 'border-emerald-300 bg-emerald-50'
                                         : 'border-slate-200 bg-slate-50'
                                     } ${canEdit ? 'cursor-pointer hover:ring-2 hover:ring-brand-300' : 'cursor-default'}`}
                                   >
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="flex items-center gap-1.5 font-bold text-slate-900">
+                                      <span className="flex items-center gap-1 text-sm font-bold text-slate-900">
                                         {done && (
-                                          <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="h-3.5 w-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                           </svg>
                                         )}
                                         Section #{section.number}
                                       </span>
-                                      <span className={`text-sm font-bold ${done ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                      <span className={`text-xs font-bold ${done ? 'text-emerald-700' : 'text-slate-500'}`}>
                                         {done ? `${present}/${count} present` : `${count} students`}
                                       </span>
                                     </div>
-                                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white">
+                                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white">
                                       <div
                                         className={`h-full rounded-full transition-all duration-500 ${done ? 'bg-emerald-500' : 'bg-amber-500'}`}
                                         style={{ width: `${pct}%` }}
