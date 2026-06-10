@@ -164,6 +164,9 @@ function SessionView({ user, onBack }) {
   const [returnEntry, setReturnEntry] = useState(null) // { roomId, sectionId, sectionNumber, roomName, studentCount }
   const [returnEntryValue, setReturnEntryValue] = useState(0)
   const [returnEntrySaving, setReturnEntrySaving] = useState(false)
+  // True until the first keypad digit is pressed, so that first tap replaces the
+  // existing value (like a phone keypad) instead of appending to it.
+  const returnEntryFreshRef = useRef(true)
 
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
@@ -723,6 +726,7 @@ function SessionView({ user, onBack }) {
       studentCount: section.studentCount || 0,
     })
     setReturnEntryValue(getSectionReturned(room, section._id))
+    returnEntryFreshRef.current = true
   }, [canEditSession, getSectionReturned])
 
   const closeReturnEntry = useCallback(() => {
@@ -732,12 +736,34 @@ function SessionView({ user, onBack }) {
   }, [])
 
   const adjustReturnEntry = useCallback((delta) => {
+    returnEntryFreshRef.current = false
     setReturnEntryValue(prev => {
       const max = returnEntry?.studentCount ?? 0
       const next = (Number(prev) || 0) + delta
       return Math.min(Math.max(next, 0), max)
     })
   }, [returnEntry])
+
+  // Keypad: append a digit (or replace on the first press after opening), clamped to the section total.
+  const pressReturnDigit = useCallback((digit) => {
+    const max = returnEntry?.studentCount ?? 0
+    const fresh = returnEntryFreshRef.current
+    returnEntryFreshRef.current = false
+    setReturnEntryValue(prev => {
+      const base = fresh ? 0 : (Number(prev) || 0)
+      return Math.min(base * 10 + digit, max)
+    })
+  }, [returnEntry])
+
+  const backspaceReturnEntry = useCallback(() => {
+    returnEntryFreshRef.current = false
+    setReturnEntryValue(prev => Math.floor((Number(prev) || 0) / 10))
+  }, [])
+
+  const clearReturnEntry = useCallback(() => {
+    returnEntryFreshRef.current = true
+    setReturnEntryValue(0)
+  }, [])
 
   const handleSaveReturnEntry = useCallback(async () => {
     if (!returnEntry) return
@@ -3052,7 +3078,7 @@ function SessionView({ user, onBack }) {
             {/* Return-entry popup */}
             {returnEntry && (
               <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4">
-                <div className="el-card el-fade-up w-full max-w-md p-6">
+                <div className="el-card el-fade-up w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
                   <div className="mb-4 flex items-start justify-between">
                     <div>
                       <h3 className="text-lg font-bold text-slate-900">Record Exam Returns</h3>
@@ -3075,10 +3101,27 @@ function SessionView({ user, onBack }) {
                     return (
                       <>
                         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                          <p className="text-5xl font-bold text-slate-900">
-                            {value}
-                            <span className="text-2xl font-semibold text-slate-400"> / {returnEntry.studentCount}</span>
-                          </p>
+                          {/* The big number is the input — tap it and type the count directly */}
+                          <div className="flex items-end justify-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={returnEntry.studentCount}
+                              value={returnEntryValue}
+                              autoFocus
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                returnEntryFreshRef.current = false
+                                const n = parseInt(e.target.value, 10)
+                                if (Number.isNaN(n)) { setReturnEntryValue(0); return }
+                                setReturnEntryValue(Math.min(Math.max(n, 0), returnEntry.studentCount))
+                              }}
+                              className="w-28 rounded-lg bg-transparent text-center text-5xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400
+                                         [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              aria-label="Number of exams returned"
+                            />
+                            <span className="pb-1 text-2xl font-semibold text-slate-400"> / {returnEntry.studentCount}</span>
+                          </div>
                           <p className={`mt-1 text-sm font-semibold ${done ? 'text-emerald-600' : 'text-amber-600'}`}>
                             {done ? 'All exams returned' : `${pct}% returned`}
                           </p>
@@ -3090,55 +3133,74 @@ function SessionView({ user, onBack }) {
                           </div>
                         </div>
 
-                        {/* Quick tally */}
-                        <div className="mb-4 flex items-center justify-center gap-4">
+                        {/* Keypad — tap the digits to enter the count */}
+                        <div className="mb-3 grid grid-cols-3 gap-2">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => pressReturnDigit(d)}
+                              className="h-12 rounded-lg bg-slate-100 text-xl font-semibold text-slate-800 transition hover:bg-slate-200 active:bg-slate-300"
+                            >
+                              {d}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={clearReturnEntry}
+                            className="h-12 rounded-lg bg-slate-100 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 active:bg-slate-300"
+                            aria-label="Clear"
+                          >
+                            C
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => pressReturnDigit(0)}
+                            className="h-12 rounded-lg bg-slate-100 text-xl font-semibold text-slate-800 transition hover:bg-slate-200 active:bg-slate-300"
+                          >
+                            0
+                          </button>
+                          <button
+                            type="button"
+                            onClick={backspaceReturnEntry}
+                            className="flex h-12 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-600 transition hover:bg-slate-200 active:bg-slate-300"
+                            aria-label="Backspace"
+                          >
+                            ⌫
+                          </button>
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="mb-5 flex justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => adjustReturnEntry(-1)}
                             disabled={value <= 0}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-200 text-2xl font-bold text-slate-700 transition hover:bg-slate-300 disabled:opacity-40"
-                            aria-label="Decrease"
+                            className="el-btn el-btn-secondary el-btn-sm disabled:opacity-40"
                           >
-                            −
+                            −1
                           </button>
-                          <input
-                            type="number"
-                            min={0}
-                            max={returnEntry.studentCount}
-                            value={returnEntryValue}
-                            onChange={(e) => {
-                              const n = parseInt(e.target.value, 10)
-                              if (Number.isNaN(n)) { setReturnEntryValue(0); return }
-                              setReturnEntryValue(Math.min(Math.max(n, 0), returnEntry.studentCount))
-                            }}
-                            className="el-input w-24 text-center text-2xl font-bold"
-                          />
                           <button
                             type="button"
-                            onClick={() => adjustReturnEntry(1)}
-                            disabled={value >= returnEntry.studentCount}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold text-white transition hover:bg-brand-700 disabled:opacity-40"
-                            aria-label="Increase"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        {/* Shortcuts */}
-                        <div className="mb-5 flex justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setReturnEntryValue(0)}
+                            onClick={clearReturnEntry}
                             className="el-btn el-btn-secondary el-btn-sm"
                           >
                             None
                           </button>
                           <button
                             type="button"
-                            onClick={() => setReturnEntryValue(returnEntry.studentCount)}
+                            onClick={() => { returnEntryFreshRef.current = false; setReturnEntryValue(returnEntry.studentCount) }}
                             className="el-btn el-btn-secondary el-btn-sm"
                           >
                             All {returnEntry.studentCount}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustReturnEntry(1)}
+                            disabled={value >= returnEntry.studentCount}
+                            className="el-btn el-btn-secondary el-btn-sm disabled:opacity-40"
+                          >
+                            +1
                           </button>
                         </div>
                       </>
