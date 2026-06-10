@@ -2626,7 +2626,11 @@ function SessionView({ user, onBack }) {
                     </div>
 
                     {/* Supporting stats */}
-                    <div className="grid grid-cols-5 gap-3">
+                    <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+                      <div className="el-card p-4 text-center">
+                        <p className="text-sm text-slate-500 mb-1">Rooms Left</p>
+                        <p className={`text-3xl font-bold ${rooms.length - roomsCompleted === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{rooms.length - roomsCompleted}</p>
+                      </div>
                       <div className="el-card p-4 text-center">
                         <p className="text-sm text-slate-500 mb-1">Sections Left</p>
                         <p className={`text-3xl font-bold ${sectionsTotal - sectionsRecorded === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{sectionsTotal - sectionsRecorded}</p>
