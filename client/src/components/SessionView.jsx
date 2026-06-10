@@ -575,18 +575,8 @@ function SessionView({ user, onBack }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- time calc from session times only
   }, [memoizedSession?.date, memoizedSession?.endTime])
 
-  useEffect(() => {
-    if (memoizedSession) {
-      // Update immediately when session times change
-      updateTimeRemaining()
-      // Then update every second
-      const timer = setInterval(() => {
-        updateTimeRemaining()
-      }, 1000)
-      return () => clearInterval(timer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- updateTimeRemaining depends on memoizedSession
-  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, updateTimeRemaining])
+  // Note: the regular and accommodation (1.5x/2x) countdowns are driven together by a single
+  // interval defined below (after updateAccommodationTimeRemaining), so all clocks tick in sync.
 
   const calculateProgress = useCallback(() => {
     if (!debouncedSession || !debouncedSession.rooms) return 0
@@ -1925,29 +1915,23 @@ function SessionView({ user, onBack }) {
     return debouncedSession.rooms.map(room => `${room._id}:${room.status}`).join('|')
   }, [debouncedSession?.rooms])
 
-  // Update accommodation time remaining every second
+  // Single heartbeat for ALL countdowns (regular + 1.5x + 2x) so they tick on the same instant
+  // and never drift out of phase. Recomputed from the current time, so it's always accurate.
   useEffect(() => {
-    if (memoizedSession && memoizedSession.startTime && memoizedSession.endTime) {
-      // Immediate update when dependencies change
-      updateAccommodationTimeRemaining()
-      const timer = setInterval(() => {
-        updateAccommodationTimeRemaining()
-      }, 1000)
-      return () => clearInterval(timer)
-    } else {
+    if (!memoizedSession) {
       setTimeRemaining15x(null)
       setTimeRemaining2x(null)
+      return
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- interval for accommodation timer
-  }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
-
-  // Also update immediately when completion status changes
-  useEffect(() => {
-    if (memoizedSession && memoizedSession.startTime && memoizedSession.endTime) {
+    const tick = () => {
+      updateTimeRemaining()
       updateAccommodationTimeRemaining()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when completion status changes
-  }, [all15xRoomsCompleted, all2xRoomsCompleted, updateAccommodationTimeRemaining, memoizedSession?.startTime, memoizedSession?.endTime])
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- shared 1-second heartbeat for all clocks
+  }, [memoizedSession?._id, memoizedSession?.date, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.accommodationStartTime, updateTimeRemaining, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
 
 
   // Get time remaining for a room - always returns calculated value
