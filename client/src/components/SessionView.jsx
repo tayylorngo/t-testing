@@ -2614,27 +2614,27 @@ function SessionView({ user, onBack }) {
                     }
                   })
                 })
-                const recordedPct = sectionsTotal > 0 ? Math.round((sectionsRecorded / sectionsTotal) * 100) : 0
                 const roomsCompleted = rooms.filter(r => r.status === 'completed').length
+                const roomsPct = rooms.length > 0 ? Math.round((roomsCompleted / rooms.length) * 100) : 0
 
                 return (
                   <div className="max-w-7xl mx-auto">
-                    {/* Headline accounted-for progress bar */}
+                    {/* Headline rooms-complete progress bar */}
                     <div className="el-card p-4 mb-3">
                       <div className="flex items-baseline justify-between mb-2">
                         <span className="text-base font-bold uppercase tracking-wide text-slate-700">
-                          Sections Accounted For
+                          Rooms Complete
                         </span>
                         <span className="text-2xl font-bold text-emerald-600">
-                          {sectionsRecorded}
-                          <span className="text-lg font-semibold text-slate-400"> / {sectionsTotal}</span>
-                          <span className="ml-2 text-lg font-semibold text-slate-500">({recordedPct}%)</span>
+                          {roomsCompleted}
+                          <span className="text-lg font-semibold text-slate-400"> / {rooms.length}</span>
+                          <span className="ml-2 text-lg font-semibold text-slate-500">({roomsPct}%)</span>
                         </span>
                       </div>
                       <div className="h-4 w-full overflow-hidden rounded-full bg-slate-200">
                         <div
                           className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                          style={{ width: `${recordedPct}%` }}
+                          style={{ width: `${roomsPct}%` }}
                         />
                       </div>
                     </div>
@@ -2646,8 +2646,8 @@ function SessionView({ user, onBack }) {
                         <p className={`text-3xl font-bold ${sectionsTotal - sectionsRecorded === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{sectionsTotal - sectionsRecorded}</p>
                       </div>
                       <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Rooms Completed</p>
-                        <p className="text-3xl font-bold text-brand-600">{roomsCompleted}/{rooms.length}</p>
+                        <p className="text-sm text-slate-500 mb-1">Sections Accounted For</p>
+                        <p className="text-3xl font-bold text-brand-600">{sectionsRecorded}/{sectionsTotal}</p>
                       </div>
                       <div className="el-card p-4 text-center">
                         <p className="text-sm text-slate-500 mb-1">Total Students</p>
