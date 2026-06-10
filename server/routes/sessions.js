@@ -238,11 +238,12 @@ router.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'
 });
 router.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
   try {
-    const { name, description, date, startTime, endTime, accommodationStartTime, status } = req.body;
+    const { name, description, date, startTime, endTime, accommodationStartTime, status, notesSheetUrl } = req.body;
     const updateData = {};
 
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (notesSheetUrl !== undefined) updateData.notesSheetUrl = notesSheetUrl;
     if (date) {
       // Fix timezone issue by ensuring the date is stored at UTC midnight
       const [year, month, day] = date.split('-').map(Number);

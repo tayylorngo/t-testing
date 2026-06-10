@@ -45,6 +45,7 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
   kv(wsOverview, 'Start Time', fmtTime(session.startTime) || '—');
   kv(wsOverview, 'End Time', fmtTime(session.endTime) || '—');
   kvStatus(wsOverview, 'Status', session.status);
+  kv(wsOverview, 'Notes Sheet', session.notesSheetUrl || '—');
   kv(wsOverview, 'Created By', session.createdBy ? `${session.createdBy.firstName || ''} ${session.createdBy.lastName || ''}`.trim() : '—');
   kv(wsOverview, 'Created At', session.createdAt ? new Date(session.createdAt).toLocaleString() : '—');
   blank(wsOverview);
@@ -72,8 +73,8 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
   buildTableSheet(workbook, {
     name: 'Rooms & Sections',
     title: 'Rooms & Sections',
-    headers: ['Room Name', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies', 'Notes'],
-    widths: [22, 14, 9, 10, 10, 13, 36, 30, 30],
+    headers: ['Room Name', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies'],
+    widths: [22, 14, 9, 10, 10, 13, 40, 34],
     statusCol: 2,
     centerCols: [3, 4, 5, 6],
     rows: (session.rooms || []).map(room => {
@@ -90,7 +91,6 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
         (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A',
         room.sections?.map(s => `Section ${s.number} (${s.studentCount} students)`).join(', ') || 'None',
         formatSupplies(room.supplies),
-        room.notes || '',
       ];
     }),
     emptyMessage: 'No rooms found',

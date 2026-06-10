@@ -27,6 +27,12 @@ const sessionSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // External Google Sheets link for notes (keeps PII off this app).
+  notesSheetUrl: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

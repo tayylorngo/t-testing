@@ -191,7 +191,7 @@ router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, 
 router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents, sectionAttendance, notes, proctors } = req.body;
+  const { name, supplies, status, presentStudents, sectionAttendance, proctors } = req.body;
   const updateData = {};
 
   if (name !== undefined) {
@@ -206,7 +206,6 @@ router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
   if (sectionAttendance !== undefined) updateData.sectionAttendance = sectionAttendance;
-  if (notes !== undefined) updateData.notes = notes;
   if (proctors !== undefined) updateData.proctors = proctors;
 
     // Get the old room data BEFORE updating to compare supplies
@@ -367,29 +366,6 @@ router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
         
         logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
         debugLog(`🔍 Room incomplete log entry created:`, logEntry);
-      } else if (notes !== undefined) {
-        debugLog(`🔍 Notes update detected for room ${id}`);
-        const oldNotes = oldRoom.notes || '';
-        const newNotes = notes || '';
-        
-        if (oldNotes !== newNotes) {
-          debugLog(`🔍 Notes changed, creating log entry`);
-          let action, details;
-          
-          if (oldNotes && newNotes) {
-            action = `${user.firstName} ${user.lastName} updated notes for Room ${room.name}`;
-            details = `Notes updated: "${newNotes}"`;
-          } else if (newNotes && !oldNotes) {
-            action = `${user.firstName} ${user.lastName} added notes to Room ${room.name}`;
-            details = `Notes added: "${newNotes}"`;
-          } else if (!newNotes && oldNotes) {
-            action = `${user.firstName} ${user.lastName} removed notes from Room ${room.name}`;
-            details = `Notes removed`;
-          }
-          
-          logEntry = await addActivityLogEntry(session._id, action, room.name, details, `${user.firstName} ${user.lastName}`);
-          debugLog(`🔍 Room notes log entry created:`, logEntry);
-        }
       } else if (proctors !== undefined) {
         debugLog(`🔍 Proctors update detected for room ${id}`);
         const oldProctors = oldRoom.proctors || [];

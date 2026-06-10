@@ -47,7 +47,8 @@ function SessionDetail({ onBack }) {
     startTime: '',
     endTime: '',
     accommodationStartTime: '',
-    status: ''
+    status: '',
+    notesSheetUrl: ''
   })
   // Add state for selected sections and rooms
   const [selectedSectionIds, setSelectedSectionIds] = useState([])
@@ -252,7 +253,9 @@ function SessionDetail({ onBack }) {
           date: update.data.session.date.split('T')[0],
           startTime: update.data.session.startTime,
           endTime: update.data.session.endTime,
-          status: update.data.session.status
+          accommodationStartTime: update.data.session.accommodationStartTime || '',
+          status: update.data.session.status,
+          notesSheetUrl: update.data.session.notesSheetUrl || ''
         })
         break
         
@@ -288,7 +291,8 @@ function SessionDetail({ onBack }) {
         startTime: sessionData.session.startTime,
         endTime: sessionData.session.endTime,
         accommodationStartTime: sessionData.session.accommodationStartTime || '',
-        status: sessionData.session.status
+        status: sessionData.session.status,
+        notesSheetUrl: sessionData.session.notesSheetUrl || ''
       })
     } catch (error) {
       console.error('Error fetching session data:', error)
@@ -1330,6 +1334,22 @@ function SessionDetail({ onBack }) {
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="el-label">
+                    Notes Sheet (Google Sheets link)
+                  </label>
+                  <input
+                    type="url"
+                    value={sessionUpdates.notesSheetUrl}
+                    onChange={(e) => setSessionUpdates({...sessionUpdates, notesSheetUrl: e.target.value})}
+                    className="el-input"
+                    placeholder="https://docs.google.com/spreadsheets/..."
+                  />
+                  <p className="mt-1 text-xs text-slate-400">
+                    Keep student PII in an external Google Sheet. This link is opened by the “Notes” button.
+                  </p>
                 </div>
 
                 <button

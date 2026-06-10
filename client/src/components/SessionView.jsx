@@ -7,6 +7,7 @@ import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
 import { exportSessionToPDF } from '../utils/pdfExport'
 import ExportMenu from './session/ExportMenu'
+import NotesSheetControl from './session/NotesSheetControl'
 import ClearLogModal from './session/ClearLogModal'
 import IncompleteConfirmModal from './session/IncompleteConfirmModal'
 import AttendanceErrorModal from './session/AttendanceErrorModal'
@@ -15,7 +16,6 @@ import QuickCompleteModal from './session/QuickCompleteModal'
 import PresentStudentsModal from './session/PresentStudentsModal'
 import InvalidateTestModal from './session/InvalidateTestModal'
 import RemoveInvalidationModal from './session/RemoveInvalidationModal'
-import RoomNotesModal from './session/RoomNotesModal'
 import AddSupplyModal from './session/AddSupplyModal'
 import EditSupplyModal from './session/EditSupplyModal'
 import EditSuppliesModal from './session/EditSuppliesModal'
@@ -85,9 +85,6 @@ function SessionView({ user, onBack }) {
   const [invalidatedTests, setInvalidatedTests] = useState([]) // Array of {roomId, sectionNumber, notes, timestamp, invalidatedBy}
   const [showRemoveInvalidationModal, setShowRemoveInvalidationModal] = useState(false)
   const [invalidationToRemove, setInvalidationToRemove] = useState(null)
-  const [showRoomNotesModal, setShowRoomNotesModal] = useState(false)
-  const [selectedRoomForNotes, setSelectedRoomForNotes] = useState(null)
-  const [roomNotes, setRoomNotes] = useState('')
   const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
   const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
@@ -106,6 +103,12 @@ function SessionView({ user, onBack }) {
       console.error('Error clearing activity log:', error)
       // You could show a toast notification here if you have one
     }
+  }, [sessionId])
+
+  // Save (or clear, when empty) the session's external notes-sheet link.
+  const handleSaveNotesSheet = useCallback(async (notesSheetUrl) => {
+    await testingAPI.updateSession(sessionId, { notesSheetUrl })
+    setSession(prev => (prev ? { ...prev, notesSheetUrl } : prev))
   }, [sessionId])
 
   // Permission checking functions
@@ -950,14 +953,12 @@ function SessionView({ user, onBack }) {
     console.log('Modal states changed:', {
       showAddSupplyModal,
       showMoveStudentsModal,
-      showRoomNotesModal,
       showInvalidateModal,
       selectedRoom: selectedRoom?.name,
       moveFromRoom: moveFromRoom?.name,
-      selectedRoomForNotes: selectedRoomForNotes?.name,
       roomToInvalidate: roomToInvalidate?.name
     })
-  }, [showAddSupplyModal, showMoveStudentsModal, showRoomNotesModal, showInvalidateModal, selectedRoom, moveFromRoom, selectedRoomForNotes, roomToInvalidate])
+  }, [showAddSupplyModal, showMoveStudentsModal, showInvalidateModal, selectedRoom, moveFromRoom, roomToInvalidate])
 
   // Debug Add Supply Modal rendering
   useEffect(() => {
@@ -1053,17 +1054,6 @@ function SessionView({ user, onBack }) {
   const cancelRemoveInvalidatedTest = useCallback(() => {
     setShowRemoveInvalidationModal(false)
     setInvalidationToRemove(null)
-  }, [])
-
-  const handleRoomNotesClick = useCallback((room) => {
-    console.log('Room Notes clicked for room:', room.name)
-    console.log('Setting selectedRoomForNotes to:', room)
-    console.log('Setting showRoomNotesModal to true')
-    setSelectedRoomForNotes(room)
-    setRoomNotes(room.notes || '')
-    setShowRoomNotesModal(true)
-    console.log('Room Notes modal should now be open')
-    // Don't close dropdown immediately, let the modal handle it
   }, [])
 
   const handleEditSuppliesClick = useCallback((room) => {
@@ -1165,38 +1155,6 @@ function SessionView({ user, onBack }) {
       console.error('Error adjusting supply quantity:', error)
     }
   }, [session?.rooms])
-
-  const handleSaveRoomNotes = useCallback(async () => {
-    if (!selectedRoomForNotes) return
-
-    try {
-      await testingAPI.updateRoom(selectedRoomForNotes._id, {
-        notes: roomNotes.trim()
-      })
-
-      // Update local state
-      setSession(prevSession => ({
-        ...prevSession,
-        rooms: prevSession.rooms.map(room =>
-          room._id === selectedRoomForNotes._id
-            ? { ...room, notes: roomNotes.trim() }
-            : room
-        )
-      }))
-
-      setShowRoomNotesModal(false)
-      setSelectedRoomForNotes(null)
-      setRoomNotes('')
-    } catch (error) {
-      console.error('Error saving room notes:', error)
-    }
-  }, [selectedRoomForNotes, roomNotes])
-
-  const cancelRoomNotes = useCallback(() => {
-    setShowRoomNotesModal(false)
-    setSelectedRoomForNotes(null)
-    setRoomNotes('')
-  }, [])
 
   const cancelInvalidateTest = useCallback(() => {
     setShowInvalidateModal(false)
@@ -2354,6 +2312,11 @@ function SessionView({ user, onBack }) {
               </div>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              <NotesSheetControl
+                url={session?.notesSheetUrl}
+                canEdit={canEditSession()}
+                onSave={handleSaveNotesSheet}
+              />
               <ExportMenu
                 onExcel={() => exportSessionToExcel(session, session.name)}
                 onPdf={() => exportSessionToPDF(session, session.name)}
@@ -2950,9 +2913,6 @@ function SessionView({ user, onBack }) {
                                   )}
                                 </>
                               )}
-                              {room.notes && room.notes.trim() && (
-                                <span className="el-badge el-badge-amber" title={room.notes}>📝 Notes</span>
-                              )}
                             </div>
                           </div>
                           <span className={`px-2 py-1 rounded-md text-xs font-bold ${room.status === 'completed'
@@ -3344,11 +3304,6 @@ function SessionView({ user, onBack }) {
                                 )}
                                 </>
                               )}
-                              {room.notes && room.notes.trim() && (
-                                <span className="el-badge el-badge-amber" title={room.notes}>
-                                  📝 Notes
-                                </span>
-                              )}
                               </div>
                           </div>
                         </td>
@@ -3527,20 +3482,6 @@ function SessionView({ user, onBack }) {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          console.log('Add Notes button clicked')
-                                          handleRoomNotesClick(room)
-                                          setShowDropdown(null)
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
-                                      >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        Add Notes
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
                                           console.log('Edit Supplies button clicked')
                                           handleEditSuppliesClick(room)
                                           setShowDropdown(null)
@@ -3657,23 +3598,6 @@ function SessionView({ user, onBack }) {
                                       return null
                                     })()}
 
-                                    {/* Room Notes Section */}
-                                    {room.notes && (
-                                      <div className="mt-4">
-                                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center">
-                                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                          </svg>
-                                          Room Notes
-                                        </h4>
-                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                          <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                                            {room.notes}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    )}
-
                                   </div>
                                 </div>
                               </div>
@@ -3714,11 +3638,6 @@ function SessionView({ user, onBack }) {
                           </span>
                         )}
                         </>
-                      )}
-                      {room.notes && room.notes.trim() && (
-                        <span className="el-badge el-badge-amber" title={room.notes}>
-                          📝 Notes
-                        </span>
                       )}
                       </div>
                   </div>
@@ -3865,20 +3784,6 @@ function SessionView({ user, onBack }) {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  console.log('Add Notes button clicked (card view)')
-                                  handleRoomNotesClick(room)
-                                  setShowDropdown(null)
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
-                              >
-                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Add Notes
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
                                   console.log('Edit Supplies button clicked (card view)')
                                   handleEditSuppliesClick(room)
                                   setShowDropdown(null)
@@ -3948,23 +3853,6 @@ function SessionView({ user, onBack }) {
                       <h4 className="text-sm font-semibold text-slate-700 mb-2">Supplies</h4>
                       <RoomSupplies supplies={room.supplies} />
                     </div>
-
-                    {/* Room Notes */}
-                    {room.notes && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Room Notes
-                        </h4>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                          <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                            {room.notes}
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Estimated Time */}
                     <div className="border-t border-slate-200 pt-3">
@@ -4226,16 +4114,6 @@ function SessionView({ user, onBack }) {
         invalidation={invalidationToRemove}
         onCancel={cancelRemoveInvalidatedTest}
         onConfirm={confirmRemoveInvalidatedTest}
-      />
-
-      {/* Room Notes Modal */}
-      <RoomNotesModal
-        show={showRoomNotesModal}
-        room={selectedRoomForNotes}
-        notes={roomNotes}
-        setNotes={setRoomNotes}
-        onCancel={cancelRoomNotes}
-        onConfirm={handleSaveRoomNotes}
       />
     </div>
   )

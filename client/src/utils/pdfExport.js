@@ -108,6 +108,7 @@ export const exportSessionToPDF = (session, filename = 'testing-session') => {
       ['Absent Students', String(stats.totalAbsent)],
       ['Attendance Rate', `${stats.attendanceRate}%`],
       ['Completed / Active / Planned Rooms', `${stats.completedRooms} / ${stats.activeRooms} / ${stats.plannedRooms}`],
+      ['Notes Sheet', session.notesSheetUrl || '—'],
       ['Exported', exportTs.toLocaleString()],
     ],
     columnStyles: {
@@ -121,7 +122,7 @@ export const exportSessionToPDF = (session, filename = 'testing-session') => {
   heading('Rooms & Sections');
   autoTable(doc, tableBase({
     startY: y,
-    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies', 'Notes']],
+    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies']],
     body: rowsOrNote((session.rooms || []).map(room => {
       const total = roomTotal(room);
       const present = room.presentStudents || 0;
@@ -132,13 +133,12 @@ export const exportSessionToPDF = (session, filename = 'testing-session') => {
         (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A',
         room.sections?.map(s => `Section ${s.number} (${s.studentCount} students)`).join(', ') || 'None',
         formatSupplies(room.supplies),
-        room.notes || '',
       ];
-    }), 9, 'No rooms found'),
+    }), 8, 'No rooms found'),
     columnStyles: {
       2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 48 },
       4: { halign: 'center', cellWidth: 44 }, 5: { halign: 'center', cellWidth: 64 },
-      6: { cellWidth: 150 }, 7: { cellWidth: 110 },
+      6: { cellWidth: 170 },
     },
     didParseCell: statusPainter(1),
   }));
