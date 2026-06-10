@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 
 // View-mode control for the session's external notes sheet (keeps PII off this app).
 // - When a link exists: a "Notes" button that opens it in a new tab (+ edit for editors).
@@ -56,7 +57,7 @@ function NotesSheetControl({ url, canEdit, onSave }) {
         </button>
       ) : null}
 
-      {showModal && (
+      {showModal && createPortal(
         <div className="el-overlay">
           <div className="el-modal el-fade-up p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-2">Notes Sheet</h2>
@@ -89,7 +90,8 @@ function NotesSheetControl({ url, canEdit, onSave }) {
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
