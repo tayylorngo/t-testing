@@ -1858,7 +1858,7 @@ function SessionView({ user, onBack }) {
   }, [debouncedSession?.rooms, roomHas2xAccommodation])
 
   const updateAccommodationTimeRemaining = useCallback(() => {
-    if (!memoizedSession || !memoizedSession.accommodationStartTime) {
+    if (!memoizedSession || !memoizedSession.startTime || !memoizedSession.endTime || !memoizedSession.date) {
       setTimeRemaining15x(null)
       setTimeRemaining2x(null)
       return
@@ -1877,42 +1877,44 @@ function SessionView({ user, onBack }) {
     const regularEndTime = new Date(year, month, day, parseInt(endHour), parseInt(endMinute), 0)
     const regularDurationMinutes = (regularEndTime - regularStartTime) / (1000 * 60)
 
-    // Accommodation start time
-    const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
-    const accStartTime = new Date(year, month, day, parseInt(accStartHour), parseInt(accStartMinute), 0)
-
-    // Calculate 1.5x end time: accommodationStartTime + (regularDuration * 1.5)
-    const endTime15x = new Date(accStartTime.getTime() + (regularDurationMinutes * 1.5 * 60 * 1000))
-    const timeDiff15x = endTime15x - now
-    
-    // Check if all 1.5x rooms are completed
-    const has15xRooms = debouncedSession?.rooms?.some(room => roomHas15xAccommodation(room)) || false
-    if (all15xRoomsCompleted && has15xRooms) {
-      setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
-    } else if (timeDiff15x <= 0) {
-      setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
-    } else {
-      const hours = Math.floor(timeDiff15x / (1000 * 60 * 60))
-      const minutes = Math.floor((timeDiff15x % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((timeDiff15x % (1000 * 60)) / 1000)
-      setTimeRemaining15x({ hours, minutes, seconds, isOver: false })
+    // Extended-time clock starts at the accommodation start time when one is set,
+    // otherwise it starts at the same time as the regular exam.
+    let accStartTime = regularStartTime
+    if (memoizedSession.accommodationStartTime) {
+      const [accStartHour, accStartMinute] = memoizedSession.accommodationStartTime.split(':')
+      accStartTime = new Date(year, month, day, parseInt(accStartHour), parseInt(accStartMinute), 0)
     }
 
-    // Calculate 2x end time: accommodationStartTime + (regularDuration * 2)
-    const endTime2x = new Date(accStartTime.getTime() + (regularDurationMinutes * 2 * 60 * 1000))
-    const timeDiff2x = endTime2x - now
+    const toClock = (ms) => {
+      if (ms <= 0) return { hours: 0, minutes: 0, seconds: 0, isOver: true }
+      return {
+        hours: Math.floor(ms / (1000 * 60 * 60)),
+        minutes: Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((ms % (1000 * 60)) / 1000),
+        isOver: false,
+      }
+    }
 
-    // Check if all 2x rooms are completed
+    // 1.5x: show only when the session actually has 1.5x rooms.
+    const has15xRooms = debouncedSession?.rooms?.some(room => roomHas15xAccommodation(room)) || false
+    if (!has15xRooms) {
+      setTimeRemaining15x(null)
+    } else if (all15xRoomsCompleted) {
+      setTimeRemaining15x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
+    } else {
+      const endTime15x = new Date(accStartTime.getTime() + (regularDurationMinutes * 1.5 * 60 * 1000))
+      setTimeRemaining15x(toClock(endTime15x - now))
+    }
+
+    // 2x: show only when the session actually has 2x rooms.
     const has2xRooms = debouncedSession?.rooms?.some(room => roomHas2xAccommodation(room)) || false
-    if (all2xRoomsCompleted && has2xRooms) {
-      setTimeRemaining2x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
-    } else if (timeDiff2x <= 0) {
+    if (!has2xRooms) {
+      setTimeRemaining2x(null)
+    } else if (all2xRoomsCompleted) {
       setTimeRemaining2x({ hours: 0, minutes: 0, seconds: 0, isOver: true })
     } else {
-      const hours = Math.floor(timeDiff2x / (1000 * 60 * 60))
-      const minutes = Math.floor((timeDiff2x % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((timeDiff2x % (1000 * 60)) / 1000)
-      setTimeRemaining2x({ hours, minutes, seconds, isOver: false })
+      const endTime2x = new Date(accStartTime.getTime() + (regularDurationMinutes * 2 * 60 * 1000))
+      setTimeRemaining2x(toClock(endTime2x - now))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- accommodation timer update
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, debouncedSession?.rooms, all15xRoomsCompleted, all2xRoomsCompleted, roomHas15xAccommodation, roomHas2xAccommodation])
@@ -1925,7 +1927,7 @@ function SessionView({ user, onBack }) {
 
   // Update accommodation time remaining every second
   useEffect(() => {
-    if (memoizedSession && memoizedSession.accommodationStartTime) {
+    if (memoizedSession && memoizedSession.startTime && memoizedSession.endTime) {
       // Immediate update when dependencies change
       updateAccommodationTimeRemaining()
       const timer = setInterval(() => {
@@ -1938,14 +1940,14 @@ function SessionView({ user, onBack }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- interval for accommodation timer
   }, [memoizedSession?.accommodationStartTime, memoizedSession?.startTime, memoizedSession?.endTime, memoizedSession?.date, updateAccommodationTimeRemaining, roomStatusHash, all15xRoomsCompleted, all2xRoomsCompleted])
-  
+
   // Also update immediately when completion status changes
   useEffect(() => {
-    if (memoizedSession && memoizedSession.accommodationStartTime) {
+    if (memoizedSession && memoizedSession.startTime && memoizedSession.endTime) {
       updateAccommodationTimeRemaining()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- run when completion status changes
-  }, [all15xRoomsCompleted, all2xRoomsCompleted, updateAccommodationTimeRemaining, memoizedSession?.accommodationStartTime])
+  }, [all15xRoomsCompleted, all2xRoomsCompleted, updateAccommodationTimeRemaining, memoizedSession?.startTime, memoizedSession?.endTime])
 
 
   // Get time remaining for a room - always returns calculated value
