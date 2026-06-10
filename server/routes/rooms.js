@@ -132,13 +132,14 @@ router.post('/api/rooms', authenticateToken, async (req, res) => {
 router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { sectionId, returned } = req.body;
+    const { sectionId, returned, clear } = req.body;
 
     if (!sectionId) {
       return res.status(400).json({ message: 'sectionId is required' });
     }
     const returnedNum = Number(returned);
-    if (!Number.isFinite(returnedNum) || returnedNum < 0) {
+    // When not clearing, `returned` must be a valid non-negative number.
+    if (!clear && (!Number.isFinite(returnedNum) || returnedNum < 0)) {
       return res.status(400).json({ message: 'returned must be a non-negative number' });
     }
 
@@ -158,16 +159,45 @@ router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, 
       return res.status(404).json({ message: 'Section not found' });
     }
 
-    // Clamp between 0 and the section's student count
+    // The recorded number is the count of students PRESENT for the section, used as
+    // the fast tally when collecting exams. It can't exceed the section roster.
     const cap = section.studentCount || 0;
     const clamped = Math.min(Math.max(Math.round(returnedNum), 0), cap);
 
     const sectionReturns = { ...(room.sectionReturns || {}) };
-    sectionReturns[sectionId] = clamped;
+    if (clear) {
+      // Unmark the section — remove its record entirely so it reads as "not recorded".
+      delete sectionReturns[sectionId];
+    } else {
+      sectionReturns[sectionId] = clamped;
+    }
+
+    // A section is "recorded" once it has an entry here. When every section in the
+    // room has a recorded present count, the room is fully accounted for and auto-completes.
+    const sectionIds = (room.sections || []).map(s => s.toString());
+    const allRecorded = sectionIds.length > 0 && sectionIds.every(id => sectionReturns[id] !== undefined);
+    const presentTotal = sectionIds.reduce((sum, id) => sum + (Number(sectionReturns[id]) || 0), 0);
+    const wasCompleted = room.status === 'completed';
+
+    const update = {
+      sectionReturns,
+      // Mirror the per-section present counts into the attendance fields so stats/exports stay correct.
+      sectionAttendance: sectionReturns,
+      presentStudents: presentTotal,
+      updatedAt: new Date(),
+    };
+    // Keep room status in sync: complete when everything is recorded, otherwise active.
+    if (allRecorded) {
+      update.status = 'completed';
+    } else if (wasCompleted) {
+      update.status = 'active';
+    }
+    const becameComplete = allRecorded && !wasCompleted;
+    const becameIncomplete = !allRecorded && wasCompleted;
 
     const updatedRoom = await Room.findByIdAndUpdate(
       roomId,
-      { sectionReturns, updatedAt: new Date() },
+      update,
       { new: true, runValidators: true }
     ).populate('sections', 'number studentCount accommodations notes');
 
@@ -176,13 +206,38 @@ router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, 
 
     const session = await Session.findOne({ rooms: roomId });
     if (session) {
+      // If recording just completed this room, complete the session when every room is done.
+      if (becameComplete) {
+        const allRooms = await Room.find({ _id: { $in: session.rooms } });
+        if (allRooms.every(r => r.status === 'completed') && session.status !== 'completed') {
+          await Session.findByIdAndUpdate(
+            session._id,
+            { status: 'completed', updatedAt: new Date() },
+            { new: true, runValidators: true }
+          );
+        }
+      }
+      // If unmarking re-opened this room, re-open the session too.
+      if (becameIncomplete && session.status === 'completed') {
+        await Session.findByIdAndUpdate(
+          session._id,
+          { status: 'active', updatedAt: new Date() },
+          { new: true, runValidators: true }
+        );
+      }
       const user = await User.findById(req.user.id);
-      const action = `${user.firstName} ${user.lastName} recorded ${clamped}/${cap} exams returned for section ${section.number} in ${room.name}`;
+      let action;
+      if (clear) {
+        action = `${user.firstName} ${user.lastName} unmarked section ${section.number} in ${room.name}`;
+      } else {
+        const completeNote = becameComplete ? ' — room complete' : '';
+        action = `${user.firstName} ${user.lastName} recorded ${clamped} present for section ${section.number} in ${room.name}${completeNote}`;
+      }
       const logEntry = await addActivityLogEntry(session._id, action, room.name, null, `${user.firstName} ${user.lastName}`);
       emitSessionUpdate(session._id, 'room-updated', { roomId, room: roomResponse }, user, logEntry);
     }
 
-    res.json({ message: 'Section returns updated successfully', room: roomResponse });
+    res.json({ message: 'Section present count updated successfully', room: roomResponse });
   } catch (error) {
     console.error('Update section returns error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -191,7 +246,7 @@ router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, 
 router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents, sectionAttendance, proctors } = req.body;
+  const { name, supplies, status, presentStudents, sectionAttendance, sectionReturns, proctors } = req.body;
   const updateData = {};
 
   if (name !== undefined) {
@@ -206,6 +261,7 @@ router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   if (status !== undefined) updateData.status = status;
   if (presentStudents !== undefined) updateData.presentStudents = presentStudents;
   if (sectionAttendance !== undefined) updateData.sectionAttendance = sectionAttendance;
+  if (sectionReturns !== undefined) updateData.sectionReturns = sectionReturns;
   if (proctors !== undefined) updateData.proctors = proctors;
 
     // Get the old room data BEFORE updating to compare supplies

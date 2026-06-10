@@ -14,6 +14,7 @@ import AttendanceErrorModal from './session/AttendanceErrorModal'
 import MarkRoomCompleteModal from './session/MarkRoomCompleteModal'
 import QuickCompleteModal from './session/QuickCompleteModal'
 import PresentStudentsModal from './session/PresentStudentsModal'
+import PresentKeypad from './session/PresentKeypad'
 import InvalidateTestModal from './session/InvalidateTestModal'
 import RemoveInvalidationModal from './session/RemoveInvalidationModal'
 import AddSupplyModal from './session/AddSupplyModal'
@@ -54,7 +55,6 @@ function SessionView({ user, onBack }) {
   const [showEditSupplyModal, setShowEditSupplyModal] = useState(false)
   const [showEditSuppliesModal, setShowEditSuppliesModal] = useState(false)
   const [showMoveStudentsModal, setShowMoveStudentsModal] = useState(false)
-  const [showPresentStudentsModal, setShowPresentStudentsModal] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [newSupplyQuantity, setNewSupplyQuantity] = useState(1)
   const [selectedPresetSupply, setSelectedPresetSupply] = useState('')
@@ -63,9 +63,6 @@ function SessionView({ user, onBack }) {
   const [moveFromRoom, setMoveFromRoom] = useState(null)
   const [studentMoveData, setStudentMoveData] = useState({}) // { sectionId: { studentsToMove: number, destinationRoom: roomId } }
   // const [roomTimeMultipliers] = useState({}) // For future 1.5x, 2x time features
-  const [presentStudentsCount, setPresentStudentsCount] = useState('')
-  const [roomToComplete, setRoomToComplete] = useState(null)
-  const [sectionPresentCounts, setSectionPresentCounts] = useState({})
 
   // Activity log state
   const [activityLog, setActivityLog] = useState([])
@@ -90,6 +87,10 @@ function SessionView({ user, onBack }) {
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
   const [showMarkRoomCompleteModal, setShowMarkRoomCompleteModal] = useState(false)
   const [selectedRoomForComplete, setSelectedRoomForComplete] = useState(null)
+  // View-mode "Mark Room Complete" present-recording modal
+  const [showPresentStudentsModal, setShowPresentStudentsModal] = useState(false)
+  const [roomToComplete, setRoomToComplete] = useState(null)
+  const [completingRoom, setCompletingRoom] = useState(false)
 
 
 
@@ -164,9 +165,6 @@ function SessionView({ user, onBack }) {
   const [returnEntry, setReturnEntry] = useState(null) // { roomId, sectionId, sectionNumber, roomName, studentCount }
   const [returnEntryValue, setReturnEntryValue] = useState(0)
   const [returnEntrySaving, setReturnEntrySaving] = useState(false)
-  // True until the first keypad digit is pressed, so that first tap replaces the
-  // existing value (like a phone keypad) instead of appending to it.
-  const returnEntryFreshRef = useRef(true)
 
   // Pagination for large room lists
   const [currentPage, setCurrentPage] = useState(1)
@@ -601,27 +599,87 @@ function SessionView({ user, onBack }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- debouncedSession is source of truth
   }, [debouncedSession?.rooms])
 
+  // --- Exam present-count helpers (used across completion logic and Display Mode) ---
+  const getSectionReturned = useCallback((room, sectionId) => {
+    const val = room?.sectionReturns ? room.sectionReturns[sectionId] : 0
+    return Number(val) || 0
+  }, [])
+
+  const getRoomReturnedTotal = useCallback((room) => {
+    if (!room?.sections) return 0
+    return room.sections.reduce((sum, s) => sum + getSectionReturned(room, s._id), 0)
+  }, [getSectionReturned])
+
+  // A section is "recorded" (accounted for) once a present count has been entered for it —
+  // the entry exists in sectionReturns, even if the value is 0 or less than the roster (absences).
+  const isSectionRecorded = useCallback((room, sectionId) => {
+    return !!room?.sectionReturns && Object.prototype.hasOwnProperty.call(room.sectionReturns, sectionId)
+  }, [])
+
+  const isRoomFullyRecorded = useCallback((room) => {
+    if (!room?.sections || room.sections.length === 0) return false
+    return room.sections.every(s => isSectionRecorded(room, s._id))
+  }, [isSectionRecorded])
+
+  // Present counts now come from the per-section recordings on the board, so completing a
+  // room no longer prompts for them — it just marks the room done using what's been recorded.
+  // Opens the present-recording modal so the user can enter how many students were present
+  // for each section (same keypad as Display Mode) before the room is marked complete.
   const handleMarkRoomComplete = useCallback((roomId) => {
-    // Find the room to get its name and total students
     const room = session?.rooms?.find(r => r._id === roomId)
     if (!room) return
-
     setRoomToComplete(room)
-    setPresentStudentsCount('')
-
-    // Initialize per-section counts if room has multiple sections
-    if (room.sections && room.sections.length > 1) {
-      const initialCounts = {}
-      room.sections.forEach(section => {
-        initialCounts[section._id] = ''
-      })
-      setSectionPresentCounts(initialCounts)
-    } else {
-      setSectionPresentCounts({})
-    }
-
     setShowPresentStudentsModal(true)
   }, [session?.rooms])
+
+  const closePresentStudentsModal = useCallback(() => {
+    setShowPresentStudentsModal(false)
+    setRoomToComplete(null)
+    setCompletingRoom(false)
+  }, [])
+
+  // Records each section's present count, then the room auto-completes server-side once all are in.
+  const handleConfirmRoomComplete = useCallback(async (presentBySection) => {
+    const room = roomToComplete
+    if (!room) return
+    setCompletingRoom(true)
+    try {
+      const sections = room.sections || []
+      let latestRoom = null
+
+      if (sections.length === 0) {
+        // No sections: just mark the room complete with 0 present.
+        const res = await testingAPI.updateRoom(room._id, { status: 'completed', presentStudents: 0 })
+        latestRoom = res?.room || { ...room, status: 'completed', presentStudents: 0 }
+      } else {
+        // Record sequentially so each request sees the latest sectionReturns (avoids clobbering).
+        for (const section of sections) {
+          const present = Math.max(0, Math.round(Number(presentBySection[section._id]) || 0))
+          const res = await testingAPI.updateSectionReturns(room._id, section._id, present)
+          if (res?.room) latestRoom = res.room
+        }
+      }
+
+      if (latestRoom) {
+        setSession(prevSession => {
+          if (!prevSession) return prevSession
+          const updatedSession = {
+            ...prevSession,
+            rooms: prevSession.rooms.map(r => r._id === room._id ? latestRoom : r)
+          }
+          const allRoomsCompleted = updatedSession.rooms.every(r => r.status === 'completed')
+          if (allRoomsCompleted && updatedSession.status !== 'completed') {
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
+          }
+          return updatedSession
+        })
+      }
+      closePresentStudentsModal()
+    } catch (error) {
+      console.error('Error marking room complete:', error)
+      setCompletingRoom(false)
+    }
+  }, [roomToComplete, closePresentStudentsModal])
 
   // Build flat list of sections from non-completed rooms for Quick Complete
   const sectionsAvailableForQuickComplete = useMemo(() => {
@@ -650,26 +708,15 @@ function SessionView({ user, onBack }) {
     }
 
     try {
-      // Single-section room: complete directly
-      if (!room.sections || room.sections.length <= 1) {
-        const updateData = {
-          status: 'completed',
-          presentStudents: presentCount
-        }
-        if (room.sections?.length === 1) {
-          updateData.sectionAttendance = { [section._id]: presentCount }
-        }
-
-        await testingAPI.updateRoom(room._id, updateData)
-
+      // Record this section's present count. The room auto-completes server-side once every
+      // section has been recorded (single-section rooms complete immediately).
+      const result = await testingAPI.updateSectionReturns(room._id, section._id, presentCount)
+      if (result?.room) {
         setSession(prevSession => {
+          if (!prevSession) return prevSession
           const updatedSession = {
             ...prevSession,
-            rooms: prevSession.rooms.map(r =>
-              r._id === room._id
-                ? { ...r, status: 'completed', presentStudents: presentCount, sectionAttendance: updateData.sectionAttendance || {} }
-                : r
-            )
+            rooms: prevSession.rooms.map(r => r._id === room._id ? result.room : r)
           }
           const allRoomsCompleted = updatedSession.rooms.every(r => r.status === 'completed')
           if (allRoomsCompleted && updatedSession.status !== 'completed') {
@@ -677,26 +724,15 @@ function SessionView({ user, onBack }) {
           }
           return updatedSession
         })
-
-        setShowQuickCompleteModal(false)
-        setQuickCompleteSection(null)
-        setQuickCompleteStudentsPresent('')
-      } else {
-        // Multi-section room: open full modal with this section pre-filled
-        setRoomToComplete(room)
-        const initialCounts = {}
-        room.sections.forEach(s => {
-          initialCounts[s._id] = s._id === section._id ? String(presentCount) : ''
-        })
-        setSectionPresentCounts(initialCounts)
-        setPresentStudentsCount('')
-        setShowQuickCompleteModal(false)
-        setQuickCompleteSection(null)
-        setQuickCompleteStudentsPresent('')
-        setShowPresentStudentsModal(true)
       }
+
+      setShowQuickCompleteModal(false)
+      setQuickCompleteSection(null)
+      setQuickCompleteStudentsPresent('')
     } catch (error) {
       console.error('Error in quick complete by section:', error)
+      setAttendanceError('Failed to record. Please try again.')
+      setShowAttendanceErrorModal(true)
     }
   }, [quickCompleteSection, quickCompleteStudentsPresent])
 
@@ -704,17 +740,6 @@ function SessionView({ user, onBack }) {
     if (!sections || sections.length === 0) return 0
     return sections.reduce((total, section) => total + (section.studentCount || 0), 0)
   }, [])
-
-  // --- Exam return tracking helpers (Display Mode) ---
-  const getSectionReturned = useCallback((room, sectionId) => {
-    const val = room?.sectionReturns ? room.sectionReturns[sectionId] : 0
-    return Number(val) || 0
-  }, [])
-
-  const getRoomReturnedTotal = useCallback((room) => {
-    if (!room?.sections) return 0
-    return room.sections.reduce((sum, s) => sum + getSectionReturned(room, s._id), 0)
-  }, [getSectionReturned])
 
   const openReturnEntry = useCallback((room, section) => {
     if (!canEditSession()) return
@@ -726,43 +751,12 @@ function SessionView({ user, onBack }) {
       studentCount: section.studentCount || 0,
     })
     setReturnEntryValue(getSectionReturned(room, section._id))
-    returnEntryFreshRef.current = true
   }, [canEditSession, getSectionReturned])
 
   const closeReturnEntry = useCallback(() => {
     setReturnEntry(null)
     setReturnEntryValue(0)
     setReturnEntrySaving(false)
-  }, [])
-
-  const adjustReturnEntry = useCallback((delta) => {
-    returnEntryFreshRef.current = false
-    setReturnEntryValue(prev => {
-      const max = returnEntry?.studentCount ?? 0
-      const next = (Number(prev) || 0) + delta
-      return Math.min(Math.max(next, 0), max)
-    })
-  }, [returnEntry])
-
-  // Keypad: append a digit (or replace on the first press after opening), clamped to the section total.
-  const pressReturnDigit = useCallback((digit) => {
-    const max = returnEntry?.studentCount ?? 0
-    const fresh = returnEntryFreshRef.current
-    returnEntryFreshRef.current = false
-    setReturnEntryValue(prev => {
-      const base = fresh ? 0 : (Number(prev) || 0)
-      return Math.min(base * 10 + digit, max)
-    })
-  }, [returnEntry])
-
-  const backspaceReturnEntry = useCallback(() => {
-    returnEntryFreshRef.current = false
-    setReturnEntryValue(prev => Math.floor((Number(prev) || 0) / 10))
-  }, [])
-
-  const clearReturnEntry = useCallback(() => {
-    returnEntryFreshRef.current = true
-    setReturnEntryValue(0)
   }, [])
 
   const handleSaveReturnEntry = useCallback(async () => {
@@ -788,116 +782,25 @@ function SessionView({ user, onBack }) {
     }
   }, [returnEntry, returnEntryValue, closeReturnEntry, addUpdateAnimation])
 
-  const handleConfirmRoomComplete = useCallback(async () => {
-    if (!roomToComplete) return
-
-    let presentCount = 0
-    let sectionPresentData = {}
-
-    // Handle per-section data for multiple sections
-    if (roomToComplete.sections && roomToComplete.sections.length > 1) {
-      // Validate all section counts are provided and valid
-
-      for (const section of roomToComplete.sections) {
-        const sectionCount = sectionPresentCounts[section._id]
-        if (!sectionCount || isNaN(parseInt(sectionCount))) {
-          setAttendanceError(`Please enter a valid number for Section ${section.number}`)
-          setShowAttendanceErrorModal(true)
-          return
-        }
-
-        const count = parseInt(sectionCount)
-        if (count < 0 || count > section.studentCount) {
-          setAttendanceError(`Section ${section.number} present count must be between 0 and ${section.studentCount} students`)
-          setShowAttendanceErrorModal(true)
-          return
-        }
-
-        sectionPresentData[section._id] = count
-        presentCount += count
-      }
-    } else {
-      // Handle single section or no sections
-      if (!presentStudentsCount || isNaN(parseInt(presentStudentsCount))) {
-        setAttendanceError('Please enter a valid number of present students')
-        setShowAttendanceErrorModal(true)
-        return
-      }
-
-      presentCount = parseInt(presentStudentsCount)
-      const totalStudents = calculateTotalStudents(roomToComplete.sections)
-
-      if (presentCount < 0 || presentCount > totalStudents) {
-        setAttendanceError(`Present students must be between 0 and ${totalStudents} students`)
-        setShowAttendanceErrorModal(true)
-        return
-      }
-
-      // For single section, also populate sectionPresentData
-      if (roomToComplete.sections && roomToComplete.sections.length === 1) {
-        sectionPresentData[roomToComplete.sections[0]._id] = presentCount
-      }
-    }
-
+  // Display Mode: unmark a section so it reads as "not recorded" again (re-opens the room if needed).
+  const handleUnmarkReturnEntry = useCallback(async () => {
+    if (!returnEntry) return
+    setReturnEntrySaving(true)
     try {
-      // Update room with present students count and per-section data
-      const updateData = {
-        status: 'completed',
-        presentStudents: presentCount
+      const result = await testingAPI.updateSectionReturns(returnEntry.roomId, returnEntry.sectionId, 0, { clear: true })
+      if (result?.room) {
+        setSession(prev => prev ? {
+          ...prev,
+          rooms: prev.rooms.map(r => r._id === returnEntry.roomId ? result.room : r)
+        } : prev)
+        addUpdateAnimation(returnEntry.roomId, 'room-updated')
       }
-
-      // Add per-section data if available
-      if (Object.keys(sectionPresentData).length > 0) {
-        updateData.sectionAttendance = sectionPresentData
-      }
-
-      const response = await testingAPI.updateRoom(roomToComplete._id, updateData)
-      console.log('Room status update response:', response)
-
-      // Update local state immediately
-      setSession(prevSession => {
-        const updatedSession = {
-          ...prevSession,
-          rooms: prevSession.rooms.map(room =>
-            room._id === roomToComplete._id
-              ? {
-                ...room,
-                status: 'completed',
-                presentStudents: presentCount,
-                sectionAttendance: sectionPresentData
-              }
-              : room
-          )
-        }
-
-        // Note: Session completion is now handled server-side to prevent race conditions
-        // Check if all rooms are completed for confetti animation
-        const allRoomsCompleted = updatedSession.rooms.every(room => room.status === 'completed')
-        if (allRoomsCompleted && updatedSession.status !== 'completed') {
-          console.log('All rooms completed, session completion will be handled by server')
-
-          // Trigger confetti animation when all rooms are completed
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-          })
-        }
-
-        return updatedSession
-      })
-
-      // Close modal
-      setShowPresentStudentsModal(false)
-      setRoomToComplete(null)
-      setPresentStudentsCount('')
-      setSectionPresentCounts({})
-
-      // Activity log entry is now handled by the server
+      closeReturnEntry()
     } catch (error) {
-      console.error('Error marking room complete:', error)
+      console.error('Failed to unmark section:', error)
+      setReturnEntrySaving(false)
     }
-  }, [roomToComplete, presentStudentsCount, sectionPresentCounts, calculateTotalStudents])
+  }, [returnEntry, closeReturnEntry, addUpdateAnimation])
 
   const handleMarkRoomIncomplete = useCallback((roomId) => {
     setRoomToMarkIncomplete(roomId)
@@ -908,11 +811,13 @@ function SessionView({ user, onBack }) {
     if (!roomToMarkIncomplete) return
 
     try {
-      // Update room status to active and clear present students
+      // Update room status to active and clear present students. Also reset sectionReturns so
+      // the per-section recordings on the Display Mode board are unmarked too.
       await testingAPI.updateRoom(roomToMarkIncomplete, {
         status: 'active',
         presentStudents: undefined,
-        sectionAttendance: {}
+        sectionAttendance: {},
+        sectionReturns: {}
       })
 
       // Update local state immediately
@@ -921,7 +826,7 @@ function SessionView({ user, onBack }) {
           ...prevSession,
           rooms: prevSession.rooms.map(room =>
             room._id === roomToMarkIncomplete
-              ? { ...room, status: 'active', presentStudents: undefined, sectionAttendance: {} }
+              ? { ...room, status: 'active', presentStudents: undefined, sectionAttendance: {}, sectionReturns: {} }
               : room
           )
         }
@@ -1528,24 +1433,23 @@ function SessionView({ user, onBack }) {
     }, 0)
   }, [session?.rooms])
 
+  // Present/absent are derived live from the per-section present counts recorded on the board.
   const calculateTotalPresentStudents = useCallback(() => {
     if (!session?.rooms) return 0
-    return session.rooms.reduce((total, room) => {
-      return total + (room.status === 'completed' ? (room.presentStudents || 0) : 0)
-    }, 0)
-  }, [session?.rooms])
+    return session.rooms.reduce((total, room) => total + getRoomReturnedTotal(room), 0)
+  }, [session?.rooms, getRoomReturnedTotal])
 
   const calculateTotalAbsentStudents = useCallback(() => {
     if (!session?.rooms) return 0
     return session.rooms.reduce((total, room) => {
-      if (room.status === 'completed' && room.presentStudents !== undefined) {
-        const totalStudents = calculateTotalStudents(room.sections)
-        const presentStudents = room.presentStudents || 0
-        return total + (totalStudents - presentStudents)
-      }
-      return total
+      // Only count absences for sections that have actually been recorded.
+      const roomAbsent = (room.sections || []).reduce((sum, s) => {
+        if (!isSectionRecorded(room, s._id)) return sum
+        return sum + Math.max((s.studentCount || 0) - getSectionReturned(room, s._id), 0)
+      }, 0)
+      return total + roomAbsent
     }, 0)
-  }, [session?.rooms, calculateTotalStudents])
+  }, [session?.rooms, isSectionRecorded, getSectionReturned])
 
   const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
@@ -2700,42 +2604,37 @@ function SessionView({ user, onBack }) {
               {/* Exam-return progress + stats */}
               {(() => {
                 const rooms = debouncedSession?.rooms || []
-                const totalStudents = rooms.reduce(
-                  (sum, room) => sum + (room.sections?.reduce((s, sec) => s + (sec.studentCount || 0), 0) || 0),
-                  0
-                )
-                const totalReturned = rooms.reduce((sum, room) => sum + getRoomReturnedTotal(room), 0)
-                const returnPct = totalStudents > 0 ? Math.round((totalReturned / totalStudents) * 100) : 0
                 let sectionsTotal = 0
-                let sectionsReturned = 0
+                let sectionsRecorded = 0
                 rooms.forEach(room => {
                   (room.sections || []).forEach(sec => {
                     sectionsTotal += 1
-                    if ((sec.studentCount || 0) > 0 && getSectionReturned(room, sec._id) >= sec.studentCount) {
-                      sectionsReturned += 1
+                    if (isSectionRecorded(room, sec._id)) {
+                      sectionsRecorded += 1
                     }
                   })
                 })
+                const recordedPct = sectionsTotal > 0 ? Math.round((sectionsRecorded / sectionsTotal) * 100) : 0
                 const roomsCompleted = rooms.filter(r => r.status === 'completed').length
 
                 return (
                   <div className="max-w-7xl mx-auto">
-                    {/* Headline returns progress bar */}
+                    {/* Headline accounted-for progress bar */}
                     <div className="el-card p-4 mb-3">
                       <div className="flex items-baseline justify-between mb-2">
                         <span className="text-base font-bold uppercase tracking-wide text-slate-700">
-                          Exams Returned
+                          Sections Accounted For
                         </span>
                         <span className="text-2xl font-bold text-emerald-600">
-                          {totalReturned}
-                          <span className="text-lg font-semibold text-slate-400"> / {totalStudents}</span>
-                          <span className="ml-2 text-lg font-semibold text-slate-500">({returnPct}%)</span>
+                          {sectionsRecorded}
+                          <span className="text-lg font-semibold text-slate-400"> / {sectionsTotal}</span>
+                          <span className="ml-2 text-lg font-semibold text-slate-500">({recordedPct}%)</span>
                         </span>
                       </div>
                       <div className="h-4 w-full overflow-hidden rounded-full bg-slate-200">
                         <div
                           className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                          style={{ width: `${returnPct}%` }}
+                          style={{ width: `${recordedPct}%` }}
                         />
                       </div>
                     </div>
@@ -2743,8 +2642,8 @@ function SessionView({ user, onBack }) {
                     {/* Supporting stats */}
                     <div className="grid grid-cols-5 gap-3">
                       <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Sections Returned</p>
-                        <p className="text-3xl font-bold text-emerald-600">{sectionsReturned}/{sectionsTotal}</p>
+                        <p className="text-sm text-slate-500 mb-1">Sections Left</p>
+                        <p className={`text-3xl font-bold ${sectionsTotal - sectionsRecorded === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{sectionsTotal - sectionsRecorded}</p>
                       </div>
                       <div className="el-card p-4 text-center">
                         <p className="text-sm text-slate-500 mb-1">Rooms Completed</p>
@@ -2901,9 +2800,9 @@ function SessionView({ user, onBack }) {
                   }).map((room) => {
                     const roomTimeData = getRoomTimeRemaining(room)
                     const totalStudents = room.sections?.reduce((sum, s) => sum + (s.studentCount || 0), 0) || 0
-                    const roomReturned = getRoomReturnedTotal(room)
-                    const roomReturnPct = totalStudents > 0 ? Math.round((roomReturned / totalStudents) * 100) : 0
-                    const roomFullyReturned = totalStudents > 0 && roomReturned >= totalStudents
+                    const roomPresent = getRoomReturnedTotal(room)
+                    const roomReturnPct = totalStudents > 0 ? Math.round((roomPresent / totalStudents) * 100) : 0
+                    const roomFullyRecorded = isRoomFullyRecorded(room)
                     const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
                     const canEdit = canEditSession()
                     // A room is flagged as a conflict ONLY when one of its sections has
@@ -2919,7 +2818,7 @@ function SessionView({ user, onBack }) {
                         key={room._id}
                         className={`flex flex-col rounded-xl p-4 shadow-sm border ${hasConflict
                           ? 'bg-amber-50 border-amber-300'
-                          : roomFullyReturned
+                          : roomFullyRecorded
                           ? 'bg-emerald-50 border-emerald-300'
                           : 'bg-white border-slate-200'
                           }`}
@@ -2954,14 +2853,14 @@ function SessionView({ user, onBack }) {
                         {/* Room-level return progress */}
                         <div className="mb-2">
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-sm font-semibold text-slate-600">Returned</span>
+                            <span className="text-sm font-semibold text-slate-600">Present</span>
                             <span className="text-lg font-bold text-slate-900">
-                              {roomReturned}<span className="text-sm font-semibold text-slate-400"> / {totalStudents}</span>
+                              {roomPresent}<span className="text-sm font-semibold text-slate-400"> / {totalStudents}</span>
                             </span>
                           </div>
                           <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
                             <div
-                              className={`h-full rounded-full transition-all duration-500 ${roomFullyReturned ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                              className={`h-full rounded-full transition-all duration-500 ${roomFullyRecorded ? 'bg-emerald-500' : 'bg-amber-500'}`}
                               style={{ width: `${roomReturnPct}%` }}
                             />
                           </div>
@@ -2981,22 +2880,22 @@ function SessionView({ user, onBack }) {
                           <div className="text-rose-600 font-semibold text-center text-sm mb-1">TIME UP</div>
                         )}
 
-                        {/* Sections — tap to record returns */}
+                        {/* Sections — tap to record how many students were present */}
                         {sortedSections.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-slate-200">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Sections</span>
                               {canEdit && (
-                                <span className="text-[11px] text-slate-400">Tap to record returns</span>
+                                <span className="text-[11px] text-slate-400">Tap to record present</span>
                               )}
                             </div>
                             <div className="max-h-56 overflow-y-auto pr-1 space-y-2">
                               {sortedSections.map((section) => {
                                 const count = section.studentCount || 0
-                                const returned = getSectionReturned(room, section._id)
-                                const pct = count > 0 ? Math.round((returned / count) * 100) : 0
-                                const done = count > 0 && returned >= count
-                                const started = returned > 0
+                                const present = getSectionReturned(room, section._id)
+                                const pct = count > 0 ? Math.round((present / count) * 100) : 0
+                                // "done" = a present count has been recorded for this section (accounted for), even with absences.
+                                const done = isSectionRecorded(room, section._id)
                                 const sortedAccommodations = Array.isArray(section.accommodations) && section.accommodations.length > 0
                                   ? [...section.accommodations].sort((a, b) => {
                                       const aIsTime = a.includes('1.5x') || a.includes('2x') ||
@@ -3024,9 +2923,7 @@ function SessionView({ user, onBack }) {
                                     className={`w-full rounded-lg border p-2.5 text-left transition ${
                                       done
                                         ? 'border-emerald-300 bg-emerald-50'
-                                        : started
-                                          ? 'border-amber-300 bg-amber-50'
-                                          : 'border-slate-200 bg-slate-50'
+                                        : 'border-slate-200 bg-slate-50'
                                     } ${canEdit ? 'cursor-pointer hover:ring-2 hover:ring-brand-300' : 'cursor-default'}`}
                                   >
                                     <div className="flex items-center justify-between gap-2">
@@ -3038,8 +2935,8 @@ function SessionView({ user, onBack }) {
                                         )}
                                         Section #{section.number}
                                       </span>
-                                      <span className={`text-sm font-bold ${done ? 'text-emerald-700' : started ? 'text-amber-700' : 'text-slate-500'}`}>
-                                        {returned}/{count}
+                                      <span className={`text-sm font-bold ${done ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                        {done ? `${present}/${count} present` : `${count} students`}
                                       </span>
                                     </div>
                                     <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white">
@@ -3081,7 +2978,7 @@ function SessionView({ user, onBack }) {
                 <div className="el-card el-fade-up w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
                   <div className="mb-4 flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900">Record Exam Returns</h3>
+                      <h3 className="text-lg font-bold text-slate-900">Record Students Present</h3>
                       <p className="text-sm text-slate-500">
                         Section #{returnEntry.sectionNumber} · {returnEntry.roomName}
                       </p>
@@ -3093,119 +2990,13 @@ function SessionView({ user, onBack }) {
                     </button>
                   </div>
 
-                  {/* Big count + progress */}
-                  {(() => {
-                    const value = Math.min(Math.max(Number(returnEntryValue) || 0, 0), returnEntry.studentCount)
-                    const pct = returnEntry.studentCount > 0 ? Math.round((value / returnEntry.studentCount) * 100) : 0
-                    const done = returnEntry.studentCount > 0 && value >= returnEntry.studentCount
-                    return (
-                      <>
-                        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                          {/* The big number is the input — tap it and type the count directly */}
-                          <div className="flex items-end justify-center">
-                            <input
-                              type="number"
-                              min={0}
-                              max={returnEntry.studentCount}
-                              value={returnEntryValue}
-                              autoFocus
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) => {
-                                returnEntryFreshRef.current = false
-                                const n = parseInt(e.target.value, 10)
-                                if (Number.isNaN(n)) { setReturnEntryValue(0); return }
-                                setReturnEntryValue(Math.min(Math.max(n, 0), returnEntry.studentCount))
-                              }}
-                              className="w-28 rounded-lg bg-transparent text-center text-5xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-400
-                                         [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              aria-label="Number of exams returned"
-                            />
-                            <span className="pb-1 text-2xl font-semibold text-slate-400"> / {returnEntry.studentCount}</span>
-                          </div>
-                          <p className={`mt-1 text-sm font-semibold ${done ? 'text-emerald-600' : 'text-amber-600'}`}>
-                            {done ? 'All exams returned' : `${pct}% returned`}
-                          </p>
-                          <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${done ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Keypad — tap the digits to enter the count */}
-                        <div className="mb-3 grid grid-cols-3 gap-2">
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
-                            <button
-                              key={d}
-                              type="button"
-                              onClick={() => pressReturnDigit(d)}
-                              className="h-12 rounded-lg bg-slate-100 text-xl font-semibold text-slate-800 transition hover:bg-slate-200 active:bg-slate-300"
-                            >
-                              {d}
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={clearReturnEntry}
-                            className="h-12 rounded-lg bg-slate-100 text-sm font-semibold text-slate-500 transition hover:bg-slate-200 active:bg-slate-300"
-                            aria-label="Clear"
-                          >
-                            C
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => pressReturnDigit(0)}
-                            className="h-12 rounded-lg bg-slate-100 text-xl font-semibold text-slate-800 transition hover:bg-slate-200 active:bg-slate-300"
-                          >
-                            0
-                          </button>
-                          <button
-                            type="button"
-                            onClick={backspaceReturnEntry}
-                            className="flex h-12 items-center justify-center rounded-lg bg-slate-100 text-2xl text-slate-600 transition hover:bg-slate-200 active:bg-slate-300"
-                            aria-label="Backspace"
-                          >
-                            ⌫
-                          </button>
-                        </div>
-
-                        {/* Quick actions */}
-                        <div className="mb-5 flex justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => adjustReturnEntry(-1)}
-                            disabled={value <= 0}
-                            className="el-btn el-btn-secondary el-btn-sm disabled:opacity-40"
-                          >
-                            −1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={clearReturnEntry}
-                            className="el-btn el-btn-secondary el-btn-sm"
-                          >
-                            None
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { returnEntryFreshRef.current = false; setReturnEntryValue(returnEntry.studentCount) }}
-                            className="el-btn el-btn-secondary el-btn-sm"
-                          >
-                            All {returnEntry.studentCount}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => adjustReturnEntry(1)}
-                            disabled={value >= returnEntry.studentCount}
-                            className="el-btn el-btn-secondary el-btn-sm disabled:opacity-40"
-                          >
-                            +1
-                          </button>
-                        </div>
-                      </>
-                    )
-                  })()}
+                  <PresentKeypad
+                    value={returnEntryValue}
+                    max={returnEntry.studentCount}
+                    onChange={setReturnEntryValue}
+                    resetKey={returnEntry.sectionId}
+                    autoFocus
+                  />
 
                   <div className="flex gap-3">
                     <button
@@ -3222,9 +3013,25 @@ function SessionView({ user, onBack }) {
                       disabled={returnEntrySaving}
                       className="el-btn el-btn-primary flex-1"
                     >
-                      {returnEntrySaving ? 'Saving…' : 'Save Returns'}
+                      {returnEntrySaving ? 'Saving…' : 'Save'}
                     </button>
                   </div>
+
+                  {/* Unmark — only when this section already has a recorded count */}
+                  {(() => {
+                    const room = (session?.rooms || []).find(r => r._id === returnEntry.roomId)
+                    const recorded = room ? isSectionRecorded(room, returnEntry.sectionId) : false
+                    return recorded ? (
+                      <button
+                        type="button"
+                        onClick={handleUnmarkReturnEntry}
+                        disabled={returnEntrySaving}
+                        className="el-btn el-btn-danger mt-2 w-full"
+                      >
+                        Unmark section
+                      </button>
+                    ) : null
+                  })()}
                 </div>
               </div>
             )}
@@ -4119,21 +3926,12 @@ function SessionView({ user, onBack }) {
         onConfirm={handleQuickCompleteBySection}
       />
 
-      {/* Present Students Modal */}
+      {/* View-mode Mark Room Complete — record students present per section */}
       <PresentStudentsModal
         show={showPresentStudentsModal}
         room={roomToComplete}
-        calculateTotalStudents={calculateTotalStudents}
-        sectionPresentCounts={sectionPresentCounts}
-        setSectionPresentCounts={setSectionPresentCounts}
-        presentStudentsCount={presentStudentsCount}
-        setPresentStudentsCount={setPresentStudentsCount}
-        onCancel={() => {
-          setShowPresentStudentsModal(false)
-          setRoomToComplete(null)
-          setPresentStudentsCount('')
-          setSectionPresentCounts({})
-        }}
+        saving={completingRoom}
+        onCancel={closePresentStudentsModal}
         onConfirm={handleConfirmRoomComplete}
       />
 

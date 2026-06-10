@@ -597,8 +597,8 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
-  // Update the number of returned exams for a section within a room
-  updateSectionReturns: async (roomId, sectionId, returned) => {
+  // Update the present count for a section within a room. Pass { clear: true } to unmark it.
+  updateSectionReturns: async (roomId, sectionId, returned, options = {}) => {
     const token = localStorage.getItem('authToken');
     const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/section-returns`, {
       method: 'PUT',
@@ -606,7 +606,7 @@ export const testingAPI = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ sectionId, returned }),
+      body: JSON.stringify({ sectionId, returned, clear: !!options.clear }),
     });
     return handleResponse(response);
   },
