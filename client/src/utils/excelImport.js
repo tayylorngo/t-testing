@@ -295,13 +295,14 @@ const parseDataRow = (row, columnMap) => {
     const sectionValue = row[columnMap.section];
     console.log('Section value:', sectionValue, 'Type:', typeof sectionValue);
     if (typeof sectionValue === 'number') {
-      data.section = sectionValue;
+      // Section numbers are stored as strings (they may carry a trailing letter, e.g. "99A").
+      data.section = String(sectionValue);
     } else {
-      const sectionStr = sectionValue.toString().trim();
-      const sectionNum = parseInt(sectionStr);
-      console.log('Parsed section number:', sectionNum);
-      if (!isNaN(sectionNum)) {
-        data.section = sectionNum;
+      // Preserve an optional trailing letter; normalize to uppercase (e.g. "99a" -> "99A").
+      const sectionStr = sectionValue.toString().trim().toUpperCase();
+      console.log('Parsed section number:', sectionStr);
+      if (sectionStr) {
+        data.section = sectionStr;
       }
     }
   } else {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { testingAPI } from '../services/api'
+import { parseSectionNumberInput, compareSectionNumbers, isValidSectionNumber, normalizeSectionNumber } from '../utils/sectionNumber'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { useCustomAlert } from '../hooks/useCustomAlert'
 import CustomAlert from './CustomAlert'
@@ -306,25 +307,12 @@ function SessionDetail({ onBack }) {
     if (!newRoomSectionNumber.trim() || !newRoomSectionStudentCount.trim()) return
     
     const input = newRoomSectionNumber.trim()
-    let numbers = []
-    if (/^\d+$/.test(input)) {
-      // Single number
-      numbers = [parseInt(input)]
-    } else if (/^(\d+)-(\d+)$/.test(input)) {
-      // Range
-      const [, start, end] = input.match(/(\d+)-(\d+)/)
-      const s = parseInt(start)
-      const e = parseInt(end)
-      if (s > e) {
-        alert('Start of range must be less than or equal to end.')
-        return
-      }
-      numbers = Array.from({ length: e - s + 1 }, (_, i) => s + i)
-    } else {
-      alert('Please enter a valid section number or range (e.g., 25 or 20-30).')
+    const numbers = parseSectionNumberInput(input)
+    if (!numbers) {
+      alert('Please enter a valid section number, letter-suffixed number, or range (e.g., 25, 99A, or 20-30).')
       return
     }
-    
+
     const studentCount = parseInt(newRoomSectionStudentCount)
     if (studentCount < 1) {
       alert('Student count must be at least 1.')
@@ -436,27 +424,9 @@ function SessionDetail({ onBack }) {
   const handleAddSection = async () => {
     if (!newSectionNumber.trim() || !newSectionStudentCount.trim()) return
     const input = newSectionNumber.trim()
-    let numbers = []
-    if (/^\d+$/.test(input)) {
-      // Single number
-      numbers = [parseInt(input)]
-    } else if (/^(\d+)-(\d+)$/.test(input)) {
-      // Range
-      const [, start, end] = input.match(/(\d+)-(\d+)/)
-      const s = parseInt(start)
-      const e = parseInt(end)
-      if (s > e) {
-        alert('Start of range must be less than or equal to end.')
-        return
-      }
-      numbers = Array.from({length: e - s + 1}, (_, i) => s + i)
-    } else {
-      alert('Please enter a valid section number or range (e.g., 25 or 20-30).')
-      return
-    }
-    // Validate all numbers
-    if (numbers.some(n => isNaN(n) || n < 1 || n > 99)) {
-      alert('All section numbers must be between 1 and 99.')
+    const numbers = parseSectionNumberInput(input)
+    if (!numbers) {
+      alert('Please enter a valid section number, letter-suffixed number, or range (e.g., 25, 99A, or 20-30).')
       return
     }
     const studentCount = parseInt(newSectionStudentCount)
@@ -840,10 +810,10 @@ function SessionDetail({ onBack }) {
 
   const handleSaveSectionNumber = async () => {
     if (!editSectionNumber.trim() || !editSectionStudentCount.trim() || !itemToEdit || itemToEdit.type !== 'section') return
-    const sectionNum = parseInt(editSectionNumber)
+    const sectionNum = normalizeSectionNumber(editSectionNumber)
     const studentCount = parseInt(editSectionStudentCount)
-    if (isNaN(sectionNum) || sectionNum < 1 || sectionNum > 99) {
-      alert('Section number must be between 1 and 99')
+    if (!isValidSectionNumber(sectionNum)) {
+      alert('Section number must be 1-99 with an optional single letter (e.g. 99A)')
       return
     }
     if (isNaN(studentCount) || studentCount < 1) {
@@ -1651,7 +1621,7 @@ function SessionDetail({ onBack }) {
 
               {session.sections && session.sections.length > 0 ? (
                 <div className="space-y-4">
-                  {[...session.sections].sort((a, b) => sectionSortDescending ? b.number - a.number : a.number - b.number).map((section) => (
+                  {[...session.sections].sort((a, b) => sectionSortDescending ? compareSectionNumbers(b.number, a.number) : compareSectionNumbers(a.number, b.number)).map((section) => (
                     <div key={section._id} className="rounded-lg border border-slate-200 bg-white p-4">
                       <div className="flex items-center mb-2">
                         <input
@@ -1796,9 +1766,9 @@ function SessionDetail({ onBack }) {
                         value={newRoomSectionNumber}
                         onChange={(e) => setNewRoomSectionNumber(e.target.value)}
                         className="el-input"
-                        placeholder="e.g. 25 or 20-30"
+                        placeholder="e.g. 25, 99A, or 20-30"
                       />
-                      <p className="text-xs text-slate-400 mt-1">Single number or range</p>
+                      <p className="text-xs text-slate-400 mt-1">Single number, number + letter (e.g. 99A), or range</p>
                     </div>
 
                     <div>
@@ -2011,10 +1981,10 @@ function SessionDetail({ onBack }) {
                     value={newSectionNumber}
                     onChange={(e) => setNewSectionNumber(e.target.value)}
                     className="el-input"
-                    placeholder="e.g. 25 or 20-30"
+                    placeholder="e.g. 25, 99A, or 20-30"
                     autoFocus
                   />
-                  <p className="text-xs text-slate-400 mt-1">Enter single number (1-99) or range (e.g. 20-30)</p>
+                  <p className="text-xs text-slate-400 mt-1">Enter single number (1-99), number + letter (e.g. 99A), or range (e.g. 20-30)</p>
                 </div>
 
                 <div>
@@ -2474,13 +2444,11 @@ function SessionDetail({ onBack }) {
                     Section Number
                   </label>
                   <input
-                    type="number"
-                    min="1"
-                    max="99"
+                    type="text"
                     value={editSectionNumber}
                     onChange={(e) => setEditSectionNumber(e.target.value)}
                     className="el-input"
-                    placeholder="Enter section number"
+                    placeholder="e.g. 25 or 99A"
                   />
                 </div>
                 <div>

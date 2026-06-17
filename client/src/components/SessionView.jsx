@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, memo
 import { createPortal } from 'react-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
+import { compareSectionNumbers } from '../utils/sectionNumber'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
@@ -682,7 +683,7 @@ function SessionView({ user, onBack }) {
           items.push({ section, room })
         })
       })
-    return items.sort((a, b) => (a.section.number || 0) - (b.section.number || 0))
+    return items.sort((a, b) => compareSectionNumbers(a.section.number, b.section.number))
   }, [session?.rooms])
 
   const handleQuickCompleteBySection = useCallback(async () => {
@@ -1681,10 +1682,10 @@ function SessionView({ user, onBack }) {
         case 'sections': {
           // Sort by first section number, or by count if no sections
           const aSections = a.sections && a.sections.length > 0 
-            ? [...a.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+            ? [...a.sections].sort((s1, s2) => compareSectionNumbers(s1.number, s2.number))
             : []
           const bSections = b.sections && b.sections.length > 0
-            ? [...b.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+            ? [...b.sections].sort((s1, s2) => compareSectionNumbers(s1.number, s2.number))
             : []
           
           if (aSections.length === 0 && bSections.length === 0) {
@@ -1695,9 +1696,9 @@ function SessionView({ user, onBack }) {
             comparison = -1
           } else {
             // Compare by first section number
-            const aFirst = aSections[0].number || 0
-            const bFirst = bSections[0].number || 0
-            comparison = aFirst - bFirst
+            const aFirst = aSections[0].number
+            const bFirst = bSections[0].number
+            comparison = compareSectionNumbers(aFirst, bFirst)
           }
           break
         }
@@ -1985,7 +1986,7 @@ function SessionView({ user, onBack }) {
 
     const sortedSections = useMemo(() => {
       if (!sections || sections.length === 0) return []
-      return [...sections].sort((a, b) => a.number - b.number)
+      return [...sections].sort((a, b) => compareSectionNumbers(a.number, b.number))
     }, [sections])
 
     // Restore scroll position synchronously before paint to prevent glitch
@@ -2764,10 +2765,10 @@ function SessionView({ user, onBack }) {
                       if (displaySortBy === 'sectionNumber') {
                         // Sort by first section number
                         const aSections = a.sections && a.sections.length > 0 
-                          ? [...a.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+                          ? [...a.sections].sort((s1, s2) => compareSectionNumbers(s1.number, s2.number))
                           : []
                         const bSections = b.sections && b.sections.length > 0
-                          ? [...b.sections].sort((s1, s2) => (s1.number || 0) - (s2.number || 0))
+                          ? [...b.sections].sort((s1, s2) => compareSectionNumbers(s1.number, s2.number))
                           : []
                         
                         if (aSections.length === 0 && bSections.length === 0) {
@@ -2781,9 +2782,9 @@ function SessionView({ user, onBack }) {
                           return -1 // Rooms with sections come first
                         } else {
                           // Compare by first section number
-                          const aFirst = aSections[0].number || 0
-                          const bFirst = bSections[0].number || 0
-                          return aFirst - bFirst
+                          const aFirst = aSections[0].number
+                          const bFirst = bSections[0].number
+                          return compareSectionNumbers(aFirst, bFirst)
                         }
                       } else {
                         // Sort by room number (default)
@@ -2799,7 +2800,7 @@ function SessionView({ user, onBack }) {
                     const roomPresent = getRoomReturnedTotal(room)
                     const roomReturnPct = totalStudents > 0 ? Math.round((roomPresent / totalStudents) * 100) : 0
                     const roomFullyRecorded = isRoomFullyRecorded(room)
-                    const sortedSections = [...(room.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0))
+                    const sortedSections = [...(room.sections || [])].sort((a, b) => compareSectionNumbers(a.number, b.number))
                     const canEdit = canEditSession()
                     // A room is flagged as a conflict ONLY when one of its sections has
                     // the "Conflict" accommodation explicitly set (no room-number guessing).
@@ -3205,7 +3206,7 @@ function SessionView({ user, onBack }) {
                           <div className="text-sm text-slate-900">
                             {room.sections && room.sections.length > 0
                               ? [...room.sections]
-                                  .sort((a, b) => (a.number || 0) - (b.number || 0))
+                                  .sort((a, b) => compareSectionNumbers(a.number, b.number))
                                   .map(s => s.number)
                                   .join(', ')
                               : '—'}

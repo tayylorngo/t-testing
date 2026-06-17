@@ -1,4 +1,5 @@
 import React from 'react'
+import { compareSectionNumbers } from '../../utils/sectionNumber'
 
 function MoveStudentsModal({ show, fromRoom, rooms, studentMoveData, setStudentMoveData, onCancel, onConfirm }) {
   if (!show || !fromRoom) return null
@@ -25,7 +26,7 @@ function MoveStudentsModal({ show, fromRoom, rooms, studentMoveData, setStudentM
               </label>
               <div className="space-y-4 max-h-60 overflow-y-auto">
                 {fromRoom.sections
-                  .sort((a, b) => a.number - b.number)
+                  .sort((a, b) => compareSectionNumbers(a.number, b.number))
                   .map((section) => (
                     <div key={section._id} className="border border-slate-200 rounded-lg p-4">
                       <div className="flex justify-between items-center mb-3">

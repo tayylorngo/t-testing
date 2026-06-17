@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, memo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
+import { compareSectionNumbers } from '../utils/sectionNumber'
 import { useRealTime } from '../contexts/RealTimeContext'
 
 const RoomDetail = () => {
@@ -508,7 +509,7 @@ const RoomDetail = () => {
               {room.sections && room.sections.length > 0 ? (
                 <div className="max-h-80 space-y-4 overflow-y-auto">
                   {room.sections
-                    .sort((a, b) => a.number - b.number)
+                    .sort((a, b) => compareSectionNumbers(a.number, b.number))
                     .map((section) => {
                       // Calculate section attendance only for completed rooms
                       const sectionPresent = room.status === 'completed' ? (room.sectionAttendance?.[section._id] || 0) : 0

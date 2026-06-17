@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { compareSectionNumbers } from '../../utils/sectionNumber'
 
 // View-mode "Mark Room Complete" flow, for users at a computer: type how many students were
 // present for each section, then complete the room. (Display Mode uses the tap keypad instead.)
@@ -8,7 +9,7 @@ import { createPortal } from 'react-dom'
 // section in the room; the parent persists it and marks the room complete.
 function PresentStudentsModal({ show, room, saving, onCancel, onConfirm }) {
   const sections = useMemo(
-    () => [...(room?.sections || [])].sort((a, b) => (a.number || 0) - (b.number || 0)),
+    () => [...(room?.sections || [])].sort((a, b) => compareSectionNumbers(a.number, b.number)),
     [room]
   )
 

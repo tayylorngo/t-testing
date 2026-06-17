@@ -3,10 +3,12 @@ import mongoose from 'mongoose';
 // Section Schema
 const sectionSchema = new mongoose.Schema({
   number: {
-    type: Number,
+    // Section numbers are 1-99 with an optional single trailing letter (e.g. "99A").
+    type: String,
     required: true,
-    min: 1,
-    max: 99
+    trim: true,
+    uppercase: true,
+    match: [/^([1-9]|[1-9][0-9])[A-Za-z]?$/, 'Section number must be 1-99 with an optional single letter (e.g. 99A)']
   },
   studentCount: {
     type: Number,

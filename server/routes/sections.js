@@ -11,13 +11,20 @@ import { addActivityLogEntry } from '../utils/activityLog.js';
 
 const router = express.Router();
 
+// Section numbers are 1-99 with an optional single trailing letter (e.g. "99A").
+const SECTION_NUMBER_REGEX = /^([1-9]|[1-9][0-9])[A-Za-z]?$/;
+const normalizeSectionNumber = (value) => String(value ?? '').trim().toUpperCase();
+const isValidSectionNumber = (value) => SECTION_NUMBER_REGEX.test(normalizeSectionNumber(value));
+const SECTION_NUMBER_ERROR = 'Section number must be 1-99 with an optional single letter (e.g. 99A)';
+
 router.post('/api/sections', authenticateToken, async (req, res) => {
   try {
     const { number, studentCount = 1, accommodations = [], notes = '' } = req.body;
 
-    if (!number || number < 1 || number > 99) {
-      return res.status(400).json({ message: 'Section number must be between 1 and 99' });
+    if (!isValidSectionNumber(number)) {
+      return res.status(400).json({ message: SECTION_NUMBER_ERROR });
     }
+    const normalizedNumber = normalizeSectionNumber(number);
 
     if (!studentCount || studentCount < 1) {
       return res.status(400).json({ message: 'Student count must be at least 1' });
@@ -27,7 +34,7 @@ router.post('/api/sections', authenticateToken, async (req, res) => {
     // Duplicate checking is done at the room level when adding sections to rooms
 
     const newSection = new Section({
-      number,
+      number: normalizedNumber,
       studentCount,
       accommodations,
       notes
@@ -47,18 +54,19 @@ router.put('/api/sections/:id', authenticateToken, async (req, res) => {
     const updateData = {};
 
     if (number !== undefined) {
-      if (number < 1 || number > 99) {
-        return res.status(400).json({ message: 'Section number must be between 1 and 99' });
+      if (!isValidSectionNumber(number)) {
+        return res.status(400).json({ message: SECTION_NUMBER_ERROR });
       }
+      const normalizedNumber = normalizeSectionNumber(number);
       // Check if any room containing this section already has another section with the same number
       const roomsWithThisSection = await Room.find({ sections: id }).populate('sections', 'number');
       for (const room of roomsWithThisSection) {
-        const duplicateSection = room.sections.find(s => s._id.toString() !== id && s.number === number);
+        const duplicateSection = room.sections.find(s => s._id.toString() !== id && s.number === normalizedNumber);
         if (duplicateSection) {
-          return res.status(400).json({ message: `A section with number ${number} already exists in room "${room.name}"` });
+          return res.status(400).json({ message: `A section with number ${normalizedNumber} already exists in room "${room.name}"` });
         }
       }
-      updateData.number = number;
+      updateData.number = normalizedNumber;
     }
     if (studentCount !== undefined) {
       if (studentCount < 1) {
