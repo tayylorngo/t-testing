@@ -2258,7 +2258,7 @@ function SessionView({ user, onBack }) {
               />
               <ExportMenu
                 onExcel={() => exportSessionToExcel(session, session.name)}
-                onPdf={() => exportSessionToPDF(session, session.name)}
+                onPdf={() => exportSessionToPDF(session, session.name, invalidatedTests)}
               />
               <button
                 onClick={onBack}

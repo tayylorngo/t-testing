@@ -8,6 +8,8 @@ const ZEBRA = [248, 250, 252];     // slate-50
 const SLATE700 = [51, 65, 85];
 const SLATE900 = [15, 23, 42];
 const BORDER = [226, 232, 240];    // slate-200
+const INVALID_BG = [254, 226, 226]; // red-200
+const INVALID_TX = [185, 28, 28];   // red-700
 const STATUS = {
   completed: { bg: [220, 252, 231], tx: [21, 128, 61] },
   active: { bg: [219, 234, 254], tx: [29, 78, 216] },
@@ -18,8 +20,9 @@ const STATUS = {
  * Export session data to a styled PDF document.
  * @param {Object} session - The session data to export
  * @param {string} filename - The base filename for the exported file
+ * @param {Array} [invalidations] - Live invalidated-tests list (falls back to session.invalidations)
  */
-export const exportSessionToPDF = (session, filename = 'testing-session') => {
+export const exportSessionToPDF = (session, filename = 'testing-session', invalidations) => {
   if (!session) {
     console.error('No session data provided for export');
     return;
@@ -146,19 +149,45 @@ export const exportSessionToPDF = (session, filename = 'testing-session') => {
 
   // ── Sections ──────────────────────────────────────────────────────────────
   heading('Section Details');
+  // Build rows + a parallel flag marking which sections have an invalidated test,
+  // so didParseCell can paint those rows red.
+  const invalidationList = invalidations || session.invalidations || [];
+  const sectionInvalidatedFlags = [];
+  const sectionRows = (session.sections || []).map(section => {
+    const sectionRooms = session.rooms?.filter(room =>
+      room.sections?.some(rs => rs._id === section._id)
+    ) || [];
+    const assignedRooms = sectionRooms.map(room => room.name).join(', ') || 'None';
+    const sectionRoomIds = sectionRooms.map(r => String(r._id));
+    // An invalidation belongs to this section when the section number matches and it
+    // was raised in one of the rooms this section is assigned to.
+    const sectionInvalidations = invalidationList.filter(inv =>
+      String(inv.sectionNumber) === String(section.number) && sectionRoomIds.includes(String(inv.roomId))
+    );
+    sectionInvalidatedFlags.push(sectionInvalidations.length > 0);
+
+    let notes = section.notes || '';
+    if (sectionInvalidations.length > 0) {
+      const invNotes = sectionInvalidations.map(inv => inv.notes).filter(Boolean).join('  |  ');
+      notes = notes ? `${notes}\nINVALIDATED: ${invNotes}` : `INVALIDATED: ${invNotes}`;
+    }
+    return [
+      section.number || '', section.studentCount || 0,
+      section.accommodations?.join(', ') || 'None', notes, assignedRooms,
+    ];
+  });
   autoTable(doc, tableBase({
     startY: y,
     head: [['Section #', 'Students', 'Accommodations', 'Notes', 'Assigned Rooms']],
-    body: rowsOrNote((session.sections || []).map(section => {
-      const assignedRooms = session.rooms?.filter(room =>
-        room.sections?.some(rs => rs._id === section._id)
-      ).map(room => room.name).join(', ') || 'None';
-      return [
-        section.number || '', section.studentCount || 0,
-        section.accommodations?.join(', ') || 'None', section.notes || '', assignedRooms,
-      ];
-    }), 5, 'No sections found'),
+    body: rowsOrNote(sectionRows, 5, 'No sections found'),
     columnStyles: { 0: { halign: 'center', cellWidth: 70 }, 1: { halign: 'center', cellWidth: 70 } },
+    didParseCell: (data) => {
+      if (data.section === 'body' && sectionInvalidatedFlags[data.row.index]) {
+        data.cell.styles.fillColor = INVALID_BG;
+        data.cell.styles.textColor = INVALID_TX;
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
   }));
   advance();
 
