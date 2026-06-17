@@ -1463,9 +1463,11 @@ function SessionView({ user, onBack }) {
       if (section.accommodations) {
         section.accommodations.forEach(acc => {
           // Check for various formats of time accommodations
+          // Bilingual accommodations default to 1.5x time
           if (acc.includes('1.5x') || acc.includes('2x') ||
             acc.includes('1.5×') || acc.includes('2×') ||
-            acc.includes('extended time') || acc.includes('double time')) {
+            acc.includes('extended time') || acc.includes('double time') ||
+            acc.toLowerCase().includes('bilingual')) {
             hasTimeAccommodation = true
           }
         })
@@ -1486,7 +1488,9 @@ function SessionView({ user, onBack }) {
             maxMultiplier = Math.max(maxMultiplier, 2)
           }
           // Check for 1.5x time accommodations (various formats)
-          else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time')) {
+          // Bilingual accommodations default to 1.5x time
+          else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time') ||
+            acc.toLowerCase().includes('bilingual')) {
             maxMultiplier = Math.max(maxMultiplier, 1.5)
           }
         })
@@ -1814,9 +1818,10 @@ function SessionView({ user, onBack }) {
   // Helper function to check if a room has 1.5x accommodations
   const roomHas15xAccommodation = useCallback((room) => {
     if (!room.sections || room.sections.length === 0) return false
-    return room.sections.some(section => 
-      section.accommodations?.some(acc => 
-        acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time')
+    return room.sections.some(section =>
+      section.accommodations?.some(acc =>
+        acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time') ||
+        acc.toLowerCase().includes('bilingual')
       )
     )
   }, [])
@@ -2734,9 +2739,10 @@ function SessionView({ user, onBack }) {
                         if (displayFilterAccommodation === 'bilingual' && (!accommodations || !accommodations.includes('bilingual'))) return false
                         if (displayFilterAccommodation === '1.5x') {
                           // Check if room has 1.5x accommodation
-                          const has15x = room.sections?.some(section => 
-                            section.accommodations?.some(acc => 
-                              acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time')
+                          const has15x = room.sections?.some(section =>
+                            section.accommodations?.some(acc =>
+                              acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time') ||
+                              acc.toLowerCase().includes('bilingual')
                             )
                           )
                           if (!has15x) return false
