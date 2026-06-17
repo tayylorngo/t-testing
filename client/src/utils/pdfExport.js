@@ -125,7 +125,7 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
   heading('Rooms & Sections');
   autoTable(doc, tableBase({
     startY: y,
-    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies']],
+    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies', 'Notes']],
     body: rowsOrNote((session.rooms || []).map(room => {
       const total = roomTotal(room);
       const present = room.presentStudents || 0;
@@ -136,12 +136,13 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
         (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A',
         room.sections?.map(s => `Section ${s.number} (${s.studentCount} students)`).join(', ') || 'None',
         formatSupplies(room.supplies),
+        room.notes || '',
       ];
-    }), 8, 'No rooms found'),
+    }), 9, 'No rooms found'),
     columnStyles: {
       2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 48 },
       4: { halign: 'center', cellWidth: 44 }, 5: { halign: 'center', cellWidth: 64 },
-      6: { cellWidth: 170 },
+      6: { cellWidth: 150 }, 7: { cellWidth: 110 },
     },
     didParseCell: statusPainter(1),
   }));

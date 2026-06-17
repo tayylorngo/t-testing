@@ -18,6 +18,7 @@ import PresentStudentsModal from './session/PresentStudentsModal'
 import PresentKeypad from './session/PresentKeypad'
 import InvalidateTestModal from './session/InvalidateTestModal'
 import RemoveInvalidationModal from './session/RemoveInvalidationModal'
+import RoomNotesModal from './session/RoomNotesModal'
 import AddSupplyModal from './session/AddSupplyModal'
 import EditSupplyModal from './session/EditSupplyModal'
 import EditSuppliesModal from './session/EditSuppliesModal'
@@ -83,6 +84,9 @@ function SessionView({ user, onBack }) {
   const [invalidatedTests, setInvalidatedTests] = useState([]) // Array of {roomId, sectionNumber, notes, timestamp, invalidatedBy}
   const [showRemoveInvalidationModal, setShowRemoveInvalidationModal] = useState(false)
   const [invalidationToRemove, setInvalidationToRemove] = useState(null)
+  const [showRoomNotesModal, setShowRoomNotesModal] = useState(false)
+  const [selectedRoomForNotes, setSelectedRoomForNotes] = useState(null)
+  const [roomNotes, setRoomNotes] = useState('')
   const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
   const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
@@ -1094,6 +1098,44 @@ function SessionView({ user, onBack }) {
       console.error('Error adjusting supply quantity:', error)
     }
   }, [session?.rooms])
+
+  const handleRoomNotesClick = useCallback((room) => {
+    setSelectedRoomForNotes(room)
+    setRoomNotes(room.notes || '')
+    setShowRoomNotesModal(true)
+  }, [])
+
+  const handleSaveRoomNotes = useCallback(async () => {
+    if (!selectedRoomForNotes) return
+
+    try {
+      await testingAPI.updateRoom(selectedRoomForNotes._id, {
+        notes: roomNotes.trim()
+      })
+
+      // Update local state
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(room =>
+          room._id === selectedRoomForNotes._id
+            ? { ...room, notes: roomNotes.trim() }
+            : room
+        )
+      }))
+
+      setShowRoomNotesModal(false)
+      setSelectedRoomForNotes(null)
+      setRoomNotes('')
+    } catch (error) {
+      console.error('Error saving room notes:', error)
+    }
+  }, [selectedRoomForNotes, roomNotes])
+
+  const cancelRoomNotes = useCallback(() => {
+    setShowRoomNotesModal(false)
+    setSelectedRoomForNotes(null)
+    setRoomNotes('')
+  }, [])
 
   const cancelInvalidateTest = useCallback(() => {
     setShowInvalidateModal(false)
@@ -3365,6 +3407,24 @@ function SessionView({ user, onBack }) {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
+                                          handleRoomNotesClick(room)
+                                          setShowDropdown(null)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
+                                        style={{
+                                          pointerEvents: 'auto',
+                                          zIndex: 99999,
+                                          position: 'relative'
+                                        }}
+                                      >
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Add Notes
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
                                           console.log('Edit Supplies button clicked')
                                           handleEditSuppliesClick(room)
                                           setShowDropdown(null)
@@ -3480,6 +3540,23 @@ function SessionView({ user, onBack }) {
                                       }
                                       return null
                                     })()}
+
+                                    {/* Room Notes Section */}
+                                    {room.notes && room.notes.trim() && (
+                                      <div className="mt-4">
+                                        <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
+                                          Room Notes
+                                        </h4>
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                          <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                                            {room.notes}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )}
 
                                   </div>
                                 </div>
@@ -3990,6 +4067,16 @@ function SessionView({ user, onBack }) {
         invalidation={invalidationToRemove}
         onCancel={cancelRemoveInvalidatedTest}
         onConfirm={confirmRemoveInvalidatedTest}
+      />
+
+      {/* Room Notes Modal */}
+      <RoomNotesModal
+        show={showRoomNotesModal}
+        room={selectedRoomForNotes}
+        notes={roomNotes}
+        setNotes={setRoomNotes}
+        onCancel={cancelRoomNotes}
+        onConfirm={handleSaveRoomNotes}
       />
     </div>
   )

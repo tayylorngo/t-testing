@@ -127,24 +127,6 @@ mongoose.connection.once('open', async () => {
   if (process.env.SEED_DEMO === 'true') {
     initializeDemoData();
   }
-  // One-time PII cleanup: per-room notes were removed in favor of an external
-  // notes sheet. Clear any lingering room.notes and the activity-log entries
-  // that embedded note text. Filtered so it is a no-op once the data is gone.
-  try {
-    const rooms = await Room.collection.updateMany(
-      { notes: { $exists: true } },
-      { $unset: { notes: '' } }
-    );
-    if (rooms.modifiedCount) console.log(`🧹 Cleared notes from ${rooms.modifiedCount} room(s)`);
-
-    const logs = await Session.collection.updateMany(
-      { 'activityLog.action': { $regex: 'notes (for|to|from) Room', $options: 'i' } },
-      { $pull: { activityLog: { action: { $regex: 'notes (for|to|from) Room', $options: 'i' } } } }
-    );
-    if (logs.modifiedCount) console.log(`🧹 Cleared note entries from ${logs.modifiedCount} activity log(s)`);
-  } catch (err) {
-    console.error('Room-notes cleanup failed:', err.message);
-  }
 });
 
 // Middleware

@@ -33,6 +33,10 @@ const roomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
+  notes: {
+    type: String,
+    trim: true
+  },
   proctors: [{
     firstName: {
       type: String,
