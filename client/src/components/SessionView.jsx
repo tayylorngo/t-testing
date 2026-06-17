@@ -676,19 +676,23 @@ function SessionView({ user, onBack }) {
     }
   }, [roomToComplete, closePresentStudentsModal])
 
-  // Build flat list of sections from non-completed rooms for Quick Complete
+  // Build flat list of sections from non-completed rooms for Quick Complete.
+  // Only sections that have NOT yet had a present count recorded are offered —
+  // once a section is recorded it drops off the list (even if its room is still active).
   const sectionsAvailableForQuickComplete = useMemo(() => {
     if (!session?.rooms) return []
     const items = []
     session.rooms
       .filter(room => room.status !== 'completed')
       .forEach(room => {
-        (room.sections || []).forEach(section => {
-          items.push({ section, room })
-        })
+        (room.sections || [])
+          .filter(section => !isSectionRecorded(room, section._id))
+          .forEach(section => {
+            items.push({ section, room })
+          })
       })
     return items.sort((a, b) => compareSectionNumbers(a.section.number, b.section.number))
-  }, [session?.rooms])
+  }, [session?.rooms, isSectionRecorded])
 
   const handleQuickCompleteBySection = useCallback(async () => {
     if (!quickCompleteSection) return
