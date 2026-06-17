@@ -1,6 +1,18 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
-function InvalidateTestModal({ show, room, selectedSection, setSelectedSection, notes, setNotes, onCancel, onConfirm }) {
+function InvalidateTestModal({ show, room, selectedSection, setSelectedSection, notes, setNotes, existingInvalidations = [], onUpdateNotes, onCancel, onConfirm }) {
+  // Local copy of each existing invalidation's notes, keyed by invalidation id, so they can be edited in place.
+  const [editedNotes, setEditedNotes] = useState({})
+
+  useEffect(() => {
+    if (show) {
+      const initial = {}
+      existingInvalidations.forEach(inv => { initial[inv.id] = inv.notes })
+      setEditedNotes(initial)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset edit buffers each time the modal opens
+  }, [show, room?._id])
+
   if (!show || !room) return null
 
   return (
@@ -9,6 +21,42 @@ function InvalidateTestModal({ show, room, selectedSection, setSelectedSection, 
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Invalidate Test</h2>
 
         <div className="space-y-4">
+          {/* Existing invalidations for this room — edit notes already entered */}
+          {existingInvalidations.length > 0 && (
+            <div>
+              <label className="el-label">Existing Invalidations</label>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                {existingInvalidations.map(inv => {
+                  const current = editedNotes[inv.id] ?? ''
+                  const changed = current.trim() !== inv.notes && current.trim().length > 0
+                  return (
+                    <div key={inv.id} className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-900">Section {inv.sectionNumber}</span>
+                        <span className="text-xs text-slate-400">{inv.invalidatedBy}</span>
+                      </div>
+                      <textarea
+                        value={current}
+                        onChange={(e) => setEditedNotes(prev => ({ ...prev, [inv.id]: e.target.value }))}
+                        className="el-input"
+                        rows={2}
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          onClick={() => onUpdateNotes(inv.id, current)}
+                          disabled={!changed}
+                          className="el-btn el-btn-secondary text-sm px-3 py-1"
+                        >
+                          Save Notes
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <p className="text-sm text-slate-700">
             Invalidate 1 test in <strong className="text-slate-900">{room.name}</strong>
           </p>

@@ -16,6 +16,8 @@ const RoomDetail = () => {
   const [activityLog, setActivityLog] = useState([])
   const [invalidatedTests, setInvalidatedTests] = useState([])
   const [timeRemaining, setTimeRemaining] = useState(null)
+  const [editingInvalidationId, setEditingInvalidationId] = useState(null)
+  const [editingInvalidationNotes, setEditingInvalidationNotes] = useState('')
 
   // Fetch session and room data
   const fetchData = useCallback(async () => {
@@ -266,6 +268,29 @@ const RoomDetail = () => {
 
   // Filter invalidations for this room
   const roomInvalidations = invalidatedTests.filter(inv => inv.roomId === room._id)
+
+  const startEditingInvalidation = (invalidation) => {
+    setEditingInvalidationId(invalidation.id)
+    setEditingInvalidationNotes(invalidation.notes)
+  }
+
+  const cancelEditingInvalidation = () => {
+    setEditingInvalidationId(null)
+    setEditingInvalidationNotes('')
+  }
+
+  const saveInvalidationNotes = async (invalidationId) => {
+    if (!editingInvalidationNotes.trim()) return
+    try {
+      const response = await testingAPI.updateInvalidation(sessionId, invalidationId, editingInvalidationNotes.trim())
+      setInvalidatedTests(prev => prev.map(inv =>
+        inv.id === invalidationId ? { ...inv, notes: response.invalidation.notes } : inv
+      ))
+      cancelEditingInvalidation()
+    } catch (err) {
+      console.error('Error updating invalidation notes:', err)
+    }
+  }
 
   // Calculate room-specific time remaining directly to avoid hooks order issues
   let roomTimeRemaining = null
@@ -637,17 +662,51 @@ const RoomDetail = () => {
                           <p className="text-sm font-semibold text-rose-800">
                             Section {invalidation.sectionNumber}
                           </p>
-                          <p className="mt-1 text-sm text-rose-600">
-                            {invalidation.notes}
-                          </p>
+                          {editingInvalidationId === invalidation.id ? (
+                            <div className="mt-2">
+                              <textarea
+                                value={editingInvalidationNotes}
+                                onChange={(e) => setEditingInvalidationNotes(e.target.value)}
+                                className="el-input"
+                                rows={2}
+                              />
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button
+                                  onClick={cancelEditingInvalidation}
+                                  className="el-btn el-btn-secondary px-3 py-1 text-sm"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => saveInvalidationNotes(invalidation.id)}
+                                  disabled={!editingInvalidationNotes.trim() || editingInvalidationNotes.trim() === invalidation.notes}
+                                  className="el-btn el-btn-primary px-3 py-1 text-sm"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-sm text-rose-600">
+                              {invalidation.notes}
+                            </p>
+                          )}
                         </div>
-                        <div className="text-right">
+                        <div className="ml-3 text-right">
                           <p className="text-xs text-rose-500">
                             {formatTimestamp(invalidation.timestamp)}
                           </p>
                           <p className="text-xs text-rose-500">
                             by {invalidation.invalidatedBy}
                           </p>
+                          {editingInvalidationId !== invalidation.id && (
+                            <button
+                              onClick={() => startEditingInvalidation(invalidation)}
+                              className="mt-1 text-xs font-medium text-rose-600 hover:text-rose-800"
+                            >
+                              Edit notes
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

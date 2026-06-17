@@ -948,6 +948,23 @@ function SessionView({ user, onBack }) {
     }
   }, [roomToInvalidate, invalidationNotes, selectedSection, session?._id])
 
+  const handleUpdateInvalidationNotes = useCallback(async (invalidationId, notes) => {
+    if (!notes || !notes.trim()) return
+
+    try {
+      const response = await testingAPI.updateInvalidation(session._id, invalidationId, notes.trim())
+
+      // Update local state with the edited notes
+      setInvalidatedTests(prev => prev.map(inv =>
+        inv.id === invalidationId ? { ...inv, notes: response.invalidation.notes } : inv
+      ))
+
+      console.log('Invalidation notes updated:', invalidationId)
+    } catch (error) {
+      console.error('Error updating invalidation notes:', error)
+    }
+  }, [session?._id])
+
   const handleRemoveInvalidatedTestClick = useCallback((invalidation) => {
     setInvalidationToRemove(invalidation)
     setShowRemoveInvalidationModal(true)
@@ -3961,6 +3978,8 @@ function SessionView({ user, onBack }) {
         setSelectedSection={setSelectedSection}
         notes={invalidationNotes}
         setNotes={setInvalidationNotes}
+        existingInvalidations={roomToInvalidate ? invalidatedTests.filter(inv => inv.roomId === roomToInvalidate._id) : []}
+        onUpdateNotes={handleUpdateInvalidationNotes}
         onCancel={cancelInvalidateTest}
         onConfirm={handleInvalidateTest}
       />

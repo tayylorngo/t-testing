@@ -840,6 +840,47 @@ router.post('/api/sessions/:sessionId/invalidations', authenticateToken, checkSe
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+router.put('/api/sessions/:sessionId/invalidations/:invalidationId', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
+  try {
+    const { sessionId, invalidationId } = req.params;
+    const { notes } = req.body;
+
+    if (!notes || !notes.trim()) {
+      return res.status(400).json({ message: 'Notes are required' });
+    }
+
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const invalidation = session.invalidations.find(inv => inv.id === invalidationId);
+    if (!invalidation) {
+      return res.status(404).json({ message: 'Invalidation not found' });
+    }
+
+    const previousNotes = invalidation.notes;
+    invalidation.notes = notes.trim();
+    session.markModified('invalidations');
+    await session.save();
+
+    const user = await User.findById(req.user.id);
+    const room = await Room.findById(invalidation.roomId);
+
+    // Add to activity log
+    const action = `${user.firstName} ${user.lastName} edited test invalidation notes for Section ${invalidation.sectionNumber}`;
+    const details = `Notes changed from "${previousNotes}" to "${invalidation.notes}"`;
+    const logEntry = await addActivityLogEntry(sessionId, action, room?.name || 'Unknown Room', details, `${user.firstName} ${user.lastName}`);
+
+    // Emit real-time update
+    emitSessionUpdate(sessionId, 'invalidation-updated', { invalidation, session }, user, logEntry);
+
+    res.json({ invalidation });
+  } catch (error) {
+    console.error('Update invalidation error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 router.delete('/api/sessions/:sessionId/invalidations/:invalidationId', authenticateToken, checkSessionPermission('edit'), async (req, res) => {
   try {
     const { sessionId, invalidationId } = req.params;

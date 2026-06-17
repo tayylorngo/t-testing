@@ -714,6 +714,20 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Update test invalidation notes
+  updateInvalidation: async (sessionId, invalidationId, notes) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/invalidations/${invalidationId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notes }),
+    });
+    return handleResponse(response);
+  },
+
   // Remove test invalidation
   removeInvalidation: async (sessionId, invalidationId) => {
     const token = localStorage.getItem('authToken');
