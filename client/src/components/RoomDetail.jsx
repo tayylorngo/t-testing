@@ -289,43 +289,24 @@ const RoomDetail = () => {
   // Calculate room-specific time remaining directly to avoid hooks order issues
   let roomTimeRemaining = null
   if (session && timeRemaining && room) {
-    // Calculate time multiplier based on section accommodations
+    // Calculate time multiplier based on section accommodations.
+    // Rule: any accommodation grants 1.5x time by default; an accommodation that
+    // specifies 2x ("double time") grants 2x. Take the highest in the room.
     let timeMultiplier = 1
     if (room.sections && room.sections.length > 0) {
-      // Check if any section has 1.5x or 2x time accommodation
-      let hasTimeAccommodation = false
+      const isTwoX = (acc) =>
+        acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
       room.sections.forEach(section => {
-        if (section.accommodations) {
+        if (section.accommodations && section.accommodations.length > 0) {
           section.accommodations.forEach(acc => {
-            // Check for various formats of time accommodations
-            if (acc.includes('1.5x') || acc.includes('2x') ||
-                acc.includes('1.5×') || acc.includes('2×') ||
-                acc.includes('extended time') || acc.includes('double time')) {
-              hasTimeAccommodation = true
+            if (isTwoX(acc)) {
+              timeMultiplier = Math.max(timeMultiplier, 2)
+            } else {
+              timeMultiplier = Math.max(timeMultiplier, 1.5)
             }
           })
         }
       })
-      
-      if (hasTimeAccommodation) {
-        // Find the highest time multiplier in the room
-        let maxMultiplier = 1
-        room.sections.forEach(section => {
-          if (section.accommodations) {
-            section.accommodations.forEach(acc => {
-              // Check for 2x time accommodations (various formats)
-              if (acc.includes('2x') || acc.includes('2×') || acc.includes('double time')) {
-                maxMultiplier = Math.max(maxMultiplier, 2)
-              } 
-              // Check for 1.5x time accommodations (various formats)
-              else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time')) {
-                maxMultiplier = Math.max(maxMultiplier, 1.5)
-              }
-            })
-          }
-        })
-        timeMultiplier = maxMultiplier
-      }
     }
     
     if (!timeRemaining.isOver) {

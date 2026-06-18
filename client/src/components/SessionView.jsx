@@ -29,6 +29,11 @@ import ActivityLogPanel from './session/ActivityLogPanel'
 import InvalidatedTestsSection from './session/InvalidatedTestsSection'
 import { useSessionRealtime } from '../hooks/useSessionRealtime'
 
+// An accommodation grants 2x time only when it explicitly says so ("2x"/"double time");
+// every other accommodation defaults to 1.5x.
+const isTwoXAccommodation = (acc) =>
+  acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
+
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -1565,40 +1570,15 @@ function SessionView({ user, onBack }) {
       return 1
     }
 
-    // Check if any section has 1.5x or 2x time accommodation
-    let hasTimeAccommodation = false
-    room.sections.forEach(section => {
-      if (section.accommodations) {
-        section.accommodations.forEach(acc => {
-          // Check for various formats of time accommodations
-          // Bilingual accommodations default to 1.5x time
-          if (acc.includes('1.5x') || acc.includes('2x') ||
-            acc.includes('1.5×') || acc.includes('2×') ||
-            acc.includes('extended time') || acc.includes('double time') ||
-            acc.toLowerCase().includes('bilingual')) {
-            hasTimeAccommodation = true
-          }
-        })
-      }
-    })
-
-    if (!hasTimeAccommodation) {
-      return 1
-    }
-
-    // Find the highest time multiplier in the room
+    // Rule: any accommodation grants 1.5x time by default; an accommodation that
+    // specifies 2x ("double time") grants 2x. Take the highest in the room.
     let maxMultiplier = 1
     room.sections.forEach(section => {
-      if (section.accommodations) {
+      if (section.accommodations && section.accommodations.length > 0) {
         section.accommodations.forEach(acc => {
-          // Check for 2x time accommodations (various formats)
-          if (acc.includes('2x') || acc.includes('2×') || acc.includes('double time')) {
+          if (isTwoXAccommodation(acc)) {
             maxMultiplier = Math.max(maxMultiplier, 2)
-          }
-          // Check for 1.5x time accommodations (various formats)
-          // Bilingual accommodations default to 1.5x time
-          else if (acc.includes('1.5x') || acc.includes('1.5×') || acc.includes('extended time') ||
-            acc.toLowerCase().includes('bilingual')) {
+          } else {
             maxMultiplier = Math.max(maxMultiplier, 1.5)
           }
         })
@@ -1923,24 +1903,20 @@ function SessionView({ user, onBack }) {
   // Calculate time remaining for 2x accommodations
   const [timeRemaining2x, setTimeRemaining2x] = useState(null)
 
-  // Helper function to check if a room has 1.5x accommodations
+  // Helper function to check if a room has 1.5x accommodations.
+  // Any accommodation that isn't a 2x accommodation counts as 1.5x.
   const roomHas15xAccommodation = useCallback((room) => {
     if (!room.sections || room.sections.length === 0) return false
     return room.sections.some(section =>
-      section.accommodations?.some(acc =>
-        acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time') ||
-        acc.toLowerCase().includes('bilingual')
-      )
+      section.accommodations?.some(acc => !isTwoXAccommodation(acc))
     )
   }, [])
 
   // Helper function to check if a room has 2x accommodations
   const roomHas2xAccommodation = useCallback((room) => {
     if (!room.sections || room.sections.length === 0) return false
-    return room.sections.some(section => 
-      section.accommodations?.some(acc => 
-        acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
-      )
+    return room.sections.some(section =>
+      section.accommodations?.some(acc => isTwoXAccommodation(acc))
     )
   }, [])
 
@@ -2840,21 +2816,15 @@ function SessionView({ user, onBack }) {
                         const accommodations = getRoomAccommodationSummary(room)
                         if (displayFilterAccommodation === 'bilingual' && (!accommodations || !accommodations.includes('bilingual'))) return false
                         if (displayFilterAccommodation === '1.5x') {
-                          // Check if room has 1.5x accommodation
+                          // Any accommodation that isn't 2x counts as 1.5x.
                           const has15x = room.sections?.some(section =>
-                            section.accommodations?.some(acc =>
-                              acc.includes('1.5x') || acc.includes('1.5×') || acc.toLowerCase().includes('extended time') ||
-                              acc.toLowerCase().includes('bilingual')
-                            )
+                            section.accommodations?.some(acc => !isTwoXAccommodation(acc))
                           )
                           if (!has15x) return false
                         }
                         if (displayFilterAccommodation === '2x') {
-                          // Check if room has 2x accommodation
-                          const has2x = room.sections?.some(section => 
-                            section.accommodations?.some(acc => 
-                              acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
-                            )
+                          const has2x = room.sections?.some(section =>
+                            section.accommodations?.some(acc => isTwoXAccommodation(acc))
                           )
                           if (!has2x) return false
                         }
