@@ -1,28 +1,90 @@
 import nodemailer from 'nodemailer';
 import dns from 'node:dns';
 
-// Some SMTP hosts (e.g. smtp.gmail.com) resolve to an IPv6 address first. On networks
-// without IPv6 connectivity that causes "connect ENETUNREACH <ipv6>". Preferring IPv4
-// makes the SMTP connection use an IPv4 address instead.
+// Some SMTP hosts resolve to IPv6 first; prefer IPv4 to avoid ENETUNREACH on the
+// SMTP fallback path (used for local development).
 dns.setDefaultResultOrder('ipv4first');
 
-// True when the SMTP environment variables needed to send mail are present.
+const hasSendGrid = () => !!process.env.SENDGRID_API_KEY;
+const hasSMTP = () => !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+// True when any mail transport is configured.
 export function isMailConfigured() {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return hasSendGrid() || hasSMTP();
 }
 
-// Send an email via the configured SMTP transport. Throws if mail isn't configured.
-export async function sendMail({ to, subject, text, html, attachments }) {
-  if (!isMailConfigured()) {
-    throw new Error('Email is not configured on the server');
+// The verified "from" address. SendGrid requires this to be a verified sender/domain.
+function fromAddress() {
+  return process.env.SENDGRID_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+}
+
+/**
+ * Send an email. Prefers the SendGrid HTTPS API (works on hosts that block SMTP, e.g.
+ * Render); falls back to SMTP when only SMTP_* is configured (handy for local dev).
+ *
+ * @param {Object} opts
+ * @param {string} opts.to
+ * @param {string} opts.subject
+ * @param {string} [opts.text]
+ * @param {string} [opts.html]
+ * @param {Array<{ filename: string, content: string, contentType?: string }>} [opts.attachments]
+ *        `content` is a base64-encoded string.
+ */
+export async function sendMail(opts) {
+  if (hasSendGrid()) return sendViaSendGrid(opts);
+  if (hasSMTP()) return sendViaSMTP(opts);
+  throw new Error('Email is not configured on the server');
+}
+
+async function sendViaSendGrid({ to, subject, text, html, attachments }) {
+  const from = fromAddress();
+  if (!from) {
+    throw new Error('No sender address configured. Set SENDGRID_FROM to a verified sender.');
   }
 
+  const content = [];
+  if (text) content.push({ type: 'text/plain', value: text });
+  if (html) content.push({ type: 'text/html', value: html });
+  if (content.length === 0) content.push({ type: 'text/plain', value: ' ' });
+
+  const payload = {
+    personalizations: [{ to: [{ email: to }] }],
+    from: { email: from },
+    subject: subject || '',
+    content,
+  };
+
+  if (attachments && attachments.length) {
+    payload.attachments = attachments.map(a => ({
+      content: a.content, // already base64
+      filename: a.filename || 'attachment',
+      type: a.contentType || 'application/octet-stream',
+      disposition: 'attachment',
+    }));
+  }
+
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`SendGrid responded ${response.status}: ${detail || response.statusText}`);
+  }
+
+  return { messageId: response.headers.get('x-message-id') || 'sendgrid-ok' };
+}
+
+async function sendViaSMTP({ to, subject, text, html, attachments }) {
   const host = process.env.SMTP_HOST;
 
-  // Resolve the host to an IPv4 address ourselves and connect to that directly. Node's
-  // "Happy Eyeballs" can otherwise still attempt IPv6, which fails with ENETUNREACH on
-  // networks without IPv6. We keep `tls.servername` set to the real hostname so the
-  // certificate still validates against smtp.gmail.com (not the bare IP).
+  // Resolve the host to IPv4 ourselves so Node's "Happy Eyeballs" can't fall back to an
+  // unreachable IPv6 address. tls.servername keeps certificate validation on the hostname.
   let connectHost = host;
   try {
     const { address } = await dns.promises.lookup(host, { family: 4 });
@@ -40,18 +102,21 @@ export async function sendMail({ to, subject, text, html, attachments }) {
       pass: process.env.SMTP_PASS,
     },
     tls: { servername: host },
-    // Fail fast instead of hanging forever when the SMTP host is unreachable/misconfigured.
-    connectionTimeout: 15000, // ms to establish the TCP connection
-    greetingTimeout: 15000,   // ms to wait for the server greeting
-    socketTimeout: 30000,     // ms of inactivity before giving up
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
 
   return transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    from: fromAddress(),
     to,
     subject,
     text,
     html,
-    attachments,
+    attachments: (attachments || []).map(a => ({
+      filename: a.filename,
+      content: Buffer.from(a.content, 'base64'),
+      contentType: a.contentType,
+    })),
   });
 }

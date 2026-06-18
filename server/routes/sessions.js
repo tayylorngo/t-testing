@@ -934,14 +934,14 @@ router.post('/api/sessions/:sessionId/email-report', authenticateToken, checkSes
       return res.status(503).json({ message: 'Email is not configured on the server. Set SMTP_HOST, SMTP_USER and SMTP_PASS.' });
     }
 
-    console.log(`[email-report] Sending report to ${to} via ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'} (secure=${process.env.SMTP_SECURE === 'true'})`);
+    console.log(`[email-report] Sending report to ${to}`);
     const info = await sendMail({
       to,
       subject: (subject && subject.trim()) || 'Testing Session Report',
       text: body || '',
       attachments: [{
         filename: filename || 'session-report.pdf',
-        content: Buffer.from(pdfBase64, 'base64'),
+        content: pdfBase64, // base64 string; the mailer adapts it per transport
         contentType: 'application/pdf',
       }],
     });
