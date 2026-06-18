@@ -6,8 +6,9 @@ import { compareSectionNumbers } from '../utils/sectionNumber'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
-import { exportSessionToPDF } from '../utils/pdfExport'
+import { exportSessionToPDF, generateSessionPDFBase64, buildReportEmail } from '../utils/pdfExport'
 import ExportMenu from './session/ExportMenu'
+import EmailReportModal from './session/EmailReportModal'
 import NotesSheetControl from './session/NotesSheetControl'
 import ClearLogModal from './session/ClearLogModal'
 import IncompleteConfirmModal from './session/IncompleteConfirmModal'
@@ -90,6 +91,10 @@ function SessionView({ user, onBack }) {
   const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
   const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
+  const [showEmailReportModal, setShowEmailReportModal] = useState(false)
+  const [emailReportSending, setEmailReportSending] = useState(false)
+  const [emailReportError, setEmailReportError] = useState('')
+  const [emailReportSuccess, setEmailReportSuccess] = useState('')
   const [showMarkRoomCompleteModal, setShowMarkRoomCompleteModal] = useState(false)
   const [selectedRoomForComplete, setSelectedRoomForComplete] = useState(null)
   // View-mode "Mark Room Complete" present-recording modal
@@ -734,6 +739,44 @@ function SessionView({ user, onBack }) {
       setShowAttendanceErrorModal(true)
     }
   }, [quickCompleteSection, quickCompleteStudentsPresent])
+
+  const openEmailReport = useCallback(() => {
+    setEmailReportError('')
+    setEmailReportSuccess('')
+    setEmailReportSending(false)
+    setShowEmailReportModal(true)
+  }, [])
+
+  const closeEmailReport = useCallback(() => {
+    setShowEmailReportModal(false)
+    setEmailReportError('')
+    setEmailReportSuccess('')
+    setEmailReportSending(false)
+  }, [])
+
+  const handleSendEmailReport = useCallback(async (to, subject) => {
+    if (!session) return
+    setEmailReportError('')
+    setEmailReportSending(true)
+    try {
+      const pdf = generateSessionPDFBase64(session, session.name, invalidatedTests)
+      if (!pdf) throw new Error('Could not generate the PDF report')
+      const { body } = buildReportEmail(session)
+      await testingAPI.emailReport(session._id, {
+        to,
+        subject,
+        body,
+        pdfBase64: pdf.base64,
+        filename: pdf.filename,
+      })
+      setEmailReportSuccess(`The report was emailed to ${to}.`)
+    } catch (err) {
+      console.error('Error emailing report:', err)
+      setEmailReportError(err.message || 'Failed to send the report email')
+    } finally {
+      setEmailReportSending(false)
+    }
+  }, [session, invalidatedTests])
 
   const calculateTotalStudents = useCallback((sections) => {
     if (!sections || sections.length === 0) return 0
@@ -2305,6 +2348,7 @@ function SessionView({ user, onBack }) {
               <ExportMenu
                 onExcel={() => exportSessionToExcel(session, session.name)}
                 onPdf={() => exportSessionToPDF(session, session.name, invalidatedTests)}
+                onEmail={openEmailReport}
               />
               <button
                 onClick={onBack}
@@ -4049,6 +4093,18 @@ function SessionView({ user, onBack }) {
         show={showAttendanceErrorModal}
         message={attendanceError}
         onClose={() => setShowAttendanceErrorModal(false)}
+      />
+
+      {/* Email Report Modal */}
+      <EmailReportModal
+        show={showEmailReportModal}
+        defaultSubject={showEmailReportModal ? buildReportEmail(session).subject : ''}
+        body={showEmailReportModal ? buildReportEmail(session).body : ''}
+        sending={emailReportSending}
+        error={emailReportError}
+        success={emailReportSuccess}
+        onCancel={closeEmailReport}
+        onSend={handleSendEmailReport}
       />
 
       {/* Invalidate Test Modal */}

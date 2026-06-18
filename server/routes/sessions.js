@@ -9,6 +9,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { checkSessionPermission } from '../middleware/permissions.js';
 import { emitSessionUpdate } from '../realtime/socket.js';
 import { addActivityLogEntry } from '../utils/activityLog.js';
+import { sendMail, isMailConfigured } from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -914,6 +915,40 @@ router.delete('/api/sessions/:sessionId/invalidations/:invalidationId', authenti
   } catch (error) {
     console.error('Remove invalidation error:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Email a generated PDF report (built client-side and sent as base64) to a recipient.
+router.post('/api/sessions/:sessionId/email-report', authenticateToken, checkSessionPermission('view'), async (req, res) => {
+  try {
+    const { to, subject, body, pdfBase64, filename } = req.body;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!to || !emailRegex.test(to)) {
+      return res.status(400).json({ message: 'A valid recipient email is required' });
+    }
+    if (!pdfBase64) {
+      return res.status(400).json({ message: 'Report attachment is missing' });
+    }
+    if (!isMailConfigured()) {
+      return res.status(503).json({ message: 'Email is not configured on the server. Set SMTP_HOST, SMTP_USER and SMTP_PASS.' });
+    }
+
+    await sendMail({
+      to,
+      subject: (subject && subject.trim()) || 'Testing Session Report',
+      text: body || '',
+      attachments: [{
+        filename: filename || 'session-report.pdf',
+        content: Buffer.from(pdfBase64, 'base64'),
+        contentType: 'application/pdf',
+      }],
+    });
+
+    res.json({ message: 'Report emailed successfully' });
+  } catch (error) {
+    console.error('Email report error:', error);
+    res.status(500).json({ message: 'Failed to send the report email' });
   }
 });
 

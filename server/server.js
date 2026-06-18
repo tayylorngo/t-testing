@@ -133,8 +133,9 @@ mongoose.connection.once('open', async () => {
 app.use(helmet());
 app.use(cors({ origin: checkCorsOrigin }));
 app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Limit raised to accommodate emailed PDF report attachments sent as base64.
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Serve static files from the React app build
 const publicPath = path.join(__dirname, 'public');

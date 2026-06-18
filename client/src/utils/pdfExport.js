@@ -17,15 +17,40 @@ const STATUS = {
 };
 
 /**
- * Export session data to a styled PDF document.
+ * Export session data to a styled PDF document (triggers a download).
  * @param {Object} session - The session data to export
  * @param {string} filename - The base filename for the exported file
  * @param {Array} [invalidations] - Live invalidated-tests list (falls back to session.invalidations)
  */
 export const exportSessionToPDF = (session, filename = 'testing-session', invalidations) => {
+  const result = buildSessionPDF(session, invalidations);
+  if (!result) return;
+  result.doc.save(pdfFileName(filename, result.exportTs));
+};
+
+/**
+ * Build the session PDF and return it as a base64 string (for emailing / uploading).
+ * @returns {{ base64: string, filename: string } | null}
+ */
+export const generateSessionPDFBase64 = (session, filename = 'testing-session', invalidations) => {
+  const result = buildSessionPDF(session, invalidations);
+  if (!result) return null;
+  const dataUri = result.doc.output('datauristring');
+  const base64 = dataUri.substring(dataUri.indexOf(',') + 1);
+  return { base64, filename: pdfFileName(filename, result.exportTs) };
+};
+
+// Filename helper, shared by the download and email paths.
+function pdfFileName(filename, exportTs) {
+  return `${filename}-${exportTs.toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+}
+
+// Builds the styled PDF document. Returns the jsPDF doc plus the export timestamp,
+// or null if no session was provided.
+function buildSessionPDF(session, invalidations) {
   if (!session) {
     console.error('No session data provided for export');
-    return;
+    return null;
   }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -201,9 +226,43 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
     columnStyles: { 0: { cellWidth: 120 }, 2: { cellWidth: 100 }, 3: { cellWidth: 90 } },
   }));
 
-  const finalName = `${filename}-${exportTs.toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
-  doc.save(finalName);
-};
+  return { doc, exportTs };
+}
+
+/**
+ * Build the auto-generated subject + body text for emailing a session report.
+ * @returns {{ subject: string, body: string }}
+ */
+export function buildReportEmail(session) {
+  if (!session) return { subject: 'Testing Session Report', body: '' };
+  const stats = calcStats(session);
+  const name = session.name || 'Testing Session';
+  const dateStr = session.date
+    ? new Date(session.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
+    : 'N/A';
+  const timeStr = session.startTime && session.endTime
+    ? `${fmtTime(session.startTime)} – ${fmtTime(session.endTime)}`
+    : 'N/A';
+
+  const subject = `Testing Session Report — ${name}${session.date ? ` (${new Date(session.date).toLocaleDateString('en-US', { timeZone: 'UTC' })})` : ''}`;
+
+  const body = [
+    `Attached is the testing session report for "${name}".`,
+    '',
+    `Date: ${dateStr}`,
+    `Time: ${timeStr}`,
+    `Status: ${(session.status || 'N/A').toUpperCase()}`,
+    '',
+    `Rooms: ${session.rooms?.length || 0} (${stats.completedRooms} completed / ${stats.activeRooms} active / ${stats.plannedRooms} planned)`,
+    `Sections: ${session.sections?.length || 0}`,
+    `Students Present: ${stats.totalPresent} of ${stats.totalStudents} (${stats.attendanceRate}% attendance)`,
+    `Students Absent: ${stats.totalAbsent}`,
+    '',
+    'This report was generated automatically. The full details are in the attached PDF.',
+  ].join('\n');
+
+  return { subject, body };
+}
 
 // Return body rows, or a single note row padded to `ncols` when empty.
 function rowsOrNote(rows, ncols, note) {

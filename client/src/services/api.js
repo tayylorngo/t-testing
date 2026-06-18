@@ -714,6 +714,20 @@ export const testingAPI = {
     return handleResponse(response);
   },
 
+  // Email a generated PDF report to a recipient
+  emailReport: async (sessionId, payload) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/email-report`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+  },
+
   // Update test invalidation notes
   updateInvalidation: async (sessionId, invalidationId, notes) => {
     const token = localStorage.getItem('authToken');
