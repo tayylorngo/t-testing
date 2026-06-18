@@ -2675,11 +2675,15 @@ function SessionView({ user, onBack }) {
                 const rooms = debouncedSession?.rooms || []
                 let sectionsTotal = 0
                 let sectionsRecorded = 0
+                let studentsStillTesting = 0
                 rooms.forEach(room => {
                   (room.sections || []).forEach(sec => {
                     sectionsTotal += 1
                     if (isSectionRecorded(room, sec._id)) {
                       sectionsRecorded += 1
+                    } else {
+                      // Section not yet accounted for → its students are still testing.
+                      studentsStillTesting += (sec.studentCount || 0)
                     }
                   })
                 })
@@ -2708,31 +2712,31 @@ function SessionView({ user, onBack }) {
                       </div>
                     </div>
 
-                    {/* Supporting stats */}
-                    <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Rooms Left</p>
-                        <p className={`text-3xl font-bold ${rooms.length - roomsCompleted === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{rooms.length - roomsCompleted}</p>
+                    {/* Supporting stats — single compact strip */}
+                    <div className="el-card flex items-stretch divide-x divide-slate-200 px-2 py-3">
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Students Still Testing</p>
+                        <p className={`text-3xl font-bold ${studentsStillTesting === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{studentsStillTesting}</p>
                       </div>
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Sections Left</p>
-                        <p className={`text-3xl font-bold ${sectionsTotal - sectionsRecorded === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{sectionsTotal - sectionsRecorded}</p>
-                      </div>
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Sections Accounted For</p>
-                        <p className="text-3xl font-bold text-brand-600">{sectionsRecorded}/{sectionsTotal}</p>
-                      </div>
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Total Students</p>
-                        <p className="text-3xl font-bold text-slate-900">{calculateTotalStudentsInSession()}</p>
-                      </div>
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Present</p>
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Present</p>
                         <p className="text-3xl font-bold text-emerald-600">{calculateTotalPresentStudents()}</p>
                       </div>
-                      <div className="el-card p-4 text-center">
-                        <p className="text-sm text-slate-500 mb-1">Absent</p>
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Absent</p>
                         <p className="text-3xl font-bold text-rose-600">{calculateTotalAbsentStudents()}</p>
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Total Students</p>
+                        <p className="text-3xl font-bold text-slate-900">{calculateTotalStudentsInSession()}</p>
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Sections Done</p>
+                        <p className="text-3xl font-bold text-brand-600">{sectionsRecorded}/{sectionsTotal}</p>
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between px-3 text-center">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Rooms Left</p>
+                        <p className={`text-3xl font-bold ${rooms.length - roomsCompleted === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{rooms.length - roomsCompleted}</p>
                       </div>
                     </div>
                   </div>
