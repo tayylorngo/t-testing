@@ -125,7 +125,7 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
   heading('Rooms & Sections');
   autoTable(doc, tableBase({
     startY: y,
-    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Supplies', 'Notes']],
+    head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Notes']],
     body: rowsOrNote((session.rooms || []).map(room => {
       const total = roomTotal(room);
       const present = room.presentStudents || 0;
@@ -135,14 +135,13 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
         room.name || '', room.status || '', total, present, absent,
         (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A',
         room.sections?.map(s => `Section ${s.number} (${s.studentCount} students)`).join(', ') || 'None',
-        formatSupplies(room.supplies),
         room.notes || '',
       ];
-    }), 9, 'No rooms found'),
+    }), 8, 'No rooms found'),
     columnStyles: {
       2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 48 },
       4: { halign: 'center', cellWidth: 44 }, 5: { halign: 'center', cellWidth: 64 },
-      6: { cellWidth: 150 }, 7: { cellWidth: 110 },
+      6: { cellWidth: 170 }, 7: { cellWidth: 150 },
     },
     didParseCell: statusPainter(1),
   }));
@@ -192,24 +191,6 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
   }));
   advance();
 
-  // ── Proctors ──────────────────────────────────────────────────────────────
-  const proctorRows = [];
-  (session.rooms || []).forEach(room => {
-    if (room.proctors && room.proctors.length > 0) {
-      room.proctors.forEach(p => proctorRows.push([room.name || '', p.firstName || '', p.lastName || '', p.email || '', fmtTime(p.startTime), fmtTime(p.endTime)]));
-    } else {
-      proctorRows.push([room.name || '', 'No proctors assigned', '', '', '', '']);
-    }
-  });
-  heading('Proctor Assignments');
-  autoTable(doc, tableBase({
-    startY: y,
-    head: [['Room', 'First Name', 'Last Name', 'Email', 'Start', 'End']],
-    body: rowsOrNote(proctorRows, 6, 'No rooms found'),
-    columnStyles: { 4: { halign: 'center', cellWidth: 70 }, 5: { halign: 'center', cellWidth: 70 } },
-  }));
-  advance();
-
   // ── Activity Log ──────────────────────────────────────────────────────────
   heading('Activity Log');
   autoTable(doc, tableBase({
@@ -245,20 +226,6 @@ function fmtTime(time) {
 function roomTotal(room) {
   if (!room.sections) return 0;
   return room.sections.reduce((total, section) => total + (section.studentCount || 0), 0);
-}
-
-// Collapse duplicate supplies into "Name (count)" instead of repeating the name.
-// Strips the INITIAL_ marker and any existing " (n)" suffix before counting.
-function formatSupplies(supplies) {
-  if (!supplies || supplies.length === 0) return 'None';
-  const counts = {};
-  supplies.forEach(raw => {
-    const name = String(raw).replace(/^INITIAL_/, '').replace(/\s*\(\d+\)$/, '').trim();
-    if (!name) return;
-    counts[name] = (counts[name] || 0) + 1;
-  });
-  const parts = Object.entries(counts).map(([name, n]) => (n > 1 ? `${name} (${n})` : name));
-  return parts.length ? parts.join(', ') : 'None';
 }
 
 function calcStats(session) {
