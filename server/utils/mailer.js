@@ -19,6 +19,10 @@ export async function sendMail({ to, subject, text, html, attachments }) {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    // Fail fast instead of hanging forever when the SMTP host is unreachable/misconfigured.
+    connectionTimeout: 15000, // ms to establish the TCP connection
+    greetingTimeout: 15000,   // ms to wait for the server greeting
+    socketTimeout: 30000,     // ms of inactivity before giving up
   });
 
   return transporter.sendMail({

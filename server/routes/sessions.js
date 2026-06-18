@@ -934,7 +934,8 @@ router.post('/api/sessions/:sessionId/email-report', authenticateToken, checkSes
       return res.status(503).json({ message: 'Email is not configured on the server. Set SMTP_HOST, SMTP_USER and SMTP_PASS.' });
     }
 
-    await sendMail({
+    console.log(`[email-report] Sending report to ${to} via ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || '587'} (secure=${process.env.SMTP_SECURE === 'true'})`);
+    const info = await sendMail({
       to,
       subject: (subject && subject.trim()) || 'Testing Session Report',
       text: body || '',
@@ -944,11 +945,12 @@ router.post('/api/sessions/:sessionId/email-report', authenticateToken, checkSes
         contentType: 'application/pdf',
       }],
     });
+    console.log(`[email-report] Sent: ${info?.messageId || 'ok'}`);
 
     res.json({ message: 'Report emailed successfully' });
   } catch (error) {
-    console.error('Email report error:', error);
-    res.status(500).json({ message: 'Failed to send the report email' });
+    console.error('[email-report] Failed:', error);
+    res.status(500).json({ message: `Failed to send the report email: ${error.message || 'unknown error'}` });
   }
 });
 
