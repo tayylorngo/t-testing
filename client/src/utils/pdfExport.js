@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { compareSectionNumbers } from './sectionNumber';
 
 // Palette (RGB) — mirrors the styled Excel export / app brand (indigo).
 const BRAND = [79, 70, 229];       // indigo-600
@@ -209,6 +210,49 @@ function buildSessionPDF(session, invalidations) {
         data.cell.styles.fillColor = INVALID_BG;
         data.cell.styles.textColor = INVALID_TX;
         data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  }));
+  advance();
+
+  // ── Attendance by Section ─────────────────────────────────────────────────
+  // Per-section present/absent counts, grouped by room. A section is "Recorded"
+  // once a present count has been entered for it (stored in room.sectionReturns).
+  heading('Attendance by Section');
+  const attendanceRows = [];
+  (session.rooms || []).forEach(room => {
+    const sections = [...(room.sections || [])].sort((a, b) => compareSectionNumbers(a.number, b.number));
+    sections.forEach(section => {
+      const total = section.studentCount || 0;
+      const raw = room.sectionReturns ? room.sectionReturns[section._id] : undefined;
+      const recorded = raw !== undefined && raw !== null;
+      const present = recorded ? Number(raw) || 0 : null;
+      attendanceRows.push([
+        room.name || '',
+        section.number || '',
+        total,
+        recorded ? present : '—',
+        recorded ? Math.max(0, total - present) : '—',
+        recorded ? 'Recorded' : 'Pending',
+      ]);
+    });
+  });
+  autoTable(doc, tableBase({
+    startY: y,
+    head: [['Room', 'Section #', 'Students', 'Present', 'Absent', 'Status']],
+    body: rowsOrNote(attendanceRows, 6, 'No sections found'),
+    columnStyles: {
+      1: { halign: 'center', cellWidth: 70 },
+      2: { halign: 'center', cellWidth: 64 },
+      3: { halign: 'center', cellWidth: 64 },
+      4: { halign: 'center', cellWidth: 64 },
+      5: { halign: 'center', cellWidth: 90 },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 5) {
+        const v = String(data.cell.raw || '').toLowerCase();
+        if (v === 'recorded') { data.cell.styles.textColor = [21, 128, 61]; data.cell.styles.fontStyle = 'bold'; }
+        else if (v === 'pending') { data.cell.styles.textColor = [180, 83, 9]; data.cell.styles.fontStyle = 'bold'; }
       }
     },
   }));
