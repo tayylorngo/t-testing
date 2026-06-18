@@ -7,6 +7,7 @@ import { useCustomAlert } from '../hooks/useCustomAlert'
 import CustomAlert from './CustomAlert'
 import ExcelImportModal from './ExcelImportModal'
 import ImportResultModal from './ImportResultModal'
+import { SessionDetailSkeleton } from './ui/Skeletons'
 
 function SessionDetail({ onBack }) {
   const { sessionId } = useParams()
@@ -1137,14 +1138,7 @@ function SessionDetail({ onBack }) {
 
   // Only show full-page loading when not importing (during import we keep modal + progress visible)
   if (isLoading && !isImporting) {
-    return (
-      <div className="el-app-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <span className="el-spinner h-9 w-9" />
-          <p className="text-sm text-slate-500">Loading session details…</p>
-        </div>
-      </div>
-    )
+    return <SessionDetailSkeleton />
   }
 
   if (!session) {

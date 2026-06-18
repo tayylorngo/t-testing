@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { testingAPI } from '../services/api'
+import { ListSkeleton } from './ui/Skeletons'
 
 function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUpdated, onShowRemoveCollaboratorConfirmation, currentUser }) {
   console.log('ManageCollaboratorsModal props:', {
@@ -166,10 +167,7 @@ function ManageCollaboratorsModal({ sessionId, isOpen, onClose, onCollaboratorUp
         <h2 className="mb-4 text-lg font-semibold text-slate-900">Manage Collaborators</h2>
 
         {isLoading ? (
-          <div className="flex flex-col items-center py-8">
-            <span className="el-spinner h-9 w-9" />
-            <p className="mt-3 text-sm text-slate-500">Loading collaborators...</p>
-          </div>
+          <ListSkeleton rows={4} />
         ) : (
           <div className="space-y-6">
             {/* Session Owner */}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { testingAPI } from '../services/api'
+import { ListSkeleton } from './ui/Skeletons'
 
 function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded }) {
   const [invitations, setInvitations] = useState([])
@@ -250,10 +251,7 @@ function PendingInvitationsModal({ user, isOpen, onClose, onInvitationResponded 
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center py-8">
-            <span className="el-spinner h-9 w-9" />
-            <p className="mt-3 text-sm text-slate-500">Loading invitations...</p>
-          </div>
+          <ListSkeleton rows={3} />
         ) : activeTab === 'received' ? (
           // Received Invitations Tab
           <div>

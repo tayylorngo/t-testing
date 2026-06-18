@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { testingAPI } from '../services/api'
 import { compareSectionNumbers } from '../utils/sectionNumber'
 import { useRealTime } from '../contexts/RealTimeContext'
+import { RoomDetailSkeleton } from './ui/Skeletons'
 
 const RoomDetail = () => {
   const { sessionId, roomId } = useParams()
@@ -136,14 +137,7 @@ const RoomDetail = () => {
   }, [session])
 
   if (isLoading) {
-    return (
-      <div className="el-app-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <span className="el-spinner h-9 w-9" />
-          <p className="text-sm text-slate-500">Loading room details…</p>
-        </div>
-      </div>
-    )
+    return <RoomDetailSkeleton />
   }
 
   if (error || !room) {

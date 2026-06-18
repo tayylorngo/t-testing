@@ -143,6 +143,20 @@
   .el-stat-label {
     @apply text-[11px] font-semibold uppercase tracking-wide text-slate-400;
   }
+  /* Skeleton loading placeholder with a left-to-right shimmer sweep. */
+  .el-skeleton {
+    @apply relative overflow-hidden rounded-md bg-slate-200;
+  }
+  .el-skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full;
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    animation: elShimmer 1.5s infinite;
+  }
+}
+
+@keyframes elShimmer {
+  100% { transform: translateX(100%); }
 }
 
 /* ============================================================

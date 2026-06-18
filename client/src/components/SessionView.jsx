@@ -9,6 +9,7 @@ import { exportSessionToExcel } from '../utils/excelExport'
 import { exportSessionToPDF, generateSessionPDFBase64, buildReportEmail } from '../utils/pdfExport'
 import ExportMenu from './session/ExportMenu'
 import EmailReportModal from './session/EmailReportModal'
+import { SessionViewSkeleton } from './ui/Skeletons'
 import NotesSheetControl from './session/NotesSheetControl'
 import ClearLogModal from './session/ClearLogModal'
 import IncompleteConfirmModal from './session/IncompleteConfirmModal'
@@ -2271,14 +2272,7 @@ function SessionView({ user, onBack }) {
 
 
   if (isLoading) {
-    return (
-      <div className="el-app-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <span className="el-spinner h-9 w-9" />
-          <p className="text-sm text-slate-500">Loading session…</p>
-        </div>
-      </div>
-    )
+    return <SessionViewSkeleton />
   }
 
   if (!session) {

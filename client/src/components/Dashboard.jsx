@@ -4,6 +4,7 @@ import { useRealTime } from '../contexts/RealTimeContext'
 import InviteUsersModal from './InviteUsersModal'
 import ManageCollaboratorsModal from './ManageCollaboratorsModal'
 import PendingInvitationsModal from './PendingInvitationsModal'
+import { DashboardSkeleton } from './ui/Skeletons'
 
 function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
   const { isConnected, reconnect } = useRealTime()
@@ -518,14 +519,7 @@ function Dashboard({ user, onUserUpdated, onLogout, onViewSession }) {
   }
 
   if (isLoading) {
-    return (
-      <div className="el-app-bg flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <span className="el-spinner h-9 w-9" />
-          <p className="text-sm text-slate-500">Loading sessions…</p>
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   const sortedSessions = getSortedSessions()
