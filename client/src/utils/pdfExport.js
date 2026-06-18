@@ -59,12 +59,12 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
   };
 
   const tableBase = (extra) => ({
-    margin: { top: 64, bottom: 34, left: margin, right: margin },
+    margin: { top: 60, bottom: 28, left: margin, right: margin },
     styles: {
-      font: 'helvetica', fontSize: 9, cellPadding: 5, textColor: SLATE700,
+      font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: SLATE700,
       lineColor: BORDER, lineWidth: 0.5, overflow: 'linebreak', valign: 'middle',
     },
-    headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10, halign: 'center', valign: 'middle' },
+    headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, halign: 'center', valign: 'middle' },
     alternateRowStyles: { fillColor: ZEBRA },
     theme: 'grid',
     didDrawPage: drawHeader,
@@ -87,36 +87,34 @@ export const exportSessionToPDF = (session, filename = 'testing-session', invali
     }
   };
 
-  let y = 64;
+  let y = 60;
   const heading = (text) => {
-    if (y > pageH - 90) { doc.addPage(); y = 64; }
+    if (y > pageH - 80) { doc.addPage(); y = 60; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     doc.setTextColor(...BRAND_DARK);
     doc.text(text, margin, y);
-    y += 6;
+    y += 4;
   };
-  const advance = () => { y = doc.lastAutoTable.finalY + 24; };
+  const advance = () => { y = doc.lastAutoTable.finalY + 14; };
 
   // ── Session Summary ───────────────────────────────────────────────────────
+  // Two label/value pairs per row to keep the summary to a few compact lines.
   heading('Session Summary');
   autoTable(doc, tableBase({
     startY: y,
     body: [
-      ['Status', (session.status || '—').toUpperCase()],
-      ['Total Rooms', String(session.rooms?.length || 0)],
-      ['Total Sections', String(session.sections?.length || 0)],
-      ['Total Students', String(stats.totalStudents)],
-      ['Present Students', String(stats.totalPresent)],
-      ['Absent Students', String(stats.totalAbsent)],
-      ['Attendance Rate', `${stats.attendanceRate}%`],
-      ['Completed / Active / Planned Rooms', `${stats.completedRooms} / ${stats.activeRooms} / ${stats.plannedRooms}`],
-      ['Notes Sheet', session.notesSheetUrl || '—'],
-      ['Exported', exportTs.toLocaleString()],
+      ['Status', (session.status || '—').toUpperCase(), 'Attendance Rate', `${stats.attendanceRate}%`],
+      ['Total Rooms', String(session.rooms?.length || 0), 'Rooms (Done/Active/Planned)', `${stats.completedRooms} / ${stats.activeRooms} / ${stats.plannedRooms}`],
+      ['Total Sections', String(session.sections?.length || 0), 'Total Students', String(stats.totalStudents)],
+      ['Present Students', String(stats.totalPresent), 'Absent Students', String(stats.totalAbsent)],
+      ['Notes Sheet', session.notesSheetUrl || '—', 'Exported', exportTs.toLocaleString()],
     ],
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 240, textColor: SLATE700 },
-      1: { textColor: SLATE900, fontStyle: 'bold' },
+      0: { fontStyle: 'bold', cellWidth: 150, textColor: SLATE700 },
+      1: { textColor: SLATE900, fontStyle: 'bold', cellWidth: 200 },
+      2: { fontStyle: 'bold', cellWidth: 150, textColor: SLATE700 },
+      3: { textColor: SLATE900, fontStyle: 'bold' },
     },
   }));
   advance();
