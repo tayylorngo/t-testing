@@ -1,4 +1,10 @@
 import nodemailer from 'nodemailer';
+import dns from 'node:dns';
+
+// Some SMTP hosts (e.g. smtp.gmail.com) resolve to an IPv6 address first. On networks
+// without IPv6 connectivity that causes "connect ENETUNREACH <ipv6>". Preferring IPv4
+// makes the SMTP connection use an IPv4 address instead.
+dns.setDefaultResultOrder('ipv4first');
 
 // True when the SMTP environment variables needed to send mail are present.
 export function isMailConfigured() {
