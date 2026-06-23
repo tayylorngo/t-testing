@@ -2952,30 +2952,40 @@ function SessionView({ user, onBack }) {
                         acc.toLowerCase().includes('conflict')
                       )
                     ) || false
-                    // Highlight rooms that need attention: invalidated tests (rose) or notes (amber).
                     const hasInvalidation = invalidatedTests.some(inv => inv.roomId === room._id)
                     const hasNotes = !!(room.notes && room.notes.trim())
-                    const highlightRing = hasInvalidation
-                      ? ' ring-2 ring-rose-400'
-                      : hasNotes
-                      ? ' ring-2 ring-amber-400'
-                      : ''
+                    const isBilingual = getRoomAccommodationSummary(room)?.includes('bilingual') || false
+                    const hasExtendedTime = roomHas15xAccommodation(room) || roomHas2xAccommodation(room)
+
+                    // Border (thick) encodes accommodation type.
+                    // Precedence: conflict (blue) > bilingual (green, overrides 1.5x/2x) >
+                    // special-ed 1.5x/2x (red) > none (black).
+                    const borderClass = hasConflict
+                      ? 'border-blue-600'
+                      : isBilingual
+                      ? 'border-green-600'
+                      : hasExtendedTime
+                      ? 'border-red-600'
+                      : 'border-slate-900'
+
+                    // Card background encodes return status.
+                    // Precedence: invalid (red) > complete (green) > incomplete (yellow).
+                    const bgClass = hasInvalidation
+                      ? 'bg-red-50'
+                      : roomFullyRecorded
+                      ? 'bg-green-50'
+                      : 'bg-yellow-50'
 
                     return (
                       <div
                         key={room._id}
-                        className={`flex flex-col rounded-xl p-3 shadow-sm border ${hasConflict
-                          ? 'bg-amber-50 border-amber-300'
-                          : roomFullyRecorded
-                          ? 'bg-emerald-50 border-emerald-300'
-                          : 'bg-white border-slate-200'
-                          }${highlightRing}`}
+                        className={`flex flex-col rounded-xl p-3 shadow-sm border-4 ${borderClass} ${bgClass}`}
                       >
                         {/* Room header */}
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <div className="flex flex-col gap-1 truncate flex-1">
                             <h3 className="text-lg font-bold text-slate-900 truncate">{room.name}</h3>
-                            <div className="flex gap-1 flex-wrap">
+                            <div className="flex gap-1 flex-wrap items-center">
                               {getRoomAccommodationSummary(room) && (
                                 <>
                                   {getRoomAccommodationSummary(room).includes('bilingual') && (
@@ -2986,11 +2996,12 @@ function SessionView({ user, onBack }) {
                                   )}
                                 </>
                               )}
-                              {hasInvalidation && (
-                                <span className="el-badge el-badge-rose">⚠️ Invalidated</span>
-                              )}
                               {hasNotes && (
-                                <span className="el-badge el-badge-amber">📝 Notes</span>
+                                <span title="This room has notes" className="inline-flex items-center text-amber-600">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </span>
                               )}
                             </div>
                           </div>
