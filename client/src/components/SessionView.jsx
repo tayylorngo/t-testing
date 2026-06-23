@@ -2916,6 +2916,14 @@ function SessionView({ user, onBack }) {
                         acc.toLowerCase().includes('conflict')
                       )
                     ) || false
+                    // Highlight rooms that need attention: invalidated tests (rose) or notes (amber).
+                    const hasInvalidation = invalidatedTests.some(inv => inv.roomId === room._id)
+                    const hasNotes = !!(room.notes && room.notes.trim())
+                    const highlightRing = hasInvalidation
+                      ? ' ring-2 ring-rose-400'
+                      : hasNotes
+                      ? ' ring-2 ring-amber-400'
+                      : ''
 
                     return (
                       <div
@@ -2925,7 +2933,7 @@ function SessionView({ user, onBack }) {
                           : roomFullyRecorded
                           ? 'bg-emerald-50 border-emerald-300'
                           : 'bg-white border-slate-200'
-                          }`}
+                          }${highlightRing}`}
                       >
                         {/* Room header */}
                         <div className="flex justify-between items-start mb-2 gap-2">
@@ -2941,6 +2949,12 @@ function SessionView({ user, onBack }) {
                                     <span className="el-badge el-badge-green">⏱️ Extra Time</span>
                                   )}
                                 </>
+                              )}
+                              {hasInvalidation && (
+                                <span className="el-badge el-badge-rose">⚠️ Invalidated</span>
+                              )}
+                              {hasNotes && (
+                                <span className="el-badge el-badge-amber">📝 Notes</span>
                               )}
                             </div>
                           </div>
