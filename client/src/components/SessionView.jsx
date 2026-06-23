@@ -2985,7 +2985,7 @@ function SessionView({ user, onBack }) {
                     const borderColors = []
                     if (borderHasConflict) borderColors.push('#2563eb') // blue-600
                     if (borderHasExtended) borderColors.push('#dc2626')  // red-600
-                    if (borderHasBilingual) borderColors.push('#15803d') // green-700 (darker green)
+                    if (borderHasBilingual) borderColors.push('#a3e635') // lime-400 (highlighter green)
                     if (borderColors.length === 0) borderColors.push('#0f172a') // slate-900 (black)
                     // Per-side colors: left & right are the outer colors; top & bottom share the
                     // middle color (or the left color when there's no distinct middle).
