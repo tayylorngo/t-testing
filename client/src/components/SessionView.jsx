@@ -35,6 +35,13 @@ import { useSessionRealtime } from '../hooks/useSessionRealtime'
 const isTwoXAccommodation = (acc) =>
   acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
 
+// ELL (e.g. "ISS/ELL – Spanish") is treated the same as a Bilingual accommodation.
+// The \bell\b match avoids false hits inside words like "yellow" or "Mitchell".
+const isBilingualAccommodation = (acc) => {
+  const lower = acc.toLowerCase()
+  return lower.includes('bilingual') || /\bell\b/.test(lower)
+}
+
 // Build a hard-stop linear-gradient that splits a border into equal colored segments
 // (one color → solid; two → half/half; three → thirds; etc.).
 const segmentedGradient = (colors) => {
@@ -1941,8 +1948,8 @@ function SessionView({ user, onBack }) {
     room.sections.forEach(section => {
       if (section.accommodations && section.accommodations.length > 0) {
         section.accommodations.forEach(acc => {
-          // Check for bilingual accommodations (case insensitive)
-          if (acc.toLowerCase().includes('bilingual')) {
+          // Check for bilingual accommodations (ELL counts as bilingual)
+          if (isBilingualAccommodation(acc)) {
             accommodationTypes.add('bilingual')
           }
           // Check for extra time accommodations
