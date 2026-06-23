@@ -37,6 +37,11 @@ const roomSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // A reminder shown when returning tests for a section in this room.
+  reminder: {
+    type: String,
+    trim: true
+  },
   proctors: [{
     firstName: {
       type: String,

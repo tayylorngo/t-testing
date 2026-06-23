@@ -21,6 +21,7 @@ import PresentKeypad from './session/PresentKeypad'
 import InvalidateTestModal from './session/InvalidateTestModal'
 import RemoveInvalidationModal from './session/RemoveInvalidationModal'
 import RoomNotesModal from './session/RoomNotesModal'
+import RoomReminderModal from './session/RoomReminderModal'
 import AddSupplyModal from './session/AddSupplyModal'
 import EditSupplyModal from './session/EditSupplyModal'
 import EditSuppliesModal from './session/EditSuppliesModal'
@@ -94,6 +95,9 @@ function SessionView({ user, onBack }) {
   const [showRoomNotesModal, setShowRoomNotesModal] = useState(false)
   const [selectedRoomForNotes, setSelectedRoomForNotes] = useState(null)
   const [roomNotes, setRoomNotes] = useState('')
+  const [showRoomReminderModal, setShowRoomReminderModal] = useState(false)
+  const [selectedRoomForReminder, setSelectedRoomForReminder] = useState(null)
+  const [roomReminder, setRoomReminder] = useState('')
   const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
   const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
@@ -1198,6 +1202,38 @@ function SessionView({ user, onBack }) {
       console.error('Error saving room notes:', error)
     }
   }, [selectedRoomForNotes, roomNotes])
+
+  const handleRoomReminderClick = useCallback((room) => {
+    setSelectedRoomForReminder(room)
+    setRoomReminder(room.reminder || '')
+    setShowRoomReminderModal(true)
+  }, [])
+
+  const handleSaveRoomReminder = useCallback(async () => {
+    if (!selectedRoomForReminder) return
+    try {
+      await testingAPI.updateRoom(selectedRoomForReminder._id, { reminder: roomReminder.trim() })
+      setSession(prevSession => ({
+        ...prevSession,
+        rooms: prevSession.rooms.map(room =>
+          room._id === selectedRoomForReminder._id
+            ? { ...room, reminder: roomReminder.trim() }
+            : room
+        )
+      }))
+      setShowRoomReminderModal(false)
+      setSelectedRoomForReminder(null)
+      setRoomReminder('')
+    } catch (error) {
+      console.error('Error saving room reminder:', error)
+    }
+  }, [selectedRoomForReminder, roomReminder])
+
+  const cancelRoomReminder = useCallback(() => {
+    setShowRoomReminderModal(false)
+    setSelectedRoomForReminder(null)
+    setRoomReminder('')
+  }, [])
 
   const cancelRoomNotes = useCallback(() => {
     setShowRoomNotesModal(false)
@@ -3487,6 +3523,24 @@ function SessionView({ user, onBack }) {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
+                                          handleRoomReminderClick(room)
+                                          setShowDropdown(null)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 flex items-center"
+                                        style={{
+                                          pointerEvents: 'auto',
+                                          zIndex: 99999,
+                                          position: 'relative'
+                                        }}
+                                      >
+                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                        </svg>
+                                        {room.reminder && room.reminder.trim() ? 'Edit Reminder' : 'Set Reminder'}
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
                                           console.log('Edit Supplies button clicked')
                                           handleEditSuppliesClick(room)
                                           setShowDropdown(null)
@@ -4154,6 +4208,16 @@ function SessionView({ user, onBack }) {
         setNotes={setRoomNotes}
         onCancel={cancelRoomNotes}
         onConfirm={handleSaveRoomNotes}
+      />
+
+      {/* Room Reminder Modal */}
+      <RoomReminderModal
+        show={showRoomReminderModal}
+        room={selectedRoomForReminder}
+        reminder={roomReminder}
+        setReminder={setRoomReminder}
+        onCancel={cancelRoomReminder}
+        onConfirm={handleSaveRoomReminder}
       />
     </div>
   )

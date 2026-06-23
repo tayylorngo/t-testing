@@ -26,7 +26,7 @@ router.get('/api/sessions', authenticateToken, async (req, res) => {
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes reminder proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'
@@ -68,7 +68,7 @@ router.put('/api/sessions/:id/archive', authenticateToken, checkSessionPermissio
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes reminder proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -118,7 +118,7 @@ router.put('/api/sessions/:id/unarchive', authenticateToken, checkSessionPermiss
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes reminder proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -179,7 +179,7 @@ router.post('/api/sessions', authenticateToken, async (req, res) => {
     const populatedSession = await Session.findById(newSession._id)
       .populate({
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionReturns notes proctors',
+        select: 'name supplies status presentStudents sectionReturns notes reminder proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -207,7 +207,7 @@ router.get('/api/sessions/:id', authenticateToken, checkSessionPermission('view'
     }).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
+        select: 'name supplies status presentStudents sectionAttendance sectionReturns notes reminder proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -268,7 +268,7 @@ router.put('/api/sessions/:id', authenticateToken, checkSessionPermission('edit'
     ).populate([
       {
         path: 'rooms',
-        select: 'name supplies status presentStudents sectionReturns notes proctors',
+        select: 'name supplies status presentStudents sectionReturns notes reminder proctors',
         populate: {
           path: 'sections',
           select: 'number studentCount accommodations notes'
@@ -424,7 +424,7 @@ router.post('/api/sessions/:id/duplicate', authenticateToken, checkSessionPermis
       .populate([
         {
           path: 'rooms',
-          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes proctors',
+          select: 'name supplies status presentStudents sectionAttendance sectionReturns notes reminder proctors',
           populate: {
             path: 'sections',
             select: 'number studentCount accommodations notes'

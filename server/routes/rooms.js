@@ -246,7 +246,7 @@ router.put('/api/rooms/:roomId/section-returns', authenticateToken, async (req, 
 router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   try {
       const { id } = req.params;
-  const { name, supplies, status, presentStudents, sectionAttendance, sectionReturns, proctors, notes } = req.body;
+  const { name, supplies, status, presentStudents, sectionAttendance, sectionReturns, proctors, notes, reminder } = req.body;
   const updateData = {};
 
   if (name !== undefined) {
@@ -264,6 +264,7 @@ router.put('/api/rooms/:id', authenticateToken, async (req, res) => {
   if (sectionReturns !== undefined) updateData.sectionReturns = sectionReturns;
   if (proctors !== undefined) updateData.proctors = proctors;
   if (notes !== undefined) updateData.notes = notes;
+  if (reminder !== undefined) updateData.reminder = reminder;
 
     // Get the old room data BEFORE updating to compare supplies
     const oldRoom = await Room.findById(id);
