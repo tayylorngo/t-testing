@@ -97,6 +97,7 @@ function SessionView({ user, onBack }) {
   const [showQuickCompleteModal, setShowQuickCompleteModal] = useState(false)
   const [quickCompleteSection, setQuickCompleteSection] = useState(null) // { section, room }
   const [quickCompleteStudentsPresent, setQuickCompleteStudentsPresent] = useState('')
+  const [quickCompleteTotalStudents, setQuickCompleteTotalStudents] = useState('')
   const [showEmailReportModal, setShowEmailReportModal] = useState(false)
   const [emailReportSending, setEmailReportSending] = useState(false)
   const [emailReportError, setEmailReportError] = useState('')
@@ -709,15 +710,28 @@ function SessionView({ user, onBack }) {
     if (!quickCompleteSection) return
 
     const { section, room } = quickCompleteSection
+    // The roster total can be adjusted here (more/fewer students showed up than expected).
+    const totalCount = parseInt(quickCompleteTotalStudents, 10)
     const presentCount = parseInt(quickCompleteStudentsPresent, 10)
 
-    if (isNaN(presentCount) || presentCount < 0 || presentCount > section.studentCount) {
-      setAttendanceError(`Please enter a valid number between 0 and ${section.studentCount} for Section ${section.number}`)
+    if (isNaN(totalCount) || totalCount < 1) {
+      setAttendanceError(`Total students must be at least 1 for Section ${section.number}`)
+      setShowAttendanceErrorModal(true)
+      return
+    }
+    if (isNaN(presentCount) || presentCount < 0 || presentCount > totalCount) {
+      setAttendanceError(`Please enter a valid number present between 0 and ${totalCount} for Section ${section.number}`)
       setShowAttendanceErrorModal(true)
       return
     }
 
     try {
+      // If the roster total changed, update the section first so the present count is
+      // validated/clamped against the new total when recorded.
+      if (totalCount !== section.studentCount) {
+        await testingAPI.updateSection(section._id, { studentCount: totalCount })
+      }
+
       // Record this section's present count. The room auto-completes server-side once every
       // section has been recorded (single-section rooms complete immediately).
       const result = await testingAPI.updateSectionReturns(room._id, section._id, presentCount)
@@ -739,12 +753,13 @@ function SessionView({ user, onBack }) {
       setShowQuickCompleteModal(false)
       setQuickCompleteSection(null)
       setQuickCompleteStudentsPresent('')
+      setQuickCompleteTotalStudents('')
     } catch (error) {
       console.error('Error in quick complete by section:', error)
       setAttendanceError('Failed to record. Please try again.')
       setShowAttendanceErrorModal(true)
     }
-  }, [quickCompleteSection, quickCompleteStudentsPresent])
+  }, [quickCompleteSection, quickCompleteStudentsPresent, quickCompleteTotalStudents])
 
   const openEmailReport = useCallback(() => {
     setEmailReportError('')
@@ -4024,11 +4039,14 @@ function SessionView({ user, onBack }) {
         setSection={setQuickCompleteSection}
         studentsPresent={quickCompleteStudentsPresent}
         setStudentsPresent={setQuickCompleteStudentsPresent}
+        totalStudents={quickCompleteTotalStudents}
+        setTotalStudents={setQuickCompleteTotalStudents}
         availableSections={sectionsAvailableForQuickComplete}
         onCancel={() => {
           setShowQuickCompleteModal(false)
           setQuickCompleteSection(null)
           setQuickCompleteStudentsPresent('')
+          setQuickCompleteTotalStudents('')
         }}
         onConfirm={handleQuickCompleteBySection}
       />

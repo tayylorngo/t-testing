@@ -6,11 +6,20 @@ function QuickCompleteModal({
   setSection,
   studentsPresent,
   setStudentsPresent,
+  totalStudents,
+  setTotalStudents,
   availableSections,
   onCancel,
   onConfirm,
 }) {
   if (!show) return null
+
+  // The roster total can be edited here; fall back to the section's stored count.
+  const totalValue = totalStudents === '' || totalStudents === undefined
+    ? (section ? section.section.studentCount : '')
+    : totalStudents
+  const totalNum = parseInt(totalValue, 10)
+  const maxPresent = Number.isNaN(totalNum) ? 0 : totalNum
 
   return (
     <div className="el-overlay">
@@ -29,6 +38,7 @@ function QuickCompleteModal({
                 if (!val) {
                   setSection(null)
                   setStudentsPresent('')
+                  setTotalStudents('')
                   return
                 }
                 const [roomId, sectionId] = val.split('-')
@@ -37,6 +47,8 @@ function QuickCompleteModal({
                 )
                 setSection(item || null)
                 setStudentsPresent('')
+                // Seed the editable total with the section's current roster.
+                setTotalStudents(item ? String(item.section.studentCount) : '')
               }}
               className="el-input"
             >
@@ -50,24 +62,51 @@ function QuickCompleteModal({
           </div>
 
           {section && (
-            <div>
-              <label className="el-label">
-                Students Present (Section {section.section.number})
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={section.section.studentCount}
-                value={studentsPresent}
-                onChange={(e) => setStudentsPresent(e.target.value)}
-                className="el-input"
-                placeholder={`Enter 0–${section.section.studentCount}`}
-                autoFocus
-              />
-              <p className="text-xs text-slate-400 mt-1">
-                Max: {section.section.studentCount} students
-              </p>
-            </div>
+            <>
+              <div>
+                <label className="el-label">
+                  Total Students (Section {section.section.number})
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={totalValue}
+                  onChange={(e) => {
+                    setTotalStudents(e.target.value)
+                    // Don't let "present" exceed a newly lowered total.
+                    const newTotal = parseInt(e.target.value, 10)
+                    const present = parseInt(studentsPresent, 10)
+                    if (!Number.isNaN(newTotal) && !Number.isNaN(present) && present > newTotal) {
+                      setStudentsPresent(String(newTotal))
+                    }
+                  }}
+                  className="el-input"
+                  placeholder="Total students in this section"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Adjust if more or fewer students showed up than expected.
+                </p>
+              </div>
+
+              <div>
+                <label className="el-label">
+                  Students Present (Section {section.section.number})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={maxPresent}
+                  value={studentsPresent}
+                  onChange={(e) => setStudentsPresent(e.target.value)}
+                  className="el-input"
+                  placeholder={`Enter 0–${maxPresent}`}
+                  autoFocus
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Max: {maxPresent} students
+                </p>
+              </div>
+            </>
           )}
 
           <div className="flex gap-3 pt-2">
@@ -79,7 +118,7 @@ function QuickCompleteModal({
             </button>
             <button
               onClick={onConfirm}
-              disabled={!section || !studentsPresent || isNaN(parseInt(studentsPresent))}
+              disabled={!section || studentsPresent === '' || isNaN(parseInt(studentsPresent)) || maxPresent < 1}
               className="el-btn el-btn-success flex-1"
             >
               Mark Section Complete
