@@ -2983,7 +2983,7 @@ function SessionView({ user, onBack }) {
                     const hasConflict = borderHasConflict
                     // Order left → right: blue, red, green.
                     const borderColors = []
-                    if (borderHasConflict) borderColors.push('#38bdf8') // sky-400 (neon light blue)
+                    if (borderHasConflict) borderColors.push('#4f46e5') // indigo-600 (royal blue)
                     if (borderHasExtended) borderColors.push('#dc2626')  // red-600
                     if (borderHasBilingual) borderColors.push('#a3e635') // lime-400 (highlighter green)
                     if (borderColors.length === 0) borderColors.push('#0f172a') // slate-900 (black)
