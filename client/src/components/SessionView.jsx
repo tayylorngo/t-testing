@@ -2670,7 +2670,10 @@ function SessionView({ user, onBack }) {
                     <div className="inline-block rounded-xl border border-amber-200 bg-white shadow-sm px-7 py-5">
                       <p className="text-sm text-slate-500 mb-2">1.5x Time Remaining</p>
                       {timeRemaining15x.isOver ? (
-                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                        <div>
+                          <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                          <div className="text-xs text-slate-400 mt-1">For non-conflict rooms only</div>
+                        </div>
                       ) : (
                         <div className="text-4xl font-mono font-bold text-amber-600">
                           {String(timeRemaining15x.hours).padStart(2, '0')}:{String(timeRemaining15x.minutes).padStart(2, '0')}:{String(timeRemaining15x.seconds).padStart(2, '0')}
@@ -2684,7 +2687,10 @@ function SessionView({ user, onBack }) {
                     <div className="inline-block rounded-xl border border-brand-200 bg-white shadow-sm px-7 py-5">
                       <p className="text-sm text-slate-500 mb-2">2x Time Remaining</p>
                       {timeRemaining2x.isOver ? (
-                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                        <div>
+                          <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                          <div className="text-xs text-slate-400 mt-1">For non-conflict rooms only</div>
+                        </div>
                       ) : (
                         <div className="text-4xl font-mono font-bold text-brand-600">
                           {String(timeRemaining2x.hours).padStart(2, '0')}:{String(timeRemaining2x.minutes).padStart(2, '0')}:{String(timeRemaining2x.seconds).padStart(2, '0')}
