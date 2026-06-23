@@ -2417,7 +2417,10 @@ function SessionView({ user, onBack }) {
               {timeRemaining ? (
                 <div className="text-center">
                   {timeRemaining.isOver ? (
-                    <div className="text-rose-600 font-bold text-4xl">EXAM ENDED</div>
+                    <div>
+                      <div className="text-rose-600 font-bold text-4xl">EXAM ENDED</div>
+                      <div className="text-xs text-slate-400 mt-1">For non-conflict rooms only</div>
+                    </div>
                   ) : (
                     <div className="text-5xl font-bold text-amber-600">
                       {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
@@ -2648,7 +2651,10 @@ function SessionView({ user, onBack }) {
                     <p className="text-sm text-slate-500 mb-2">Estimated Time Remaining</p>
                   {timeRemaining ? (
                     timeRemaining.isOver ? (
-                        <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                        <div>
+                          <div className="text-3xl font-bold text-rose-600 animate-pulse">EXAM ENDED</div>
+                          <div className="text-xs text-slate-400 mt-1">For non-conflict rooms only</div>
+                        </div>
                     ) : (
                         <div className="text-4xl font-mono font-bold text-emerald-600">
                         {String(timeRemaining.hours).padStart(2, '0')}:{String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
