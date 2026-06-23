@@ -35,6 +35,17 @@ import { useSessionRealtime } from '../hooks/useSessionRealtime'
 const isTwoXAccommodation = (acc) =>
   acc.includes('2x') || acc.includes('2×') || acc.toLowerCase().includes('double time')
 
+// Build a hard-stop linear-gradient that splits a border into equal colored segments
+// (one color → solid; two → half/half; three → thirds; etc.).
+const segmentedGradient = (colors) => {
+  if (colors.length === 1) return colors[0]
+  const seg = 100 / colors.length
+  const stops = colors
+    .map((c, i) => `${c} ${(i * seg).toFixed(2)}% ${((i + 1) * seg).toFixed(2)}%`)
+    .join(', ')
+  return `linear-gradient(90deg, ${stops})`
+}
+
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -2957,35 +2968,42 @@ function SessionView({ user, onBack }) {
                     const isBilingual = getRoomAccommodationSummary(room)?.includes('bilingual') || false
                     const hasExtendedTime = roomHas15xAccommodation(room) || roomHas2xAccommodation(room)
 
-                    // Border (thick) encodes accommodation type.
-                    // Precedence: conflict (blue) > bilingual (green, overrides 1.5x/2x) >
-                    // special-ed 1.5x/2x (red) > none (black).
-                    const borderClass = hasConflict
-                      ? 'border-blue-600'
-                      : isBilingual
-                      ? 'border-green-600'
-                      : hasExtendedTime
-                      ? 'border-red-600'
-                      : 'border-slate-900'
+                    // Border (thick) encodes accommodation type. Each matching condition adds a
+                    // colored segment, so a room with several shows a multi-color split border:
+                    //   conflict → blue, bilingual → green (overrides 1.5x/2x), 1.5x/2x → red.
+                    // No accommodations → solid black.
+                    const borderColors = []
+                    if (hasConflict) borderColors.push('#2563eb')            // blue-600
+                    if (isBilingual) borderColors.push('#16a34a')            // green-600
+                    if (hasExtendedTime && !isBilingual) borderColors.push('#dc2626') // red-600
+                    if (borderColors.length === 0) borderColors.push('#0f172a')       // slate-900 (black)
+                    const borderBackground = segmentedGradient(borderColors)
 
                     // Card background encodes return status.
                     // Precedence: invalid (red) > complete (green) > incomplete (yellow).
-                    const bgClass = hasInvalidation
-                      ? 'bg-red-50'
+                    const cardBg = hasInvalidation
+                      ? '#fef2f2' // red-50
                       : roomFullyRecorded
-                      ? 'bg-green-50'
-                      : 'bg-yellow-50'
+                      ? '#f0fdf4' // green-50
+                      : '#fefce8' // yellow-50
 
                     return (
                       <div
                         key={room._id}
-                        className={`flex flex-col rounded-xl p-3 shadow-sm border-4 ${borderClass} ${bgClass}`}
+                        className="flex flex-col rounded-xl p-3 shadow-sm"
+                        style={{
+                          border: '4px solid transparent',
+                          background: `linear-gradient(${cardBg}, ${cardBg}) padding-box, ${borderBackground} border-box`,
+                        }}
                       >
                         {/* Room header */}
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <div className="flex flex-col gap-1 truncate flex-1">
                             <h3 className="text-lg font-bold text-slate-900 truncate">{room.name}</h3>
                             <div className="flex gap-1 flex-wrap items-center">
+                              {hasConflict && (
+                                <span className="el-badge el-badge-blue">🔀 Conflict</span>
+                              )}
                               {getRoomAccommodationSummary(room) && (
                                 <>
                                   {getRoomAccommodationSummary(room).includes('bilingual') && (
@@ -2996,19 +3014,18 @@ function SessionView({ user, onBack }) {
                                   )}
                                 </>
                               )}
+                              {hasInvalidation && (
+                                <span className="el-badge el-badge-rose">⚠️ Invalidated</span>
+                              )}
                               {hasNotes && (
-                                <span title="This room has notes" className="inline-flex items-center text-amber-600">
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                </span>
+                                <span className="el-badge el-badge-amber">📝 Notes</span>
                               )}
                             </div>
                           </div>
                           <span className={`px-2 py-1 rounded-md text-xs font-bold ${room.status === 'completed'
                             ? 'bg-emerald-500 text-white'
                             : room.status === 'active'
-                              ? 'bg-blue-500 text-white'
+                              ? 'bg-yellow-400 text-slate-900'
                               : 'bg-slate-400 text-white'
                             }`}>
                             {room.status?.toUpperCase()}
