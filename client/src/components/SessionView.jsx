@@ -42,17 +42,6 @@ const isBilingualAccommodation = (acc) => {
   return lower.includes('bilingual') || /\bell\b/.test(lower)
 }
 
-// Build a hard-stop linear-gradient that splits a border into equal colored segments
-// (one color → solid; two → half/half; three → thirds; etc.).
-const segmentedGradient = (colors) => {
-  const seg = 100 / colors.length
-  const stops = colors
-    .map((c, i) => `${c} ${(i * seg).toFixed(2)}% ${((i + 1) * seg).toFixed(2)}%`)
-    .join(', ')
-  // Always a gradient image (one color → solid) so it works as a background-image layer.
-  return `linear-gradient(90deg, ${stops})`
-}
-
 function SessionView({ user, onBack }) {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -2992,12 +2981,17 @@ function SessionView({ user, onBack }) {
                       })
                     })
                     const hasConflict = borderHasConflict
+                    // Order left → right: blue, red, green.
                     const borderColors = []
                     if (borderHasConflict) borderColors.push('#2563eb') // blue-600
-                    if (borderHasBilingual) borderColors.push('#16a34a') // green-600
                     if (borderHasExtended) borderColors.push('#dc2626')  // red-600
+                    if (borderHasBilingual) borderColors.push('#15803d') // green-700 (darker green)
                     if (borderColors.length === 0) borderColors.push('#0f172a') // slate-900 (black)
-                    const borderBackground = segmentedGradient(borderColors)
+                    // Per-side colors: left & right are the outer colors; top & bottom share the
+                    // middle color (or the left color when there's no distinct middle).
+                    const borderLeftColor = borderColors[0]
+                    const borderRightColor = borderColors[borderColors.length - 1]
+                    const borderTopBottomColor = borderColors.length >= 3 ? borderColors[1] : borderColors[0]
 
                     // Card background encodes return status.
                     // Precedence: invalid (red) > complete (green) > incomplete (yellow).
@@ -3012,10 +3006,13 @@ function SessionView({ user, onBack }) {
                         key={room._id}
                         className="flex flex-col rounded-xl p-3 shadow-sm"
                         style={{
-                          border: '4px solid transparent',
-                          backgroundImage: `linear-gradient(${cardBg}, ${cardBg}), ${borderBackground}`,
-                          backgroundOrigin: 'padding-box, border-box',
-                          backgroundClip: 'padding-box, border-box',
+                          borderStyle: 'solid',
+                          borderWidth: '4px',
+                          borderTopColor: borderTopBottomColor,
+                          borderBottomColor: borderTopBottomColor,
+                          borderLeftColor: borderLeftColor,
+                          borderRightColor: borderRightColor,
+                          backgroundColor: cardBg,
                         }}
                       >
                         {/* Room header */}
