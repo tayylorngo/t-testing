@@ -45,11 +45,11 @@ const isBilingualAccommodation = (acc) => {
 // Build a hard-stop linear-gradient that splits a border into equal colored segments
 // (one color → solid; two → half/half; three → thirds; etc.).
 const segmentedGradient = (colors) => {
-  if (colors.length === 1) return colors[0]
   const seg = 100 / colors.length
   const stops = colors
     .map((c, i) => `${c} ${(i * seg).toFixed(2)}% ${((i + 1) * seg).toFixed(2)}%`)
     .join(', ')
+  // Always a gradient image (one color → solid) so it works as a background-image layer.
   return `linear-gradient(90deg, ${stops})`
 }
 
@@ -2965,25 +2965,38 @@ function SessionView({ user, onBack }) {
                     const canEdit = canEditSession()
                     // A room is flagged as a conflict ONLY when one of its sections has
                     // the "Conflict" accommodation explicitly set (no room-number guessing).
-                    const hasConflict = room.sections?.some(section =>
-                      section.accommodations?.some(acc =>
-                        acc.toLowerCase().includes('conflict')
-                      )
-                    ) || false
                     const hasInvalidation = invalidatedTests.some(inv => inv.roomId === room._id)
                     const hasNotes = !!(room.notes && room.notes.trim())
-                    const isBilingual = getRoomAccommodationSummary(room)?.includes('bilingual') || false
-                    const hasExtendedTime = roomHas15xAccommodation(room) || roomHas2xAccommodation(room)
 
-                    // Border (thick) encodes accommodation type. Each matching condition adds a
-                    // colored segment, so a room with several shows a multi-color split border:
-                    //   conflict → blue, bilingual → green (overrides 1.5x/2x), 1.5x/2x → red.
-                    // No accommodations → solid black.
+                    // Border (thick) encodes accommodation type. A single accommodation string can
+                    // carry several markers (e.g. "Conflict - 1.5x"), so each marker is classified
+                    // independently and every category present adds a colored segment:
+                    //   conflict → blue, bilingual/ELL → green, 1.5x/2x (or any other
+                    //   accommodation) → red. No accommodations at all → solid black.
+                    let borderHasConflict = false
+                    let borderHasBilingual = false
+                    let borderHasExtended = false
+                    room.sections?.forEach(section => {
+                      section.accommodations?.forEach(acc => {
+                        const lower = acc.toLowerCase()
+                        const conflict = lower.includes('conflict')
+                        const bilingual = isBilingualAccommodation(acc)
+                        const explicitExtended =
+                          acc.includes('1.5x') || acc.includes('2x') || acc.includes('1.5×') || acc.includes('2×') ||
+                          lower.includes('extended time') || lower.includes('double time') || lower.includes('extra time')
+                        if (conflict) borderHasConflict = true
+                        if (bilingual) borderHasBilingual = true
+                        // 1.5x/2x → red. Bilingual stays green (never red) even though it implies 1.5x.
+                        // A non-conflict accommodation with no recognized marker still counts as red.
+                        if (!bilingual && (explicitExtended || !conflict)) borderHasExtended = true
+                      })
+                    })
+                    const hasConflict = borderHasConflict
                     const borderColors = []
-                    if (hasConflict) borderColors.push('#2563eb')            // blue-600
-                    if (isBilingual) borderColors.push('#16a34a')            // green-600
-                    if (hasExtendedTime && !isBilingual) borderColors.push('#dc2626') // red-600
-                    if (borderColors.length === 0) borderColors.push('#0f172a')       // slate-900 (black)
+                    if (borderHasConflict) borderColors.push('#2563eb') // blue-600
+                    if (borderHasBilingual) borderColors.push('#16a34a') // green-600
+                    if (borderHasExtended) borderColors.push('#dc2626')  // red-600
+                    if (borderColors.length === 0) borderColors.push('#0f172a') // slate-900 (black)
                     const borderBackground = segmentedGradient(borderColors)
 
                     // Card background encodes return status.
@@ -3000,7 +3013,9 @@ function SessionView({ user, onBack }) {
                         className="flex flex-col rounded-xl p-3 shadow-sm"
                         style={{
                           border: '4px solid transparent',
-                          background: `linear-gradient(${cardBg}, ${cardBg}) padding-box, ${borderBackground} border-box`,
+                          backgroundImage: `linear-gradient(${cardBg}, ${cardBg}), ${borderBackground}`,
+                          backgroundOrigin: 'padding-box, border-box',
+                          backgroundClip: 'padding-box, border-box',
                         }}
                       >
                         {/* Room header */}
