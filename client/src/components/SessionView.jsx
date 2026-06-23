@@ -2460,11 +2460,14 @@ function SessionView({ user, onBack }) {
               <p className="text-2xl font-bold text-brand-600">
                     {(() => {
                       if (!session || !session.rooms) return 0;
-                      return session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) =>
-                          total + (room.sections ? room.sections.reduce((s, section) => s + (section.studentCount || 0), 0) : 0)
+                      // Section-level: only sections not yet recorded count as still testing
+                      // (matches Display Mode). A recorded section is accounted for even if its
+                      // room isn't fully complete.
+                      return session.rooms.reduce((total, room) =>
+                        total + (room.sections || []).reduce((s, section) =>
+                          s + (isSectionRecorded(room, section._id) ? 0 : (section.studentCount || 0))
                           , 0)
+                        , 0)
                     })()}
               </p>
                 </div>
@@ -2473,9 +2476,10 @@ function SessionView({ user, onBack }) {
               <p className="text-2xl font-bold text-emerald-600">
                     {(() => {
                       if (!session || !session.rooms) return 0;
-                      return session.rooms
-                        .filter(room => room.status !== 'completed')
-                        .reduce((total, room) => total + (room.sections ? room.sections.length : 0), 0)
+                      // Section-level: count only sections not yet recorded (matches Display Mode).
+                      return session.rooms.reduce((total, room) =>
+                        total + (room.sections || []).filter(section => !isSectionRecorded(room, section._id)).length
+                        , 0)
                     })()}
               </p>
             </div>
@@ -2685,9 +2689,10 @@ function SessionView({ user, onBack }) {
                 </div>
               </div>
 
-              {/* Exam-return progress + stats */}
+              {/* Exam-return progress + stats — read from live `session` (same source as the
+                  Present/Absent/Total helpers) so every headline number stays in lock-step. */}
               {(() => {
-                const rooms = debouncedSession?.rooms || []
+                const rooms = session?.rooms || []
                 let sectionsTotal = 0
                 let sectionsRecorded = 0
                 let studentsStillTesting = 0
