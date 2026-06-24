@@ -70,6 +70,51 @@ function legendItem(doc, x, y, color, label) {
   return x + 12 + doc.getTextWidth(label) + 16;
 }
 
+// "Tuesday, June 23, 2026  •  12:30 PM – 3:30 PM" — shared banner subtitle.
+function sessionSubtitle(session) {
+  return [
+    session.date ? new Date(session.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : null,
+    session.startTime && session.endTime ? `${fmtTime(session.startTime)} – ${fmtTime(session.endTime)}` : null,
+  ].filter(Boolean).join('   •   ');
+}
+
+// Returns a didDrawPage handler that paints the brand banner (title + subtitle + page #).
+function makeHeaderDrawer(doc, session, pageW, margin) {
+  const subtitle = sessionSubtitle(session);
+  return () => {
+    doc.setFillColor(...BRAND_DARK);
+    doc.rect(0, 0, pageW, 50, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(session.name || 'Testing Session', margin, 24);
+    if (subtitle) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(subtitle, margin, 40);
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageW - margin, 24, { align: 'right' });
+  };
+}
+
+// Shared autoTable base options (styling + running header).
+function baseTableOptions(margin, drawHeader, extra) {
+  return {
+    margin: { top: 60, bottom: 28, left: margin, right: margin },
+    styles: {
+      font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: SLATE700,
+      lineColor: BORDER, lineWidth: 0.5, overflow: 'linebreak', valign: 'middle',
+    },
+    headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, halign: 'center', valign: 'middle' },
+    alternateRowStyles: { fillColor: ZEBRA },
+    theme: 'grid',
+    didDrawPage: drawHeader,
+    ...extra,
+  };
+}
+
 /**
  * Export session data to a styled PDF document (triggers a download).
  * @param {Object} session - The session data to export
@@ -114,41 +159,8 @@ function buildSessionPDF(session, invalidations) {
   const exportTs = new Date();
   const stats = calcStats(session);
 
-  const subtitle = [
-    session.date ? new Date(session.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : null,
-    session.startTime && session.endTime ? `${fmtTime(session.startTime)} – ${fmtTime(session.endTime)}` : null,
-  ].filter(Boolean).join('   •   ');
-
-  // Running header banner, drawn on every page.
-  const drawHeader = () => {
-    doc.setFillColor(...BRAND_DARK);
-    doc.rect(0, 0, pageW, 50, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text(session.name || 'Testing Session', margin, 24);
-    if (subtitle) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(subtitle, margin, 40);
-    }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageW - margin, 24, { align: 'right' });
-  };
-
-  const tableBase = (extra) => ({
-    margin: { top: 60, bottom: 28, left: margin, right: margin },
-    styles: {
-      font: 'helvetica', fontSize: 8, cellPadding: 3, textColor: SLATE700,
-      lineColor: BORDER, lineWidth: 0.5, overflow: 'linebreak', valign: 'middle',
-    },
-    headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, halign: 'center', valign: 'middle' },
-    alternateRowStyles: { fillColor: ZEBRA },
-    theme: 'grid',
-    didDrawPage: drawHeader,
-    ...extra,
-  });
+  const drawHeader = makeHeaderDrawer(doc, session, pageW, margin);
+  const tableBase = (extra) => baseTableOptions(margin, drawHeader, extra);
 
   // Paint a status column's cells (completed/active/planned) with a colored pill.
   const statusPainter = (colIndex) => (data) => {
@@ -166,16 +178,17 @@ function buildSessionPDF(session, invalidations) {
     }
   };
 
-  let y = 60;
+  let y = 64;
   const heading = (text) => {
-    if (y > pageH - 80) { doc.addPage(); y = 60; }
+    if (y > pageH - 80) { doc.addPage(); y = 64; }
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(12);
     doc.setTextColor(...BRAND_DARK);
     doc.text(text, margin, y);
-    y += 4;
+    y += 12; // breathing room between a heading and its table
   };
-  const advance = () => { y = doc.lastAutoTable.finalY + 14; };
+  // Generous gap after each table before the next section heading.
+  const advance = () => { y = doc.lastAutoTable.finalY + 30; };
 
   // ── Session Summary ───────────────────────────────────────────────────────
   // Two label/value pairs per row to keep the summary to a few compact lines.
@@ -341,27 +354,43 @@ function buildSessionPDF(session, invalidations) {
     { label: 'Recorded', value: secRecorded, color: BRAND, max: secTotal },
     { label: 'Pending', value: Math.max(0, secTotal - secRecorded), color: C_AMBER, max: secTotal },
   ], { labelW: 70, max: secTotal });
-  y = barsY + 3 * 17 + 8;
-
-  // ── Recent Activity (condensed) ───────────────────────────────────────────
-  // Only the most recent entries, so the report stays presentation-length.
-  const RECENT = 12;
-  const allLog = session.activityLog || [];
-  const recent = allLog.slice(-RECENT).reverse();
-  const omitted = Math.max(0, allLog.length - recent.length);
-  heading(`Recent Activity${omitted > 0 ? `  (latest ${recent.length} of ${allLog.length})` : ''}`);
-  autoTable(doc, tableBase({
-    startY: y,
-    head: [['Timestamp', 'Action', 'User', 'Room']],
-    body: rowsOrNote(recent.map(a => [
-      a.timestamp ? new Date(a.timestamp).toLocaleString() : '',
-      a.action || '', a.userName || '', a.roomName || '',
-    ]), 4, 'No activity log entries'),
-    columnStyles: { 0: { cellWidth: 120 }, 2: { cellWidth: 110 }, 3: { cellWidth: 100 } },
-  }));
+  // Activity log is intentionally NOT in this report — it's exported separately
+  // (see exportActivityLogToPDF) to keep this report presentation-length.
 
   return { doc, exportTs };
 }
+
+/**
+ * Export the full activity log to its own PDF (separate from the main report).
+ */
+export const exportActivityLogToPDF = (session, filename = 'activity-log') => {
+  if (!session) {
+    console.error('No session data provided for export');
+    return;
+  }
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  const exportTs = new Date();
+  const drawHeader = makeHeaderDrawer(doc, session, pageW, margin);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...BRAND_DARK);
+  doc.text('Activity Log', margin, 64);
+
+  autoTable(doc, baseTableOptions(margin, drawHeader, {
+    startY: 76,
+    head: [['Timestamp', 'Action', 'User', 'Room', 'Details']],
+    body: rowsOrNote((session.activityLog || []).map(a => [
+      a.timestamp ? new Date(a.timestamp).toLocaleString() : '',
+      a.action || '', a.userName || '', a.roomName || '', a.details || '',
+    ]), 5, 'No activity log entries'),
+    columnStyles: { 0: { cellWidth: 120 }, 2: { cellWidth: 100 }, 3: { cellWidth: 90 } },
+  }));
+
+  doc.save(pdfFileName(`${filename}-activity-log`, exportTs));
+};
 
 /**
  * Build the auto-generated subject + body text for emailing a session report.

@@ -6,7 +6,7 @@ import { compareSectionNumbers } from '../utils/sectionNumber'
 import confetti from 'canvas-confetti'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { exportSessionToExcel } from '../utils/excelExport'
-import { exportSessionToPDF, generateSessionPDFBase64, buildReportEmail } from '../utils/pdfExport'
+import { exportSessionToPDF, exportActivityLogToPDF, generateSessionPDFBase64, buildReportEmail } from '../utils/pdfExport'
 import ExportMenu from './session/ExportMenu'
 import EmailReportModal from './session/EmailReportModal'
 import { SessionViewSkeleton } from './ui/Skeletons'
@@ -2378,6 +2378,7 @@ function SessionView({ user, onBack }) {
               <ExportMenu
                 onExcel={() => exportSessionToExcel(session, session.name)}
                 onPdf={() => exportSessionToPDF(session, session.name, invalidatedTests)}
+                onActivityLog={() => exportActivityLogToPDF(session, session.name)}
                 onEmail={openEmailReport}
               />
               <button

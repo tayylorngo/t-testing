@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 
-// Single "Export" button that opens a dropdown to choose Excel, PDF, or Email Report.
-function ExportMenu({ onExcel, onPdf, onEmail }) {
+// Single "Export" button that opens a dropdown to choose Excel, PDF, Activity Log, or Email Report.
+function ExportMenu({ onExcel, onPdf, onActivityLog, onEmail }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -59,6 +59,17 @@ function ExportMenu({ onExcel, onPdf, onEmail }) {
             </svg>
             Export to PDF
           </button>
+          {onActivityLog && (
+            <button
+              onClick={() => choose(onActivityLog)}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+            >
+              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+              Export Activity Log
+            </button>
+          )}
           {onEmail && (
             <button
               onClick={() => choose(onEmail)}
