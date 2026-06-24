@@ -16,6 +16,59 @@ const STATUS = {
   active: { bg: [219, 234, 254], tx: [29, 78, 216] },
   planned: { bg: [254, 243, 199], tx: [180, 83, 9] },
 };
+// Chart colors
+const C_GREEN = [22, 163, 74];
+const C_RED = [220, 38, 38];
+const C_AMBER = [217, 119, 6];
+const C_SLATE = [100, 116, 139];
+const C_TRACK = [226, 232, 240]; // slate-200 track
+
+// Draw a single full-width stacked bar from segments [{value,color}]. Empty → grey track.
+function drawStackedBar(doc, x, y, w, height, segments) {
+  const total = segments.reduce((s, g) => s + (g.value || 0), 0);
+  doc.setFillColor(...C_TRACK);
+  doc.roundedRect(x, y, w, height, 3, 3, 'F');
+  if (total <= 0) return;
+  let cx = x;
+  segments.forEach(g => {
+    const sw = (g.value / total) * w;
+    if (sw <= 0.5) return;
+    doc.setFillColor(...g.color);
+    doc.rect(cx, y, sw, height, 'F');
+    cx += sw;
+  });
+}
+
+// Draw labeled horizontal bars [{label,value,color}] at (x,y). Returns the y below.
+function drawHBars(doc, x, y, w, rows, { labelW = 100, max } = {}) {
+  const trackX = x + labelW;
+  const valueW = 32;
+  const trackW = Math.max(20, w - labelW - valueW);
+  const cap = Math.max(max || 0, ...rows.map(r => r.value || 0), 1);
+  const rowH = 17, barH = 10;
+  let cy = y;
+  rows.forEach(r => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...SLATE700);
+    doc.text(String(r.label), x, cy + barH - 1);
+    doc.setFillColor(...C_TRACK);
+    doc.roundedRect(trackX, cy, trackW, barH, 2, 2, 'F');
+    const vw = Math.max(0, Math.min(1, (r.value || 0) / cap)) * trackW;
+    if (vw >= 1) { doc.setFillColor(...r.color); doc.roundedRect(trackX, cy, vw, barH, 2, 2, 'F'); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...SLATE900);
+    doc.text(String(r.value ?? 0), trackX + trackW + 6, cy + barH - 1);
+    cy += rowH;
+  });
+  return cy;
+}
+
+// A small color swatch + label, used for chart legends.
+function legendItem(doc, x, y, color, label) {
+  doc.setFillColor(...color);
+  doc.roundedRect(x, y - 6, 8, 8, 1, 1, 'F');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...SLATE700);
+  doc.text(label, x + 12, y);
+  return x + 12 + doc.getTextWidth(label) + 16;
+}
 
 /**
  * Export session data to a styled PDF document (triggers a download).
@@ -240,16 +293,71 @@ function buildSessionPDF(session, invalidations) {
   }));
   advance();
 
-  // ── Activity Log ──────────────────────────────────────────────────────────
-  heading('Activity Log');
+  // ── Session Overview (charts) ─────────────────────────────────────────────
+  // Presentation-friendly visual summary that replaces the long activity-log table.
+  const usableW = pageW - 2 * margin;
+  // The overview block needs ~150pt; start a fresh page if it won't fit.
+  if (y > pageH - 170) { doc.addPage(); y = 60; }
+  heading('Session Overview');
+  y += 6;
+
+  // Attendance — stacked bar (present / absent / not-yet-recorded).
+  const recordedSoFar = stats.totalPresent + stats.totalAbsent;
+  const pending = Math.max(0, stats.totalStudents - recordedSoFar);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...SLATE700);
+  doc.text(`Attendance  —  ${stats.attendanceRate}% present`, margin, y);
+  y += 8;
+  drawStackedBar(doc, margin, y, usableW, 16, [
+    { value: stats.totalPresent, color: C_GREEN },
+    { value: stats.totalAbsent, color: C_RED },
+    { value: pending, color: C_SLATE },
+  ]);
+  y += 24;
+  let lx = margin;
+  lx = legendItem(doc, lx, y, C_GREEN, `Present ${stats.totalPresent}`);
+  lx = legendItem(doc, lx, y, C_RED, `Absent ${stats.totalAbsent}`);
+  legendItem(doc, lx, y, C_SLATE, `Pending ${pending}`);
+  y += 18;
+
+  // Sections recorded progress.
+  let secTotal = 0, secRecorded = 0;
+  (session.rooms || []).forEach(room => (room.sections || []).forEach(s => {
+    secTotal += 1;
+    if (room.sectionReturns && Object.prototype.hasOwnProperty.call(room.sectionReturns, s._id)) secRecorded += 1;
+  }));
+
+  // Two side-by-side bar groups: Rooms by status, and Sections recorded.
+  const colW = (usableW - 24) / 2;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...SLATE700);
+  doc.text('Rooms by status', margin, y);
+  doc.text('Sections recorded', margin + colW + 24, y);
+  const barsY = y + 10;
+  drawHBars(doc, margin, barsY, colW, [
+    { label: 'Completed', value: stats.completedRooms, color: C_GREEN },
+    { label: 'Active', value: stats.activeRooms, color: C_AMBER },
+    { label: 'Planned', value: stats.plannedRooms, color: C_SLATE },
+  ], { labelW: 70, max: session.rooms?.length || 0 });
+  drawHBars(doc, margin + colW + 24, barsY, colW, [
+    { label: 'Recorded', value: secRecorded, color: BRAND, max: secTotal },
+    { label: 'Pending', value: Math.max(0, secTotal - secRecorded), color: C_AMBER, max: secTotal },
+  ], { labelW: 70, max: secTotal });
+  y = barsY + 3 * 17 + 8;
+
+  // ── Recent Activity (condensed) ───────────────────────────────────────────
+  // Only the most recent entries, so the report stays presentation-length.
+  const RECENT = 12;
+  const allLog = session.activityLog || [];
+  const recent = allLog.slice(-RECENT).reverse();
+  const omitted = Math.max(0, allLog.length - recent.length);
+  heading(`Recent Activity${omitted > 0 ? `  (latest ${recent.length} of ${allLog.length})` : ''}`);
   autoTable(doc, tableBase({
     startY: y,
-    head: [['Timestamp', 'Action', 'User', 'Room', 'Details']],
-    body: rowsOrNote((session.activityLog || []).map(a => [
+    head: [['Timestamp', 'Action', 'User', 'Room']],
+    body: rowsOrNote(recent.map(a => [
       a.timestamp ? new Date(a.timestamp).toLocaleString() : '',
-      a.action || '', a.userName || '', a.roomName || '', a.details || '',
-    ]), 5, 'No activity log entries'),
-    columnStyles: { 0: { cellWidth: 120 }, 2: { cellWidth: 100 }, 3: { cellWidth: 90 } },
+      a.action || '', a.userName || '', a.roomName || '',
+    ]), 4, 'No activity log entries'),
+    columnStyles: { 0: { cellWidth: 120 }, 2: { cellWidth: 110 }, 3: { cellWidth: 100 } },
   }));
 
   return { doc, exportTs };
