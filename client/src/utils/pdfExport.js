@@ -152,8 +152,8 @@ function buildSessionPDF(session, invalidations) {
     head: [['Room', 'Status', 'Total', 'Present', 'Absent', 'Attendance', 'Sections', 'Notes']],
     body: rowsOrNote((session.rooms || []).map(room => {
       const total = roomTotal(room);
-      const present = room.presentStudents || 0;
-      const absent = room.status === 'completed' ? total - present : '—';
+      const present = roomPresent(room);
+      const absent = room.status === 'completed' ? roomAbsent(room) : '—';
       const rate = total > 0 ? Math.round((present / total) * 100) : 0;
       return [
         room.name || '', room.status || '', total, present, absent,
@@ -329,17 +329,30 @@ function roomTotal(room) {
   return room.sections.reduce((total, section) => total + (section.studentCount || 0), 0);
 }
 
+// Present/absent are tallied from the per-section present counts (room.sectionReturns),
+// not the room-level presentStudents field, which goes stale when students move rooms.
+function roomPresent(room) {
+  if (!room.sections || !room.sectionReturns) return 0;
+  return room.sections.reduce((sum, s) => sum + (Number(room.sectionReturns[s._id]) || 0), 0);
+}
+
+function roomAbsent(room) {
+  if (!room.sections || !room.sectionReturns) return 0;
+  return room.sections.reduce((sum, s) => {
+    if (!Object.prototype.hasOwnProperty.call(room.sectionReturns, s._id)) return sum;
+    return sum + Math.max((s.studentCount || 0) - (Number(room.sectionReturns[s._id]) || 0), 0);
+  }, 0);
+}
+
 function calcStats(session) {
   if (!session || !session.rooms) {
     return { totalStudents: 0, totalPresent: 0, totalAbsent: 0, attendanceRate: 0, completedRooms: 0, activeRooms: 0, plannedRooms: 0 };
   }
   let totalStudents = 0, totalPresent = 0, totalAbsent = 0, completedRooms = 0, activeRooms = 0, plannedRooms = 0;
   session.rooms.forEach(room => {
-    const t = roomTotal(room);
-    const p = room.presentStudents || 0;
-    totalStudents += t;
-    totalPresent += p;
-    if (room.status === 'completed') totalAbsent += (t - p);
+    totalStudents += roomTotal(room);
+    totalPresent += roomPresent(room);
+    totalAbsent += roomAbsent(room);
     if (room.status === 'completed') completedRooms++;
     else if (room.status === 'active') activeRooms++;
     else if (room.status === 'planned') plannedRooms++;

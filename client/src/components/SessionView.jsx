@@ -628,6 +628,17 @@ function SessionView({ user, onBack }) {
     return room.sections.reduce((sum, s) => sum + getSectionReturned(room, s._id), 0)
   }, [getSectionReturned])
 
+  // Absent tallied from the section-level present counts (never from the room-level
+  // `presentStudents` field, which goes stale when students move between rooms). Only
+  // recorded sections count, and each is clamped at 0 so it can never go negative.
+  const getRoomAbsentTotal = useCallback((room) => {
+    if (!room?.sections) return 0
+    return room.sections.reduce((sum, s) => {
+      if (!Object.prototype.hasOwnProperty.call(room?.sectionReturns || {}, s._id)) return sum
+      return sum + Math.max((s.studentCount || 0) - getSectionReturned(room, s._id), 0)
+    }, 0)
+  }, [getSectionReturned])
+
   // A section is "recorded" (accounted for) once a present count has been entered for it —
   // the entry exists in sectionReturns, even if the value is 0 or less than the roster (absences).
   const isSectionRecorded = useCallback((room, sectionId) => {
@@ -1602,15 +1613,8 @@ function SessionView({ user, onBack }) {
 
   const calculateTotalAbsentStudents = useCallback(() => {
     if (!session?.rooms) return 0
-    return session.rooms.reduce((total, room) => {
-      // Only count absences for sections that have actually been recorded.
-      const roomAbsent = (room.sections || []).reduce((sum, s) => {
-        if (!isSectionRecorded(room, s._id)) return sum
-        return sum + Math.max((s.studentCount || 0) - getSectionReturned(room, s._id), 0)
-      }, 0)
-      return total + roomAbsent
-    }, 0)
-  }, [session?.rooms, isSectionRecorded, getSectionReturned])
+    return session.rooms.reduce((total, room) => total + getRoomAbsentTotal(room), 0)
+  }, [session?.rooms, getRoomAbsentTotal])
 
   const getRoomSortKey = useCallback((roomName) => {
     const match = roomName.match(/(\d+)([A-Za-z]*)/)
@@ -1810,16 +1814,14 @@ function SessionView({ user, onBack }) {
           break
 
         case 'present':
-          aValue = a.status === 'completed' ? (typeof a.presentStudents === 'number' ? a.presentStudents : 0) : 0
-          bValue = b.status === 'completed' ? (typeof b.presentStudents === 'number' ? b.presentStudents : 0) : 0
+          aValue = getRoomReturnedTotal(a)
+          bValue = getRoomReturnedTotal(b)
           comparison = aValue - bValue
           break
 
         case 'absent': {
-          const aTotal = calculateTotalStudents(a.sections) || 0
-          const bTotal = calculateTotalStudents(b.sections) || 0
-          aValue = a.status === 'completed' && typeof a.presentStudents === 'number' ? Math.max(0, aTotal - a.presentStudents) : 0
-          bValue = b.status === 'completed' && typeof b.presentStudents === 'number' ? Math.max(0, bTotal - b.presentStudents) : 0
+          aValue = getRoomAbsentTotal(a)
+          bValue = getRoomAbsentTotal(b)
           comparison = aValue - bValue
           break
         }
@@ -3389,21 +3391,12 @@ function SessionView({ user, onBack }) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-slate-700">
-                            {String(room.status === 'completed'
-                              ? (typeof room.presentStudents === 'number' ? room.presentStudents : 0)
-                              : 0)}
+                            {String(room.status === 'completed' ? getRoomReturnedTotal(room) : 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-slate-700">
-                            {String((() => {
-                              const total = calculateTotalStudents(room.sections) || 0;
-                              if (room.status === 'completed' && typeof room.presentStudents === 'number') {
-                                return Math.max(0, total - room.presentStudents);
-                              }
-                              // If test is in progress (not completed), show 0 for absent
-                              return 0;
-                            })())}
+                            {String(room.status === 'completed' ? getRoomAbsentTotal(room) : 0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -3784,7 +3777,7 @@ function SessionView({ user, onBack }) {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-slate-700">Present Students:</span>
                     <span className="text-2xl font-bold text-emerald-600">
-                      {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
+                      {room.status === 'completed' ? getRoomReturnedTotal(room) : '-'}
                     </span>
                   </div>
                 </div>
@@ -3794,9 +3787,7 @@ function SessionView({ user, onBack }) {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-slate-700">Absent Students:</span>
                     <span className="text-2xl font-bold text-rose-600">
-                      {room.status === 'completed' && room.presentStudents !== undefined
-                        ? calculateTotalStudents(room.sections) - room.presentStudents
-                        : '-'}
+                      {room.status === 'completed' ? getRoomAbsentTotal(room) : '-'}
                     </span>
                   </div>
                 </div>

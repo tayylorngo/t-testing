@@ -521,37 +521,84 @@ router.post('/api/sessions/:sessionId/move-students', authenticateToken, async (
         .session(session);
       
       const existingSection = destinationRoomSections.sections.find(s => s.number === section.number);
-      
-      if (existingSection) {
-        // Combine sections - add students to existing section
-        const newStudentCount = existingSection.studentCount + studentsToMove;
-        await Section.findByIdAndUpdate(existingSection._id, { 
-          studentCount: newStudentCount 
-        }, { session });
-        
-        // Remove the source section from source room
-        await Room.findByIdAndUpdate(sourceRoomId, {
-          $pull: { sections: sectionId }
-        }, { session });
-        
-        // Delete the source section since we combined it
-        await Section.findByIdAndDelete(sectionId, { session });
-        
-        debugLog(`Combined section ${section.number}: ${existingSection.studentCount} + ${studentsToMove} = ${newStudentCount} students`);
-      } else {
-        // No existing section with same number - move the entire section
-        // Remove section from source room
-        await Room.findByIdAndUpdate(sourceRoomId, {
-          $pull: { sections: sectionId }
-        }, { session });
 
-        // Add section to destination room
-        await Room.findByIdAndUpdate(destinationRoomId, {
-          $push: { sections: sectionId }
-        }, { session });
-        
-        debugLog(`Moved entire section ${section.number} with ${studentsToMove} students`);
+      // Validate the move count so the total student count is always conserved.
+      const moveCount = Math.round(Number(studentsToMove));
+      if (!Number.isFinite(moveCount) || moveCount < 1) {
+        throw new Error('studentsToMove must be a positive number');
       }
+      if (moveCount > section.studentCount) {
+        throw new Error(`Cannot move ${moveCount} students; Section ${section.number} only has ${section.studentCount}`);
+      }
+      const remaining = section.studentCount - moveCount;
+
+      // Work on copies of each room's recorded present counts; persisted at the end.
+      const sourceReturns = { ...(sourceRoom.sectionReturns || {}) };
+      const destReturns = { ...(destinationRoom.sectionReturns || {}) };
+
+      if (existingSection) {
+        // Combine into the destination's existing section (roster grows there).
+        await Section.findByIdAndUpdate(existingSection._id, {
+          studentCount: existingSection.studentCount + moveCount
+        }, { session });
+        delete destReturns[existingSection._id.toString()]; // dest roster changed → re-record
+
+        if (remaining > 0) {
+          // Partial move: keep the source section with the students left behind.
+          await Section.findByIdAndUpdate(sectionId, { studentCount: remaining }, { session });
+        } else {
+          // Whole section moved: remove and delete the now-empty source section.
+          await Room.findByIdAndUpdate(sourceRoomId, { $pull: { sections: sectionId } }, { session });
+          await Section.findByIdAndDelete(sectionId, { session });
+        }
+        delete sourceReturns[sectionId]; // source roster changed/removed → re-record
+        debugLog(`Combined ${moveCount} students into Section ${section.number} (remaining in source: ${remaining})`);
+      } else if (remaining > 0) {
+        // Partial move, no matching destination section → split off a new section.
+        await Section.findByIdAndUpdate(sectionId, { studentCount: remaining }, { session });
+        const [newSection] = await Section.create([{
+          number: section.number,
+          studentCount: moveCount,
+          accommodations: [...(section.accommodations || [])],
+          notes: section.notes || ''
+        }], { session });
+        await Room.findByIdAndUpdate(destinationRoomId, { $push: { sections: newSection._id } }, { session });
+        delete sourceReturns[sectionId]; // source roster changed → re-record; new section unrecorded
+        debugLog(`Split ${moveCount} students from Section ${section.number} into a new section (remaining: ${remaining})`);
+      } else {
+        // Whole section moves intact → relocate it and carry its attendance along.
+        await Room.findByIdAndUpdate(sourceRoomId, { $pull: { sections: sectionId } }, { session });
+        await Room.findByIdAndUpdate(destinationRoomId, { $push: { sections: sectionId } }, { session });
+        if (Object.prototype.hasOwnProperty.call(sourceReturns, sectionId)) {
+          destReturns[sectionId] = sourceReturns[sectionId];
+          delete sourceReturns[sectionId];
+        }
+        debugLog(`Moved entire Section ${section.number} (${moveCount} students) to ${destinationRoom.name}`);
+      }
+
+      // Persist cleaned attendance + recomputed present total/status for a room. Prunes any
+      // sectionReturns keys for sections no longer in the room so totals stay accurate.
+      const finalizeRoom = async (roomId, returnsMap) => {
+        const r = await Room.findById(roomId).session(session);
+        const ids = (r.sections || []).map(s => s.toString());
+        const cleaned = {};
+        ids.forEach(id => {
+          if (Object.prototype.hasOwnProperty.call(returnsMap, id)) cleaned[id] = returnsMap[id];
+        });
+        const presentTotal = ids.reduce((sum, id) => sum + (Number(cleaned[id]) || 0), 0);
+        const allRecorded = ids.length > 0 && ids.every(id => cleaned[id] !== undefined);
+        const update = {
+          sectionReturns: cleaned,
+          sectionAttendance: cleaned,
+          presentStudents: presentTotal,
+          updatedAt: new Date(),
+        };
+        if (allRecorded) update.status = 'completed';
+        else if (r.status === 'completed') update.status = 'active';
+        await Room.findByIdAndUpdate(roomId, update, { session });
+      };
+      await finalizeRoom(sourceRoomId, sourceReturns);
+      await finalizeRoom(destinationRoomId, destReturns);
 
       // Get updated rooms with populated sections
       const updatedSourceRoom = await Room.findById(sourceRoomId)

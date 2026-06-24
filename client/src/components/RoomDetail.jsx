@@ -5,6 +5,21 @@ import { compareSectionNumbers } from '../utils/sectionNumber'
 import { useRealTime } from '../contexts/RealTimeContext'
 import { RoomDetailSkeleton } from './ui/Skeletons'
 
+// Present/absent tallied from per-section present counts (room.sectionAttendance), not the
+// room-level presentStudents field, which goes stale when students move between rooms.
+const roomTotalStudents = (room) => room.sections?.reduce((t, s) => t + (s.studentCount || 0), 0) || 0
+const roomPresentStudents = (room) => {
+  const sr = room.sectionAttendance || {}
+  return room.sections?.reduce((sum, s) => sum + (Number(sr[s._id]) || 0), 0) || 0
+}
+const roomAbsentStudents = (room) => {
+  const sr = room.sectionAttendance || {}
+  return room.sections?.reduce((sum, s) => {
+    if (!Object.prototype.hasOwnProperty.call(sr, s._id)) return sum
+    return sum + Math.max((s.studentCount || 0) - (Number(sr[s._id]) || 0), 0)
+  }, 0) || 0
+}
+
 const RoomDetail = () => {
   const { sessionId, roomId } = useParams()
   const navigate = useNavigate()
@@ -421,7 +436,7 @@ const RoomDetail = () => {
                   </svg>
                 </div>
                 <div className="student-count-transition text-2xl font-bold text-slate-900">
-                  {room.status === 'completed' ? (room.presentStudents || 0) : '-'}
+                  {room.status === 'completed' ? roomPresentStudents(room) : '-'}
                 </div>
                 <div className="el-stat-label mt-1">Present</div>
               </div>
@@ -434,10 +449,7 @@ const RoomDetail = () => {
                   </svg>
                 </div>
                 <div className="student-count-transition text-2xl font-bold text-slate-900">
-                  {room.status === 'completed'
-                    ? (room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) || 0) - (room.presentStudents || 0)
-                    : '-'
-                  }
+                  {room.status === 'completed' ? roomAbsentStudents(room) : '-'}
                 </div>
                 <div className="el-stat-label mt-1">
                   {room.status === 'completed' ? 'Absent' : 'Not Available'}
@@ -464,8 +476,8 @@ const RoomDetail = () => {
                 {/* Attendance Rate */}
                 <div className="text-center">
                   <div className="text-lg font-semibold text-slate-900">
-                    {room.status === 'completed' && room.sections?.reduce((total, section) => total + (section.studentCount || 0), 0) > 0
-                      ? Math.round(((room.presentStudents || 0) / room.sections.reduce((total, section) => total + (section.studentCount || 0), 0)) * 100)
+                    {room.status === 'completed' && roomTotalStudents(room) > 0
+                      ? Math.round((roomPresentStudents(room) / roomTotalStudents(room)) * 100)
                       : '-'
                     }{room.status === 'completed' ? '%' : ''}
                   </div>

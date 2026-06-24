@@ -79,8 +79,8 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
     centerCols: [3, 4, 5, 6],
     rows: (session.rooms || []).map(room => {
       const total = calculateRoomTotalStudents(room);
-      const present = room.presentStudents || 0;
-      const absent = room.status === 'completed' ? total - present : '—';
+      const present = calculateRoomPresentStudents(room);
+      const absent = room.status === 'completed' ? calculateRoomAbsentStudents(room) : '—';
       const rate = total > 0 ? Math.round((present / total) * 100) : 0;
       return [
         room.name || '',
@@ -179,8 +179,8 @@ export const exportSessionToExcel = async (session, filename = 'testing-session'
   const attHeaderRow = addTableHeader(wsAtt, ['Room Name', 'Status', 'Total', 'Present', 'Absent', 'Attendance']);
   const attRows = (session.rooms || []).map(room => {
     const total = calculateRoomTotalStudents(room);
-    const present = room.presentStudents || 0;
-    const absent = room.status === 'completed' ? total - present : '—';
+    const present = calculateRoomPresentStudents(room);
+    const absent = room.status === 'completed' ? calculateRoomAbsentStudents(room) : '—';
     const rate = total > 0 ? Math.round((present / total) * 100) : 0;
     return [room.name || '', room.status || '', total, present, absent,
       (room.status === 'completed' || room.status === 'active') ? `${rate}%` : 'N/A'];
@@ -426,6 +426,21 @@ const calculateRoomTotalStudents = (room) => {
   return room.sections.reduce((total, section) => total + (section.studentCount || 0), 0);
 };
 
+// Present/absent tallied from per-section present counts (room.sectionReturns), not the
+// room-level presentStudents field, which goes stale when students move between rooms.
+const calculateRoomPresentStudents = (room) => {
+  if (!room.sections || !room.sectionReturns) return 0;
+  return room.sections.reduce((sum, s) => sum + (Number(room.sectionReturns[s._id]) || 0), 0);
+};
+
+const calculateRoomAbsentStudents = (room) => {
+  if (!room.sections || !room.sectionReturns) return 0;
+  return room.sections.reduce((sum, s) => {
+    if (!Object.prototype.hasOwnProperty.call(room.sectionReturns, s._id)) return sum;
+    return sum + Math.max((s.studentCount || 0) - (Number(room.sectionReturns[s._id]) || 0), 0);
+  }, 0);
+};
+
 // Collapse duplicate supplies into "Name (count)" instead of repeating the name.
 // Strips the INITIAL_ marker and any existing " (n)" suffix before counting.
 function formatSupplies(supplies) {
@@ -465,15 +480,13 @@ const calculateAttendanceStatistics = (session) => {
 
   session.rooms.forEach(room => {
     const roomTotalStudents = calculateRoomTotalStudents(room);
-    const roomPresentStudents = room.presentStudents || 0;
+    const roomPresentStudents = calculateRoomPresentStudents(room);
 
     totalStudents += roomTotalStudents;
     totalPresent += roomPresentStudents;
 
-    // Only count absent students for completed rooms
-    if (room.status === 'completed') {
-      totalAbsent += (roomTotalStudents - roomPresentStudents);
-    }
+    // Absent tallied from per-section present counts (clamped, never negative).
+    totalAbsent += calculateRoomAbsentStudents(room);
 
     // Count rooms by status
     switch (room.status) {
