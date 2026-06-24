@@ -54,7 +54,7 @@ function buildSessionPDF(session, invalidations) {
     return null;
   }
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 40;
@@ -145,6 +145,75 @@ function buildSessionPDF(session, invalidations) {
   }));
   advance();
 
+  // ── Sections & Attendance ─────────────────────────────────────────────────
+  // One row per section, sorted by section #, combining the section details with
+  // its present/absent attendance. A section is "Recorded" once a present count has
+  // been entered (room.sectionReturns); invalidated sections are highlighted red.
+  heading('Sections & Attendance');
+  const invalidationList = invalidations || session.invalidations || [];
+  const sectionEntries = [];
+  (session.rooms || []).forEach(room => {
+    (room.sections || []).forEach(section => {
+      const total = section.studentCount || 0;
+      const raw = room.sectionReturns ? room.sectionReturns[section._id] : undefined;
+      const recorded = raw !== undefined && raw !== null;
+      const present = recorded ? Number(raw) || 0 : null;
+      const sectionInvalidations = invalidationList.filter(inv =>
+        String(inv.sectionNumber) === String(section.number) && String(inv.roomId) === String(room._id)
+      );
+      const invalidated = sectionInvalidations.length > 0;
+      let notes = section.notes || '';
+      if (invalidated) {
+        const invNotes = sectionInvalidations.map(inv => inv.notes).filter(Boolean).join('  |  ');
+        notes = notes ? `${notes}\nINVALIDATED: ${invNotes}` : `INVALIDATED: ${invNotes}`;
+      }
+      sectionEntries.push({
+        number: section.number,
+        invalidated,
+        row: [
+          section.number || '',
+          room.name || '',
+          total,
+          recorded ? present : '—',
+          recorded ? Math.max(0, total - present) : '—',
+          recorded ? 'Recorded' : 'Pending',
+          section.accommodations?.join(', ') || 'None',
+          notes,
+        ],
+      });
+    });
+  });
+  sectionEntries.sort((a, b) => compareSectionNumbers(a.number, b.number));
+  const mergedFlags = sectionEntries.map(e => e.invalidated);
+  autoTable(doc, tableBase({
+    startY: y,
+    head: [['Section #', 'Room', 'Students', 'Present', 'Absent', 'Status', 'Accommodations', 'Notes']],
+    body: rowsOrNote(sectionEntries.map(e => e.row), 8, 'No sections found'),
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 56 },
+      1: { cellWidth: 90 },
+      2: { halign: 'center', cellWidth: 50 },
+      3: { halign: 'center', cellWidth: 50 },
+      4: { halign: 'center', cellWidth: 50 },
+      5: { halign: 'center', cellWidth: 70 },
+    },
+    didParseCell: (data) => {
+      if (data.section !== 'body') return;
+      if (mergedFlags[data.row.index]) {
+        data.cell.styles.fillColor = INVALID_BG;
+        data.cell.styles.textColor = INVALID_TX;
+        data.cell.styles.fontStyle = 'bold';
+        return;
+      }
+      if (data.column.index === 5) {
+        const v = String(data.cell.raw || '').toLowerCase();
+        if (v === 'recorded') { data.cell.styles.textColor = [21, 128, 61]; data.cell.styles.fontStyle = 'bold'; }
+        else if (v === 'pending') { data.cell.styles.textColor = [180, 83, 9]; data.cell.styles.fontStyle = 'bold'; }
+      }
+    },
+  }));
+  advance();
+
   // ── Rooms & Sections ──────────────────────────────────────────────────────
   heading('Rooms & Sections');
   autoTable(doc, tableBase({
@@ -165,96 +234,9 @@ function buildSessionPDF(session, invalidations) {
     columnStyles: {
       2: { halign: 'center', cellWidth: 40 }, 3: { halign: 'center', cellWidth: 48 },
       4: { halign: 'center', cellWidth: 44 }, 5: { halign: 'center', cellWidth: 64 },
-      6: { cellWidth: 170 }, 7: { cellWidth: 150 },
+      6: { cellWidth: 150 }, 7: { cellWidth: 130 },
     },
     didParseCell: statusPainter(1),
-  }));
-  advance();
-
-  // ── Sections ──────────────────────────────────────────────────────────────
-  heading('Section Details');
-  // Build rows + a parallel flag marking which sections have an invalidated test,
-  // so didParseCell can paint those rows red.
-  const invalidationList = invalidations || session.invalidations || [];
-  const sectionInvalidatedFlags = [];
-  const sectionRows = (session.sections || []).map(section => {
-    const sectionRooms = session.rooms?.filter(room =>
-      room.sections?.some(rs => rs._id === section._id)
-    ) || [];
-    const assignedRooms = sectionRooms.map(room => room.name).join(', ') || 'None';
-    const sectionRoomIds = sectionRooms.map(r => String(r._id));
-    // An invalidation belongs to this section when the section number matches and it
-    // was raised in one of the rooms this section is assigned to.
-    const sectionInvalidations = invalidationList.filter(inv =>
-      String(inv.sectionNumber) === String(section.number) && sectionRoomIds.includes(String(inv.roomId))
-    );
-    sectionInvalidatedFlags.push(sectionInvalidations.length > 0);
-
-    let notes = section.notes || '';
-    if (sectionInvalidations.length > 0) {
-      const invNotes = sectionInvalidations.map(inv => inv.notes).filter(Boolean).join('  |  ');
-      notes = notes ? `${notes}\nINVALIDATED: ${invNotes}` : `INVALIDATED: ${invNotes}`;
-    }
-    return [
-      section.number || '', section.studentCount || 0,
-      section.accommodations?.join(', ') || 'None', notes, assignedRooms,
-    ];
-  });
-  autoTable(doc, tableBase({
-    startY: y,
-    head: [['Section #', 'Students', 'Accommodations', 'Notes', 'Assigned Rooms']],
-    body: rowsOrNote(sectionRows, 5, 'No sections found'),
-    columnStyles: { 0: { halign: 'center', cellWidth: 70 }, 1: { halign: 'center', cellWidth: 70 } },
-    didParseCell: (data) => {
-      if (data.section === 'body' && sectionInvalidatedFlags[data.row.index]) {
-        data.cell.styles.fillColor = INVALID_BG;
-        data.cell.styles.textColor = INVALID_TX;
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-  }));
-  advance();
-
-  // ── Attendance by Section ─────────────────────────────────────────────────
-  // Per-section present/absent counts, grouped by room. A section is "Recorded"
-  // once a present count has been entered for it (stored in room.sectionReturns).
-  heading('Attendance by Section');
-  const attendanceRows = [];
-  (session.rooms || []).forEach(room => {
-    const sections = [...(room.sections || [])].sort((a, b) => compareSectionNumbers(a.number, b.number));
-    sections.forEach(section => {
-      const total = section.studentCount || 0;
-      const raw = room.sectionReturns ? room.sectionReturns[section._id] : undefined;
-      const recorded = raw !== undefined && raw !== null;
-      const present = recorded ? Number(raw) || 0 : null;
-      attendanceRows.push([
-        room.name || '',
-        section.number || '',
-        total,
-        recorded ? present : '—',
-        recorded ? Math.max(0, total - present) : '—',
-        recorded ? 'Recorded' : 'Pending',
-      ]);
-    });
-  });
-  autoTable(doc, tableBase({
-    startY: y,
-    head: [['Room', 'Section #', 'Students', 'Present', 'Absent', 'Status']],
-    body: rowsOrNote(attendanceRows, 6, 'No sections found'),
-    columnStyles: {
-      1: { halign: 'center', cellWidth: 70 },
-      2: { halign: 'center', cellWidth: 64 },
-      3: { halign: 'center', cellWidth: 64 },
-      4: { halign: 'center', cellWidth: 64 },
-      5: { halign: 'center', cellWidth: 90 },
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 5) {
-        const v = String(data.cell.raw || '').toLowerCase();
-        if (v === 'recorded') { data.cell.styles.textColor = [21, 128, 61]; data.cell.styles.fontStyle = 'bold'; }
-        else if (v === 'pending') { data.cell.styles.textColor = [180, 83, 9]; data.cell.styles.fontStyle = 'bold'; }
-      }
-    },
   }));
   advance();
 
